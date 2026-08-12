@@ -95,7 +95,7 @@ for production judgment:
 - Vector DB: Qdrant
 - LLM: any OpenAI-compatible endpoint (configurable base URL + key)
 
-`requirements.txt` lists a baseline — change it as you see fit.
+Dependencies live in `pyproject.toml` and are managed with **[uv](https://docs.astral.sh/uv/)** — change them as you see fit (`uv add ...`). Commit the resulting `uv.lock`.
 
 ---
 
@@ -122,11 +122,10 @@ for production judgment:
 ## Getting started
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
+uv sync --extra dev                          # create .venv and install deps from pyproject.toml
+uv run python -m spacy download en_core_web_sm
 docker run -p 6333:6333 qdrant/qdrant        # vector DB for /ingest and /ask
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 Sample scanned PDFs are in `sample_pdfs/`.
