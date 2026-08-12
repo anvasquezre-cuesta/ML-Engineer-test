@@ -11,7 +11,7 @@ tests, engineering practices, decisions) as about whether it runs.
 
 ## Why this exists (the problem)
 
-Our client processes large volumes of scanned documents (contracts, KYC forms,
+Let's imagine a company that processes large volumes of scanned documents (contracts, KYC forms,
 filings) that mention people. For **compliance**, it isn't enough to know *that*
 a name appears — a reviewer has to be able to **find it on the page** and
 **double-check that specific name against other records** (an ID, a sanctions
