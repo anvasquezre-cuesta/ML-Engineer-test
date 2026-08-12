@@ -20,9 +20,9 @@ dependencies = [
     # Fuzzy matching
     "thefuzz",
     "python-Levenshtein",
-    # Embeddings + vector store
+    # Embeddings + vector store (Chroma is embedded/local; swap for qdrant-client if preferred)
     "sentence-transformers",
-    "qdrant-client",
+    "chromadb",
     # LLM / HTTP
     "httpx",
 ]

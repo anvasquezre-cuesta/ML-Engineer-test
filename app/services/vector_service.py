@@ -1,8 +1,10 @@
-"""Vector store (e.g. Qdrant) for RAG.
+"""Vector store for RAG.
 
-Implement this. Reminders (graded): connection parameters come from config, not
-hardcoded; point IDs must be unique across documents (a second ingest must not
-overwrite the first); wrap the client so failures surface as meaningful errors.
+Use whatever store you like — an embedded/local one (e.g. Chroma) is fine; a
+separate service (e.g. Qdrant) is a bonus. Implement this. Reminders (graded):
+any connection/config comes from config, not hardcoded; IDs must be unique
+across documents (a second ingest must not overwrite the first); wrap the client
+so failures surface as meaningful errors.
 """
 
 

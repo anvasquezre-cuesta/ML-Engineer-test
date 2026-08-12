@@ -9,6 +9,21 @@ This repository is an **empty skeleton**. There is no working code to fix — yo
 implement the whole thing. We care as much about *how* you build it (design,
 tests, engineering practices, decisions) as about whether it runs.
 
+## Why this exists (the problem)
+
+Our client processes large volumes of scanned documents (contracts, KYC forms,
+filings) that mention people. For **compliance**, it isn't enough to know *that*
+a name appears — a reviewer has to be able to **find it on the page** and
+**double-check that specific name against other records** (an ID, a sanctions
+list, an internal system). A name with no location is not auditable.
+
+So the core requirement is: **given a PDF, return each person's name together
+with exactly where it sits on the page** (page number + bounding box). That
+location is what lets a human or a downstream system verify the match against
+other information. The fuzzy-matching and RAG pieces build on the same extracted
+content. Keep this "locate it so it can be verified" purpose in mind — it's why
+bounding-box accuracy and correct pages matter more than they might first seem.
+
 ---
 
 ## What you're building
@@ -49,6 +64,14 @@ chunks, call an LLM to answer **grounded in the retrieved context**, and return
 
 ## Requirements that matter (this is the actual evaluation)
 
+> **Scope & time.** This is time-boxed — we do **not** expect fully isolated
+> infrastructure. An **embedded / in-process vector store (e.g. Chroma) running
+> locally is completely fine**, and you do not need Docker to pass. Things like a
+> `docker-compose.yml` with an isolated vector DB, a hardened container, or a
+> clean separation of services are **not required** — but if you add them, they
+> count as **positive extras** in the evaluation. Prioritize a correct,
+> well-structured core; reach for the infra polish only if you have time.
+
 Anyone can wire libraries together. We're hiring an **ML Engineer**, so we look
 for production judgment:
 
@@ -76,9 +99,10 @@ for production judgment:
 - **Tests** — you write them. Cover the tricky logic above with unit tests
   (mock the heavy models / external services) and at least one end-to-end path.
   We look at *what* you chose to test and how.
-- **Containerization** — a `Dockerfile` and a `docker-compose.yml` that brings
-  up the app **and its dependencies** (e.g. the vector DB) with
-  `docker compose up`. `GET /health` must pass.
+- **Containerization (bonus, not required)** — if you have time, a `Dockerfile`
+  and a `docker-compose.yml` that brings up the app **and its dependencies** with
+  `docker compose up` (and `GET /health` passing) is a strong positive. Skipping
+  it costs you nothing on the core; a local/embedded setup is fine.
 - **DESIGN.md** (≤ 3 pages) — component + sequence view, technology choices and
   trade-offs, how you'd scale to 1000+ PDFs/hour, failure modes and mitigations,
   and — if you were to route between models by query complexity — how.
@@ -92,7 +116,8 @@ for production judgment:
 - NER: spaCy (`en_core_web_sm`); handle non-English if you add it
 - Fuzzy: `thefuzz`
 - Embeddings: `sentence-transformers`
-- Vector DB: Qdrant
+- Vector DB: **Chroma** (embedded/local — simplest) or Qdrant if you prefer a
+  separate service
 - LLM: any OpenAI-compatible endpoint (configurable base URL + key)
 
 Dependencies live in `pyproject.toml` and are managed with **[uv](https://docs.astral.sh/uv/)** — change them as you see fit (`uv add ...`). Commit the resulting `uv.lock`.
@@ -105,26 +130,31 @@ Dependencies live in `pyproject.toml` and are managed with **[uv](https://docs.a
 2. `DESIGN.md`.
 3. A short **`DECISIONS.md`** — notable engineering decisions and trade-offs
    (bullets are fine). This is where your reasoning earns credit.
-4. Tests, `Dockerfile`, `docker-compose.yml`.
+4. Tests (required). `Dockerfile` / `docker-compose.yml` are **optional bonus**.
 
 ## How we evaluate (weights)
 
 | Criterion | Weight |
 |---|---|
-| Correctness — the pipeline works on the sample PDFs | 25% |
+| Correctness — the pipeline works on the sample PDFs | 30% |
 | Architecture & design (SOLID, DI, abstractions, thin routers) | 20% |
 | Engineering practices (config, logging, resilience, validation) | 20% |
 | Code quality & decisions | 15% |
 | Tests you wrote (coverage of the tricky logic) | 10% |
-| Containerization | 5% |
 | Design document | 5% |
+
+**Positive extras (bonus, on top of the above):** containerization
+(`Dockerfile` / `docker-compose.yml`), running a truly isolated vector DB,
+multi-language support, batching, or other production hardening. Not required —
+credited when present.
 
 ## Getting started
 
 ```bash
 uv sync --extra dev                          # create .venv and install deps from pyproject.toml
 uv run python -m spacy download en_core_web_sm
-docker run -p 6333:6333 qdrant/qdrant        # vector DB for /ingest and /ask
+# Vector DB: embedded Chroma needs nothing extra. Only if you choose Qdrant:
+#   docker run -p 6333:6333 qdrant/qdrant
 uv run uvicorn app.main:app --reload
 ```
 
