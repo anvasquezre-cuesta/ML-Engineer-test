@@ -103,6 +103,12 @@ for production judgment:
   and a `docker-compose.yml` that brings up the app **and its dependencies** with
   `docker compose up` (and `GET /health` passing) is a strong positive. Skipping
   it costs you nothing on the core; a local/embedded setup is fine.
+- **Audit viewer (bonus, not required)** — a simple frontend that, given a PDF,
+  **renders the pages and draws the returned bounding boxes over the detected
+  names**. This is the compliance reviewer's tool: it's how a human confirms a
+  name really is where the API says it is. Nothing fancy — a single self-
+  contained page (e.g. vanilla JS + pdf.js) that calls `/api/extract` and
+  overlays the boxes is plenty. Strong positive if included.
 - **DESIGN.md** (≤ 3 pages) — component + sequence view, technology choices and
   trade-offs, how you'd scale to 1000+ PDFs/hour, failure modes and mitigations,
   and — if you were to route between models by query complexity — how.
@@ -143,10 +149,10 @@ Dependencies live in `pyproject.toml` and are managed with **[uv](https://docs.a
 | Tests you wrote (coverage of the tricky logic) | 10% |
 | Design document | 5% |
 
-**Positive extras (bonus, on top of the above):** containerization
-(`Dockerfile` / `docker-compose.yml`), running a truly isolated vector DB,
-multi-language support, batching, or other production hardening. Not required —
-credited when present.
+**Positive extras (bonus, on top of the above):** an **audit viewer** that
+overlays the bounding boxes on the PDF, containerization (`Dockerfile` /
+`docker-compose.yml`), a truly isolated vector DB, multi-language support,
+batching, or other production hardening. Not required — credited when present.
 
 ## Getting started
 
