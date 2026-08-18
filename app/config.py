@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     ner_model_name: str = Field(default="en_core_web_sm", min_length=1)
     fuzzy_match_threshold: float = Field(default=0.90, ge=0, le=1)
     bbox_match_threshold: float = Field(default=0.80, ge=0, le=1)
+    bbox_max_horizontal_gap_factor: float = Field(default=3.0, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",
