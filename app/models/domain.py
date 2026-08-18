@@ -15,8 +15,8 @@ class OCRWord:
     """A word recognized by OCR.
 
     ``start`` and ``end`` are offsets into the containing ``OCRPage.text``;
-    ``end`` is exclusive. Tesseract confidence is retained on its native
-    0-to-100 scale. The bounding box is already converted to PDF points.
+    ``end`` is exclusive. Confidence is normalized to the application's 0-to-1
+    scale. The bounding box is already converted to PDF points.
     """
 
     text: str
@@ -32,8 +32,8 @@ class OCRWord:
     def __post_init__(self) -> None:
         if not self.text.strip():
             raise ValueError("OCR word text cannot be empty")
-        if not 0 <= self.confidence <= 100:
-            raise ValueError("OCR confidence must be between 0 and 100")
+        if not 0 <= self.confidence <= 1:
+            raise ValueError("OCR confidence must be between 0 and 1")
         if self.start < 0 or self.end <= self.start:
             raise ValueError("OCR word offsets must define a non-empty span")
 

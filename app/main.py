@@ -7,16 +7,19 @@ from fastapi import FastAPI, Request, Response
 
 from app.api.extract import router as extract_router
 from app.api.rag import router as rag_router
+from app.config import get_settings
 from app.models.schemas import HealthResponse
 
+settings = get_settings()
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=settings.log_level,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
-app = FastAPI(title="Document Intelligence Service")
+app = FastAPI(title=settings.app_name)
 
 
 @app.middleware("http")
