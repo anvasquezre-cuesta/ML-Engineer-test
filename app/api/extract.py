@@ -1,13 +1,28 @@
-"""`POST /api/extract` — implement the extraction endpoint here.
+"""``POST /api/extract`` HTTP endpoint."""
 
-Wire OCR -> NER -> bounding boxes -> fuzzy matching and return an
-``ExtractionResponse``. Keep this router thin: validate input, delegate to
-services, map domain errors to HTTP status codes. Do the real work in the
-service layer so it is testable without HTTP.
-"""
+import logging
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.api.validation import (
+    ValidatedExtractionRequest,
+    validate_extraction_request,
+)
+from app.models.schemas import ExtractionResponse
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
-# TODO: implement POST /api/extract (response_model=ExtractionResponse)
+
+@router.post("/extract", response_model=ExtractionResponse)
+async def extract_document(
+    _: Annotated[ValidatedExtractionRequest, Depends(validate_extraction_request)],
+) -> ExtractionResponse:
+    """Validate extraction input; pipeline orchestration is added next."""
+
+    logger.info("Extraction request is ready for processing")
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="extraction pipeline is not implemented yet",
+    )
