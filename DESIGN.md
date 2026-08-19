@@ -44,34 +44,33 @@ sources are constructed after—not by—the LLM.
 
 ## Notable decisions and trade-offs
 
-| Decision | Rationale | Accepted trade-off |
+| Decision | Why we chose it | Trade-off / next step |
 |---|---|---|
-| PyMuPDF + local Tesseract | Auditable geometry, every-page OCR, document privacy | CPU-heavy; noisy/multilingual scans may need preprocessing or another OCR adapter |
-| Small local spaCy NER | Fast `PERSON` spans with direct offsets | Lower noisy-scan recall than transformer/cloud NER |
-| Normalized `thefuzz.ratio` | Explainable, accent/OCR-tolerant full-name matching | Threshold tuning; no nickname or order semantics |
-| Deterministic structure-aware chunks | Predictable cost, whole words, source/page traceability | Heuristics are weaker on tables and complex layouts |
-| PostgreSQL + pgvector | Durable vectors and filterable metadata in one store | More operations than embedded Chroma; specialist stores may scale farther |
-| Remote embeddings + local reranker + LiteLLM | Semantic recall, cheap precision stage, provider portability | Network latency, quotas, and credentials require timeouts/retries |
-| Evidence gate + citation verifier | Abstains early and prevents invented API sources | Can reject useful low-score evidence; valid citations do not prove claim entailment |
+| PyMuPDF + local Tesseract | Keeps OCR local and PDF-coordinate conversion auditable | CPU-heavy; at scale, we could use external vision/LLM processing, trading local compute for cost, latency, privacy, and rate limits |
+| Small local spaCy NER | Fast local baseline with `PERSON` spans and direct offsets | Benchmark it against transformer-based NER, especially on noisy scans |
+| Normalized `thefuzz.ratio` | Explainable baseline for accents and small OCR errors | Evaluate semantic comparison for nicknames, reordered names, and larger OCR errors, while measuring false positives |
+| Deterministic structure-aware chunks | Predictable chunks with whole words and page traceability | Complex layouts may require a layout-aware parser |
+| PostgreSQL + pgvector | Closer to production, with durable vector-database support and metadata filtering | More operations than embedded Chroma; benchmark indexing as the corpus grows |
+| Remote embeddings + local reranker + LiteLLM | Semantic retrieval, local reranking, and provider flexibility | External calls add latency, cost, quotas, and credential dependencies; keep models and limits configurable |
+| Evidence gate + citation verifier | Mechanisms to prevent hallucinations: abstain before generation and verify sources afterward | Citations do not prove claim support; add claim-to-evidence evaluation as the next safeguard |
 
 ## Scaling to 1,000+ PDFs/hour
 
-The current synchronous pipeline is appropriate for the take-home; blocking work
-runs in a thread pool, protecting the event loop. At target load, upload once to
-object storage, create an idempotent job keyed by tenant + content hash, enqueue
-it, and return a job ID (or retain this endpoint as a bounded-wait facade). A
-durable workflow fans page OCR/NER out to CPU/GPU workers, joins pages in index
-order, batches embeddings within provider quotas, and transactionally bulk-writes
-chunks. Each stage retries idempotently; exhausted jobs enter a dead-letter queue.
+At this volume, ingestion should move from a request-bound pipeline to an
+event-driven workflow. The API uploads each PDF once to Amazon S3, creates an
+idempotent job, and publishes its S3 key to Amazon SQS. The queue provides
+buffering and backpressure; workers can retry safely, while repeatedly failing
+documents move to a dead-letter queue.
 
-Capacity is page-driven:
-`ceil(1000 × mean_pages × p95_seconds_per_page / (3600 × target_utilization))`.
-At 10 pages/PDF, 2 s/page, and 70% utilization, start with 8 OCR slots and
-provision about 12 for burst/headroom, then load-test. Scale on queue age and
-stage latency. PostgreSQL uses bounded pools; add HNSW only after corpus-specific
-recall/latency tests, then partition or separate reads if contention appears.
-Track page throughput, stage P95, OCR confidence, located/NER ratio, abstention,
-retries, queue age, model cost, and citation failures as SLO signals.
+AWS Lambda can process short, bursty page or small-document jobs concurrently.
+For sustained traffic or CPU-heavy OCR/NER that benefits from warm models, the
+same container can run on ECS/Fargate and scale horizontally using queue depth,
+queue age, CPU, and memory. The Lambda/ECS boundary should be selected from load
+tests using cost per processed page, execution time, and cold-start impact—not a
+fixed PDF count. After pages are joined in order, embedding calls and pgvector
+writes are batched to reduce network and database overhead. The synchronous
+endpoint remains suitable for this take-home; a production version would add
+asynchronous job submission and status endpoints.
 
 ## Failure modes and mitigations
 
