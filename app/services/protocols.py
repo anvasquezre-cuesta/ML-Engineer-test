@@ -30,6 +30,7 @@ from app.models.retrieval import (
     GeneratedAnswer,
     GroundedContext,
     QueryScope,
+    RAGResult,
     RerankResult,
     VectorSearchResult,
     VerifiedAnswer,
@@ -232,3 +233,10 @@ class SourceConstructionService(Protocol):
     """Verify generated citations and construct auditable answer sources."""
 
     def construct(self, result: GeneratedAnswer) -> VerifiedAnswer: ...
+
+
+@runtime_checkable
+class RAGService(Protocol):
+    """Orchestrate retrieval, evidence checks, and grounded generation."""
+
+    def ask(self, question: str) -> RAGResult: ...

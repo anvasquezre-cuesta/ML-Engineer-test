@@ -26,6 +26,7 @@ from app.services.protocols import (
     GroundedContextService,
     IngestionService,
     QueryPreparationService,
+    RAGService,
     RerankerService,
     SourceConstructionService,
 )
@@ -33,6 +34,7 @@ from app.services.query_preparation_service import (
     DocumentQueryPreparationService,
 )
 from app.services.query_scope_service import ExplicitQueryScopeService
+from app.services.rag_service import DocumentRAGService
 from app.services.reranker_service import FlashRankCrossEncoderReranker
 from app.services.source_service import CitationSourceService
 from app.services.vector_service import LangChainPostgresVectorStore
@@ -118,3 +120,25 @@ def build_source_construction_service() -> SourceConstructionService:
     """Build deterministic citation verification and source construction."""
 
     return CitationSourceService()
+
+
+def build_rag_service(settings: Settings) -> RAGService:
+    """Assemble the complete production document-question pipeline."""
+
+    embedding_service = LangChainOpenAIEmbeddingService(settings)
+    return DocumentRAGService(
+        query_preparation_service=DocumentQueryPreparationService(
+            scope_service=ExplicitQueryScopeService(),
+            embedding_service=embedding_service,
+        ),
+        vector_store=LangChainPostgresVectorStore(
+            settings,
+            embedding_provider=embedding_service.provider,
+        ),
+        reranker_service=FlashRankCrossEncoderReranker(settings),
+        candidate_selection_service=TopRankedCandidateSelector(settings),
+        evidence_assessment_service=ThresholdEvidenceAssessmentService(settings),
+        grounded_context_service=JSONGroundedContextService(),
+        answer_generation_service=LiteLLMAnswerGenerationService(settings),
+        source_construction_service=CitationSourceService(),
+    )

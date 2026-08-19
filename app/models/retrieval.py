@@ -242,3 +242,54 @@ class VerifiedAnswer(BaseModel):
         """Return source strings in the fixed API contract's expected shape."""
 
         return tuple(source.reference for source in self.sources)
+
+
+class RAGResult(BaseModel):
+    """Final RAG outcome for either verified or insufficient evidence."""
+
+    model_config = ConfigDict(frozen=True)
+
+    assessment: EvidenceAssessmentResult
+    verified_answer: VerifiedAnswer | None = None
+
+    @model_validator(mode="after")
+    def validate_result_state(self) -> Self:
+        """Keep successful and insufficient pipeline outcomes unambiguous."""
+
+        if self.assessment.sufficient:
+            if self.verified_answer is None:
+                raise ValueError("sufficient RAG result requires a verified answer")
+            answer_assessment = (
+                self.verified_answer.generation.context.assessment
+            )
+            if answer_assessment != self.assessment:
+                raise ValueError(
+                    "verified answer must originate from the assessed evidence"
+                )
+            return self
+
+        if self.verified_answer is not None:
+            raise ValueError(
+                "insufficient RAG result cannot include a generated answer"
+            )
+        return self
+
+    @property
+    def answer(self) -> str:
+        """Return either the verified answer or deterministic user guidance."""
+
+        if self.verified_answer is not None:
+            return self.verified_answer.answer
+
+        guidance = self.assessment.user_guidance
+        if guidance is None:  # Guarded by EvidenceAssessmentResult invariants.
+            raise AssertionError("insufficient RAG result is missing user guidance")
+        return guidance
+
+    @property
+    def source_references(self) -> tuple[str, ...]:
+        """Return no sources unless answer citations were verified."""
+
+        if self.verified_answer is None:
+            return ()
+        return self.verified_answer.source_references
