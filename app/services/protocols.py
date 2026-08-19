@@ -23,7 +23,7 @@ from app.models.ingestion import (
     StructuredDocument,
     StructuredIngestionResult,
 )
-from app.models.retrieval import QueryScope
+from app.models.retrieval import EmbeddedQuery, QueryScope
 from app.models.schemas import (
     ExtractedName,
     ExtractionResponse,
@@ -171,3 +171,10 @@ class QueryScopeService(Protocol):
     """Detect explicit metadata constraints without inferring user intent."""
 
     def detect(self, question: str) -> QueryScope: ...
+
+
+@runtime_checkable
+class QueryPreparationService(Protocol):
+    """Prepare one validated question for vector retrieval."""
+
+    def prepare(self, question: str) -> EmbeddedQuery: ...

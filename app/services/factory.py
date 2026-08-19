@@ -14,7 +14,15 @@ from app.services.fuzzy_service import TheFuzzMatchingService
 from app.services.ingestion_service import DocumentIngestionService
 from app.services.ner_service import SpacyNERService
 from app.services.ocr_service import TesseractOCRService
-from app.services.protocols import ExtractionService, IngestionService
+from app.services.protocols import (
+    ExtractionService,
+    IngestionService,
+    QueryPreparationService,
+)
+from app.services.query_preparation_service import (
+    DocumentQueryPreparationService,
+)
+from app.services.query_scope_service import ExplicitQueryScopeService
 from app.services.vector_service import LangChainPostgresVectorStore
 
 
@@ -44,4 +52,15 @@ def build_ingestion_service(settings: Settings) -> IngestionService:
             settings,
             embedding_provider=embedding_service.provider,
         ),
+    )
+
+
+def build_query_preparation_service(
+    settings: Settings,
+) -> QueryPreparationService:
+    """Assemble scope detection and query embedding for retrieval."""
+
+    return DocumentQueryPreparationService(
+        scope_service=ExplicitQueryScopeService(),
+        embedding_service=LangChainOpenAIEmbeddingService(settings),
     )

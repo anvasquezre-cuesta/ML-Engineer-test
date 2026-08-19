@@ -27,3 +27,12 @@ class QueryScope:
         if self.document_type is not None:
             metadata_filter["document_type"] = self.document_type.value
         return metadata_filter
+
+
+@dataclass(frozen=True, slots=True)
+class EmbeddedQuery:
+    """A validated question enriched with retrieval scope and a dense vector."""
+
+    question: str
+    scope: QueryScope
+    embedding: tuple[float, ...]
