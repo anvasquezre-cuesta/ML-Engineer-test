@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     )
     reranker_cache_dir: str = Field(default=".cache/flashrank", min_length=1)
     reranker_max_length: int = Field(default=512, ge=32, le=8_192)
+    selected_candidate_count: int = Field(default=5, ge=3, le=5)
 
     openai_api_key: SecretStr | None = Field(
         default=None,

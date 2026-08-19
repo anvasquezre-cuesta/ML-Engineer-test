@@ -75,3 +75,11 @@ class RerankResult:
 
     retrieval: VectorSearchResult
     ranked_candidates: tuple[RerankedChunk, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateSelectionResult:
+    """The strongest reranked candidates retained for evidence evaluation."""
+
+    rerank: RerankResult
+    selected_candidates: tuple[RerankedChunk, ...]

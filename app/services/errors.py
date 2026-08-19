@@ -79,3 +79,7 @@ class RerankerProcessingError(RerankerServiceError):
 
 class RerankerResponseError(RerankerServiceError):
     """Raised when the cross-encoder returns incomplete or invalid scores."""
+
+
+class CandidateSelectionError(RuntimeError):
+    """Raised when malformed reranking output cannot be selected safely."""

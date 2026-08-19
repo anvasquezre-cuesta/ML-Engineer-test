@@ -24,6 +24,7 @@ from app.models.ingestion import (
     StructuredIngestionResult,
 )
 from app.models.retrieval import (
+    CandidateSelectionResult,
     EmbeddedQuery,
     QueryScope,
     RerankResult,
@@ -192,3 +193,10 @@ class RerankerService(Protocol):
     """Reorder retrieved candidates using query-to-chunk relevance."""
 
     def rerank(self, result: VectorSearchResult) -> RerankResult: ...
+
+
+@runtime_checkable
+class CandidateSelectionService(Protocol):
+    """Retain the strongest reranked candidates for evidence evaluation."""
+
+    def select(self, result: RerankResult) -> CandidateSelectionResult: ...
