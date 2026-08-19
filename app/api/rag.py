@@ -10,22 +10,35 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from starlette.concurrency import run_in_threadpool
 
-from app.api.dependencies import get_ingestion_service
-from app.api.validation import validate_ingestion_request
+from app.api.dependencies import get_ingestion_service, get_rag_service
+from app.api.validation import (
+    ValidatedRAGRequest,
+    validate_ingestion_request,
+    validate_rag_request,
+)
 from app.models.ingestion import ValidatedPDFUpload
-from app.models.schemas import IngestResponse
+from app.models.schemas import IngestResponse, RAGResponse
 from app.services.errors import (
+    CandidateSelectionError,
     DocumentChunkingError,
     DocumentStructureError,
     EmbeddingDependencyError,
     EmbeddingResponseError,
+    GroundedContextError,
     IngestionServiceError,
+    LLMDependencyError,
+    LLMResponseError,
     OCRProcessingError,
+    RerankerModelLoadError,
+    RerankerServiceError,
+    SourceVerificationError,
+    VectorStoreConfigurationError,
+    VectorStoreRetrievalError,
     VectorStoreUnavailableError,
     VectorStoreWriteError,
 )
 from app.services.ingestion_service import create_ingestion_job
-from app.services.protocols import IngestionService
+from app.services.protocols import IngestionService, RAGService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -195,4 +208,103 @@ async def ingest_document(
     )
 
 
-# TODO: implement POST /api/ask    (response_model=RAGResponse)
+@router.post(
+    "/ask",
+    response_model=RAGResponse,
+    summary="Answer a question from indexed documents",
+    description=(
+        "Retrieves and reranks indexed evidence, generates a grounded answer, "
+        "and returns only source references verified against retrieved chunks."
+    ),
+    responses={
+        422: {"description": "Question is missing, blank, or too long"},
+        500: {"description": "Internal retrieval or RAG processing failure"},
+        502: {"description": "Model provider returned an invalid response"},
+        503: {"description": "A required RAG dependency is unavailable"},
+    },
+)
+async def ask_question(
+    request: Annotated[
+        ValidatedRAGRequest,
+        Depends(validate_rag_request),
+    ],
+    rag_service: Annotated[
+        RAGService,
+        Depends(get_rag_service),
+    ],
+) -> RAGResponse:
+    """Answer one validated question through the complete RAG pipeline."""
+
+    try:
+        result = await run_in_threadpool(rag_service.ask, request.question)
+    except EmbeddingDependencyError as exc:
+        logger.exception("RAG query embedding dependency failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="embedding service is unavailable",
+        ) from exc
+    except EmbeddingResponseError as exc:
+        logger.exception("RAG query embedding response was invalid")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="embedding service returned an invalid response",
+        ) from exc
+    except (
+        VectorStoreConfigurationError,
+        VectorStoreUnavailableError,
+    ) as exc:
+        logger.exception("RAG vector store is unavailable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="vector store is unavailable",
+        ) from exc
+    except VectorStoreRetrievalError as exc:
+        logger.exception("RAG vector retrieval failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="document retrieval failed",
+        ) from exc
+    except RerankerModelLoadError as exc:
+        logger.exception("RAG reranker is unavailable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="reranking service is unavailable",
+        ) from exc
+    except (
+        RerankerServiceError,
+        CandidateSelectionError,
+        GroundedContextError,
+    ) as exc:
+        logger.exception("RAG evidence processing failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="document evidence could not be processed",
+        ) from exc
+    except LLMDependencyError as exc:
+        logger.exception("RAG answer model is unavailable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="answer generation service is unavailable",
+        ) from exc
+    except (LLMResponseError, SourceVerificationError) as exc:
+        logger.exception("RAG answer model response could not be verified")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="answer generation service returned an invalid response",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected RAG pipeline failure")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="unexpected question answering failure",
+        ) from exc
+
+    logger.info(
+        "RAG answer returned: sources=%s, insufficient_evidence=%s",
+        len(result.source_references),
+        result.verified_answer is None,
+    )
+    return RAGResponse(
+        answer=result.answer,
+        sources=list(result.source_references),
+    )
