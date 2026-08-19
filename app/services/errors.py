@@ -63,3 +63,19 @@ class VectorStoreWriteError(VectorStoreOperationError):
 
 class VectorStoreRetrievalError(VectorStoreOperationError):
     """Raised when pgvector cannot return a valid candidate shortlist."""
+
+
+class RerankerServiceError(RuntimeError):
+    """Base error for failures in local cross-encoder reranking."""
+
+
+class RerankerModelLoadError(RerankerServiceError):
+    """Raised when the configured local cross-encoder cannot be loaded."""
+
+
+class RerankerProcessingError(RerankerServiceError):
+    """Raised when local cross-encoder inference fails."""
+
+
+class RerankerResponseError(RerankerServiceError):
+    """Raised when the cross-encoder returns incomplete or invalid scores."""

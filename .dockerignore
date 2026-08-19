@@ -5,6 +5,7 @@
 .ruff_cache
 .mypy_cache
 .venv
+.cache
 __pycache__
 *.py[cod]
 *.egg-info

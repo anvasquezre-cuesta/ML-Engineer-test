@@ -25,6 +25,8 @@ dependencies = [
     "httpx",
     "langchain-openai>=1.5.2",
     "langchain-postgres>=0.0.17",
+    # Lightweight ONNX cross-encoder inference for local candidate reranking
+    "flashrank>=0.2.10,<0.3.0",
 ]
 
 [project.optional-dependencies]

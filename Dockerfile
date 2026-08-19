@@ -28,6 +28,16 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
+# Download the selected cross-encoder during the image build. The backend runs
+# with a read-only filesystem, so baking the model into the image makes startup
+# deterministic and prevents a production container from downloading at runtime.
+ARG RERANKER_MODEL_NAME=ms-marco-MiniLM-L-12-v2
+ARG RERANKER_MAX_LENGTH=512
+RUN mkdir -p /app/.cache/flashrank \
+    && RERANKER_MODEL_NAME="$RERANKER_MODEL_NAME" \
+       RERANKER_MAX_LENGTH="$RERANKER_MAX_LENGTH" \
+       .venv/bin/python -c "import os; from flashrank import Ranker; Ranker(model_name=os.environ['RERANKER_MODEL_NAME'], cache_dir='/app/.cache/flashrank', max_length=int(os.environ['RERANKER_MAX_LENGTH']))"
+
 # Copy and install the application itself into the prepared virtual environment.
 COPY app ./app
 RUN --mount=type=cache,target=/root/.cache/uv \

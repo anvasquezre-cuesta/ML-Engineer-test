@@ -23,7 +23,12 @@ from app.models.ingestion import (
     StructuredDocument,
     StructuredIngestionResult,
 )
-from app.models.retrieval import EmbeddedQuery, QueryScope, VectorSearchResult
+from app.models.retrieval import (
+    EmbeddedQuery,
+    QueryScope,
+    RerankResult,
+    VectorSearchResult,
+)
 from app.models.schemas import (
     ExtractedName,
     ExtractionResponse,
@@ -180,3 +185,10 @@ class QueryPreparationService(Protocol):
     """Prepare one validated question for vector retrieval."""
 
     def prepare(self, question: str) -> EmbeddedQuery: ...
+
+
+@runtime_checkable
+class RerankerService(Protocol):
+    """Reorder retrieved candidates using query-to-chunk relevance."""
+
+    def rerank(self, result: VectorSearchResult) -> RerankResult: ...

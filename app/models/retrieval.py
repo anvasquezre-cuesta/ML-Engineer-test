@@ -57,3 +57,21 @@ class VectorSearchResult:
 
     query: EmbeddedQuery
     candidates: tuple[RetrievedChunk, ...]
+
+
+class RerankedChunk(BaseModel):
+    """One retrieval candidate enriched with a cross-encoder relevance score."""
+
+    model_config = ConfigDict(frozen=True)
+
+    candidate: RetrievedChunk
+    reranker_score: FiniteFloat = Field(ge=0, le=1)
+    rank: int = Field(ge=1)
+
+
+@dataclass(frozen=True, slots=True)
+class RerankResult:
+    """A retrieval shortlist reordered by query-to-chunk relevance."""
+
+    retrieval: VectorSearchResult
+    ranked_candidates: tuple[RerankedChunk, ...]

@@ -18,11 +18,13 @@ from app.services.protocols import (
     ExtractionService,
     IngestionService,
     QueryPreparationService,
+    RerankerService,
 )
 from app.services.query_preparation_service import (
     DocumentQueryPreparationService,
 )
 from app.services.query_scope_service import ExplicitQueryScopeService
+from app.services.reranker_service import FlashRankCrossEncoderReranker
 from app.services.vector_service import LangChainPostgresVectorStore
 
 
@@ -64,3 +66,9 @@ def build_query_preparation_service(
         scope_service=ExplicitQueryScopeService(),
         embedding_service=LangChainOpenAIEmbeddingService(settings),
     )
+
+
+def build_reranker_service(settings: Settings) -> RerankerService:
+    """Build the configured local cross-encoder reranker."""
+
+    return FlashRankCrossEncoderReranker(settings)
