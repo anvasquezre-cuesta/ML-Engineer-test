@@ -53,5 +53,13 @@ class VectorStoreUnavailableError(IngestionServiceError):
     """Raised when PostgreSQL cannot be reached after configured retries."""
 
 
-class VectorStoreWriteError(IngestionServiceError):
+class VectorStoreOperationError(IngestionServiceError):
+    """Base error for valid operations rejected by the vector store."""
+
+
+class VectorStoreWriteError(VectorStoreOperationError):
     """Raised when embedded chunks cannot be persisted safely."""
+
+
+class VectorStoreRetrievalError(VectorStoreOperationError):
+    """Raised when pgvector cannot return a valid candidate shortlist."""

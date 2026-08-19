@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     vector_store_statement_timeout_ms: int = Field(default=10_000, ge=100)
     vector_store_max_retries: int = Field(default=2, ge=0, le=10)
     vector_store_retry_delay_seconds: float = Field(default=0.25, ge=0, le=10)
+    retrieval_candidate_count: int = Field(default=10, ge=1, le=100)
 
     openai_api_key: SecretStr | None = Field(
         default=None,

@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 
-from app.models.ingestion import DocumentType
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat
+
+from app.models.ingestion import ChunkMetadata, DocumentType
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,3 +38,22 @@ class EmbeddedQuery:
     question: str
     scope: QueryScope
     embedding: tuple[float, ...]
+
+
+class RetrievedChunk(BaseModel):
+    """One pgvector candidate with source metadata and cosine distance."""
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str = Field(min_length=1)
+    embedding_text: str = Field(min_length=1)
+    metadata: ChunkMetadata
+    vector_distance: FiniteFloat = Field(ge=0)
+
+
+@dataclass(frozen=True, slots=True)
+class VectorSearchResult:
+    """An embedded query paired with its broad retrieval shortlist."""
+
+    query: EmbeddedQuery
+    candidates: tuple[RetrievedChunk, ...]

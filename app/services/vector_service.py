@@ -6,16 +6,20 @@ from time import sleep
 from typing import Protocol, TypeVar, cast
 
 import asyncpg
+from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_postgres import Column, PGEngine, PGVectorStore
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from app.config import Settings
-from app.models.ingestion import EmbeddedChunk
+from app.models.ingestion import ChunkMetadata, EmbeddedChunk
+from app.models.retrieval import EmbeddedQuery, RetrievedChunk, VectorSearchResult
 from app.services.embedding_service import EmbeddingProvider
 from app.services.errors import (
     VectorStoreConfigurationError,
+    VectorStoreOperationError,
+    VectorStoreRetrievalError,
     VectorStoreUnavailableError,
     VectorStoreWriteError,
 )
@@ -42,7 +46,7 @@ METADATA_COLUMN_NAMES = [
 
 
 class LangChainVectorStore(Protocol):
-    """Small portion of PGVectorStore used by the ingestion pipeline."""
+    """Small portion of PGVectorStore used by the application adapter."""
 
     def add_embeddings(
         self,
@@ -51,6 +55,13 @@ class LangChainVectorStore(Protocol):
         metadatas: list[dict],
         ids: list[str],
     ) -> list[str]: ...
+
+    def similarity_search_with_score_by_vector(
+        self,
+        embedding: list[float],
+        k: int | None = None,
+        filter: dict | None = None,
+    ) -> list[tuple[Document, float]]: ...
 
 
 class LangChainPostgresVectorStore:
@@ -67,6 +78,7 @@ class LangChainPostgresVectorStore:
         self._table_name = settings.vector_store_table_name
         self._max_retries = settings.vector_store_max_retries
         self._retry_delay_seconds = settings.vector_store_retry_delay_seconds
+        self._retrieval_candidate_count = settings.retrieval_candidate_count
         self._sleeper = sleeper
         self._vector_store = vector_store or self._build_vector_store(
             settings,
@@ -98,12 +110,54 @@ class LangChainPostgresVectorStore:
                 ids=ids,
             ),
             operation="store chunks",
+            operation_error=VectorStoreWriteError,
         )
         if stored_ids != ids:
             raise VectorStoreWriteError(
                 "vector store did not persist the expected document chunks"
             )
         return len(stored_ids)
+
+    def retrieve_candidates(self, query: EmbeddedQuery) -> VectorSearchResult:
+        """Retrieve a broad, distance-ordered shortlist for later reranking."""
+
+        metadata_filter = self._metadata_filter(query)
+        logger.info(
+            "Vector retrieval started: candidate_limit=%s, filter_fields=%s",
+            self._retrieval_candidate_count,
+            sorted(query.scope.as_metadata_filter()),
+        )
+        try:
+            documents_with_distances = self._run_with_retry(
+                lambda: self._vector_store.similarity_search_with_score_by_vector(
+                    embedding=list(query.embedding),
+                    k=self._retrieval_candidate_count,
+                    filter=metadata_filter,
+                ),
+                operation="retrieve candidates",
+                operation_error=VectorStoreRetrievalError,
+            )
+            candidates = tuple(
+                sorted(
+                    (
+                        self._retrieved_chunk(document, distance)
+                        for document, distance in documents_with_distances
+                    ),
+                    key=lambda candidate: candidate.vector_distance,
+                )[: self._retrieval_candidate_count]
+            )
+        except VectorStoreOperationError:
+            raise
+        except (KeyError, TypeError, ValueError) as exc:
+            raise VectorStoreRetrievalError(
+                "vector store returned invalid candidate data"
+            ) from exc
+
+        logger.info(
+            "Vector retrieval completed: candidates=%s",
+            len(candidates),
+        )
+        return VectorSearchResult(query=query, candidates=candidates)
 
     def _build_vector_store(
         self,
@@ -191,16 +245,53 @@ class LangChainPostgresVectorStore:
             "embedding_text": chunk.embedding_text,
         }
 
+    @staticmethod
+    def _metadata_filter(query: EmbeddedQuery) -> dict | None:
+        metadata_filter: dict[str, object] = dict(
+            query.scope.as_metadata_filter()
+        )
+        if query.scope.filename is not None:
+            escaped_filename = (
+                query.scope.filename.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            metadata_filter["filename"] = {"$ilike": escaped_filename}
+        return metadata_filter or None
+
+    @staticmethod
+    def _retrieved_chunk(document: Document, distance: float) -> RetrievedChunk:
+        metadata = document.metadata
+        chunk_metadata = ChunkMetadata(
+            chunk_id=document.id or "",
+            document_id=metadata["document_id"],
+            filename=metadata["filename"],
+            document_type=metadata["document_type"],
+            document_title=metadata["document_title"],
+            section=metadata["section"],
+            page_start=metadata["page_start"],
+            page_end=metadata["page_end"],
+            chunk_index=metadata["chunk_index"],
+            word_count=metadata["word_count"],
+        )
+        return RetrievedChunk(
+            text=document.page_content,
+            embedding_text=metadata["embedding_text"],
+            metadata=chunk_metadata,
+            vector_distance=distance,
+        )
+
     def _run_with_retry(
         self,
         action: Callable[[], ResultT],
         *,
         operation: str,
+        operation_error: type[VectorStoreOperationError],
     ) -> ResultT:
         for attempt in range(self._max_retries + 1):
             try:
                 return action()
-            except VectorStoreWriteError:
+            except VectorStoreOperationError:
                 raise
             except (
                 OperationalError,
@@ -233,7 +324,7 @@ class LangChainPostgresVectorStore:
                     "Vector store operation failed: operation=%s",
                     operation,
                 )
-                raise VectorStoreWriteError(
+                raise operation_error(
                     f"vector store could not {operation}"
                 ) from exc
 

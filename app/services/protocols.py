@@ -23,7 +23,7 @@ from app.models.ingestion import (
     StructuredDocument,
     StructuredIngestionResult,
 )
-from app.models.retrieval import EmbeddedQuery, QueryScope
+from app.models.retrieval import EmbeddedQuery, QueryScope, VectorSearchResult
 from app.models.schemas import (
     ExtractedName,
     ExtractionResponse,
@@ -161,9 +161,11 @@ class EmbeddingService(Protocol):
 
 @runtime_checkable
 class VectorStoreService(Protocol):
-    """Persist embedded chunks without exposing database details upstream."""
+    """Persist and retrieve chunks without exposing database details upstream."""
 
     def store_chunks(self, chunks: Sequence[EmbeddedChunk]) -> int: ...
+
+    def retrieve_candidates(self, query: EmbeddedQuery) -> VectorSearchResult: ...
 
 
 @runtime_checkable
