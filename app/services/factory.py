@@ -10,6 +10,7 @@ from app.services.embedding_context_service import (
     TitleSectionEmbeddingContextService,
 )
 from app.services.embedding_service import LangChainOpenAIEmbeddingService
+from app.services.evidence_assessment_service import ThresholdEvidenceAssessmentService
 from app.services.extraction_service import DocumentExtractionService
 from app.services.fuzzy_service import TheFuzzMatchingService
 from app.services.ingestion_service import DocumentIngestionService
@@ -17,6 +18,7 @@ from app.services.ner_service import SpacyNERService
 from app.services.ocr_service import TesseractOCRService
 from app.services.protocols import (
     CandidateSelectionService,
+    EvidenceAssessmentService,
     ExtractionService,
     IngestionService,
     QueryPreparationService,
@@ -82,3 +84,11 @@ def build_candidate_selection_service(
     """Build deterministic top-k selection for reranked candidates."""
 
     return TopRankedCandidateSelector(settings)
+
+
+def build_evidence_assessment_service(
+    settings: Settings,
+) -> EvidenceAssessmentService:
+    """Build the deterministic relevance gate for selected evidence."""
+
+    return ThresholdEvidenceAssessmentService(settings)

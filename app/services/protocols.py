@@ -26,6 +26,7 @@ from app.models.ingestion import (
 from app.models.retrieval import (
     CandidateSelectionResult,
     EmbeddedQuery,
+    EvidenceAssessmentResult,
     QueryScope,
     RerankResult,
     VectorSearchResult,
@@ -200,3 +201,10 @@ class CandidateSelectionService(Protocol):
     """Retain the strongest reranked candidates for evidence evaluation."""
 
     def select(self, result: RerankResult) -> CandidateSelectionResult: ...
+
+
+@runtime_checkable
+class EvidenceAssessmentService(Protocol):
+    """Decide whether selected evidence is safe for answer generation."""
+
+    def assess(self, result: CandidateSelectionResult) -> EvidenceAssessmentResult: ...

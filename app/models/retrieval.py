@@ -1,8 +1,10 @@
 """Internal models used by the document-retrieval pipeline."""
 
 from dataclasses import dataclass
+from enum import StrEnum
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 
 from app.models.ingestion import ChunkMetadata, DocumentType
 
@@ -83,3 +85,39 @@ class CandidateSelectionResult:
 
     rerank: RerankResult
     selected_candidates: tuple[RerankedChunk, ...]
+
+
+class EvidenceInsufficiencyReason(StrEnum):
+    """Deterministic reasons why answer generation must not continue."""
+
+    NO_CANDIDATES = "no_candidates"
+    LOW_RELEVANCE = "low_relevance"
+
+
+class EvidenceAssessmentResult(BaseModel):
+    """Selected evidence classified as sufficient or unsafe for generation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    selection: CandidateSelectionResult
+    sufficient: bool
+    usable_candidates: tuple[RerankedChunk, ...]
+    reason: EvidenceInsufficiencyReason | None = None
+    user_guidance: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_assessment_state(self) -> Self:
+        """Keep sufficient and insufficient result states unambiguous."""
+
+        if self.sufficient:
+            if not self.usable_candidates:
+                raise ValueError("sufficient evidence requires usable candidates")
+            if self.reason is not None or self.user_guidance is not None:
+                raise ValueError("sufficient evidence cannot include failure details")
+            return self
+
+        if self.usable_candidates:
+            raise ValueError("insufficient evidence cannot include usable candidates")
+        if self.reason is None or self.user_guidance is None:
+            raise ValueError("insufficient evidence requires reason and guidance")
+        return self
