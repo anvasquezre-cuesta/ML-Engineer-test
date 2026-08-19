@@ -30,7 +30,8 @@ services:
       context: .
       target: runtime
     environment:
-      DOC_INTEL_DATABASE_URL: postgresql://${POSTGRES_USER:-doc_intel}:${POSTGRES_PASSWORD:-doc_intel_dev}@postgres:5432/${POSTGRES_DB:-document_intelligence}
+      DOC_INTEL_DATABASE_URL: postgresql://${POSTGRES_USER:-doc_intel}:${POSTGRES_PASSWORD:-doc_intel_dev}@${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-document_intelligence}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       DOC_INTEL_LOG_LEVEL: ${DOC_INTEL_LOG_LEVEL:-INFO}
       DOC_INTEL_MAX_UPLOAD_SIZE_MB: ${DOC_INTEL_MAX_UPLOAD_SIZE_MB:-20}
       DOC_INTEL_MAX_NAMES_PER_REQUEST: ${DOC_INTEL_MAX_NAMES_PER_REQUEST:-1000}

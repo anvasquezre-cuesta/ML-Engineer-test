@@ -13,10 +13,11 @@ from app.models.ingestion import (
     ChunkedIngestionResult,
     ContextualizedChunk,
     ContextualizedIngestionResult,
+    EmbeddedIngestionResult,
     IngestionJob,
-    OCRIngestionResult,
     MetadataChunk,
     MetadataIngestionResult,
+    OCRIngestionResult,
     StructuredDocument,
     StructuredIngestionResult,
 )
@@ -101,6 +102,11 @@ class IngestionService(Protocol):
         result: MetadataIngestionResult,
     ) -> ContextualizedIngestionResult: ...
 
+    def generate_embeddings(
+        self,
+        result: ContextualizedIngestionResult,
+    ) -> EmbeddedIngestionResult: ...
+
 
 @runtime_checkable
 class DocumentStructureService(Protocol):
@@ -131,3 +137,15 @@ class EmbeddingContextService(Protocol):
         self,
         result: MetadataIngestionResult,
     ) -> tuple[ContextualizedChunk, ...]: ...
+
+
+@runtime_checkable
+class EmbeddingService(Protocol):
+    """Generate vectors for document chunks and retrieval queries."""
+
+    def embed_documents(
+        self,
+        texts: Sequence[str],
+    ) -> tuple[tuple[float, ...], ...]: ...
+
+    def embed_query(self, text: str) -> tuple[float, ...]: ...

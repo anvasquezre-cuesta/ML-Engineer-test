@@ -35,3 +35,11 @@ class DocumentStructureError(IngestionServiceError):
 
 class DocumentChunkingError(IngestionServiceError):
     """Raised when a structured document cannot produce useful chunks."""
+
+
+class EmbeddingDependencyError(IngestionServiceError):
+    """Raised when the configured embedding provider is unavailable."""
+
+
+class EmbeddingResponseError(IngestionServiceError):
+    """Raised when an embedding provider returns an invalid result."""

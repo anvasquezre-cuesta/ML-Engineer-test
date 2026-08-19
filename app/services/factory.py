@@ -2,12 +2,13 @@
 
 from app.config import Settings
 from app.services.bbox_service import OCRBoundingBoxService
-from app.services.chunking_service import StructureAwareChunkingService
 from app.services.chunk_metadata_service import DeterministicChunkMetadataService
+from app.services.chunking_service import StructureAwareChunkingService
 from app.services.document_structure_service import OCRDocumentStructureService
 from app.services.embedding_context_service import (
     TitleSectionEmbeddingContextService,
 )
+from app.services.embedding_service import LangChainOpenAIEmbeddingService
 from app.services.extraction_service import DocumentExtractionService
 from app.services.fuzzy_service import TheFuzzMatchingService
 from app.services.ingestion_service import DocumentIngestionService
@@ -36,4 +37,5 @@ def build_ingestion_service(settings: Settings) -> IngestionService:
         chunking_service=StructureAwareChunkingService(settings),
         metadata_service=DeterministicChunkMetadataService(),
         embedding_context_service=TitleSectionEmbeddingContextService(),
+        embedding_service=LangChainOpenAIEmbeddingService(settings),
     )

@@ -7,18 +7,25 @@ from uuid import UUID, uuid4
 from app.models.ingestion import (
     ChunkedIngestionResult,
     ContextualizedIngestionResult,
+    EmbeddedChunk,
+    EmbeddedIngestionResult,
     IngestionJob,
     MetadataIngestionResult,
     OCRIngestionResult,
     StructuredIngestionResult,
     ValidatedPDFUpload,
 )
-from app.services.errors import IngestionServiceError, OCRProcessingError
+from app.services.errors import (
+    EmbeddingResponseError,
+    IngestionServiceError,
+    OCRProcessingError,
+)
 from app.services.protocols import (
     ChunkingService,
     ChunkMetadataService,
     DocumentStructureService,
     EmbeddingContextService,
+    EmbeddingService,
     OCRService,
 )
 
@@ -46,12 +53,14 @@ class DocumentIngestionService:
         chunking_service: ChunkingService,
         metadata_service: ChunkMetadataService,
         embedding_context_service: EmbeddingContextService,
+        embedding_service: EmbeddingService,
     ) -> None:
         self._ocr_service = ocr_service
         self._structure_service = structure_service
         self._chunking_service = chunking_service
         self._metadata_service = metadata_service
         self._embedding_context_service = embedding_context_service
+        self._embedding_service = embedding_service
 
     def run_ocr(self, job: IngestionJob) -> OCRIngestionResult:
         """Run OCR and ensure every validated PDF page is represented."""
@@ -79,9 +88,7 @@ class DocumentIngestionService:
                 job.pdf.page_count,
                 len(document.pages),
             )
-            raise IngestionServiceError(
-                "OCR result does not contain every PDF page"
-            )
+            raise IngestionServiceError("OCR result does not contain every PDF page")
 
         logger.info(
             "Ingestion OCR completed: ingestion_id=%s, pages=%s, words=%s",
@@ -166,5 +173,44 @@ class DocumentIngestionService:
         )
         return ContextualizedIngestionResult(
             metadata_result=result,
+            chunks=chunks,
+        )
+
+    def generate_embeddings(
+        self,
+        result: ContextualizedIngestionResult,
+    ) -> EmbeddedIngestionResult:
+        """Generate and attach one dense vector to every contextualized chunk."""
+
+        ingestion_id = result.metadata_result.chunked.structured.ocr.job.ingestion_id
+        logger.info(
+            "Chunk embedding generation started: ingestion_id=%s, chunks=%s",
+            ingestion_id,
+            len(result.chunks),
+        )
+        vectors = self._embedding_service.embed_documents(
+            tuple(chunk.embedding_text for chunk in result.chunks)
+        )
+        if len(vectors) != len(result.chunks):
+            raise EmbeddingResponseError(
+                "embedding service returned an unexpected number of vectors"
+            )
+
+        chunks = tuple(
+            EmbeddedChunk(
+                text=chunk.text,
+                embedding_text=chunk.embedding_text,
+                embedding=vector,
+                metadata=chunk.metadata,
+            )
+            for chunk, vector in zip(result.chunks, vectors, strict=True)
+        )
+        logger.info(
+            "Chunk embedding generation completed: ingestion_id=%s, chunks=%s",
+            ingestion_id,
+            len(chunks),
+        )
+        return EmbeddedIngestionResult(
+            contextualized=result,
             chunks=chunks,
         )

@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +16,24 @@ class Settings(BaseSettings):
         default=None,
         description="PostgreSQL connection URL used by the future RAG persistence layer",
     )
+
+    openai_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "OPENAI_API_KEY",
+            "DOC_INTEL_OPENAI_API_KEY",
+        ),
+        description="OpenAI API key used to generate document embeddings",
+    )
+    openai_base_url: str | None = Field(default=None)
+    embedding_model_name: str = Field(
+        default="text-embedding-3-small",
+        min_length=1,
+    )
+    embedding_dimensions: int = Field(default=1_536, gt=0)
+    embedding_batch_size: int = Field(default=64, ge=1, le=1_000)
+    embedding_timeout_seconds: float = Field(default=30.0, gt=0)
+    embedding_max_retries: int = Field(default=2, ge=0, le=10)
 
     max_upload_size_mb: int = Field(default=20, gt=0)
     max_names_per_request: int = Field(default=1_000, gt=0)
@@ -37,6 +55,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_prefix="DOC_INTEL_",
         extra="ignore",
+        populate_by_name=True,
     )
 
     @property

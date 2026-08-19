@@ -23,6 +23,7 @@ dependencies = [
     "python-Levenshtein",
     # External model APIs
     "httpx",
+    "langchain-openai>=1.5.2",
 ]
 
 [project.optional-dependencies]
