@@ -37,6 +37,11 @@ class Settings(BaseSettings):
         ge=0,
         le=1,
     )
+    llm_model_name: str = Field(default="deepseek/deepseek-chat", min_length=1)
+    llm_temperature: float = Field(default=0.0, ge=0, le=2)
+    llm_max_tokens: int = Field(default=512, ge=1, le=16_384)
+    llm_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
+    llm_max_retries: int = Field(default=2, ge=0, le=10)
 
     openai_api_key: SecretStr | None = Field(
         default=None,

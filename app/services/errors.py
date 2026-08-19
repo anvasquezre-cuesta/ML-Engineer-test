@@ -87,3 +87,15 @@ class CandidateSelectionError(RuntimeError):
 
 class GroundedContextError(RuntimeError):
     """Raised when safe answer context cannot be built from evidence."""
+
+
+class LLMServiceError(RuntimeError):
+    """Base error for provider-neutral answer generation failures."""
+
+
+class LLMDependencyError(LLMServiceError):
+    """Raised when LiteLLM or the selected model provider is unavailable."""
+
+
+class LLMResponseError(LLMServiceError):
+    """Raised when the selected model returns an unusable answer."""

@@ -27,6 +27,7 @@ from app.models.retrieval import (
     CandidateSelectionResult,
     EmbeddedQuery,
     EvidenceAssessmentResult,
+    GeneratedAnswer,
     GroundedContext,
     QueryScope,
     RerankResult,
@@ -216,3 +217,10 @@ class GroundedContextService(Protocol):
     """Serialize approved evidence for grounded answer generation."""
 
     def build(self, result: EvidenceAssessmentResult) -> GroundedContext: ...
+
+
+@runtime_checkable
+class AnswerGenerationService(Protocol):
+    """Generate an answer using only an approved grounded context."""
+
+    def generate(self, context: GroundedContext) -> GeneratedAnswer: ...

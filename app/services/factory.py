@@ -15,9 +15,11 @@ from app.services.extraction_service import DocumentExtractionService
 from app.services.fuzzy_service import TheFuzzMatchingService
 from app.services.grounded_context_service import JSONGroundedContextService
 from app.services.ingestion_service import DocumentIngestionService
+from app.services.llm_service import LiteLLMAnswerGenerationService
 from app.services.ner_service import SpacyNERService
 from app.services.ocr_service import TesseractOCRService
 from app.services.protocols import (
+    AnswerGenerationService,
     CandidateSelectionService,
     EvidenceAssessmentService,
     ExtractionService,
@@ -100,3 +102,11 @@ def build_grounded_context_service() -> GroundedContextService:
     """Build deterministic JSON context serialization for approved evidence."""
 
     return JSONGroundedContextService()
+
+
+def build_answer_generation_service(
+    settings: Settings,
+) -> AnswerGenerationService:
+    """Build provider-neutral grounded answer generation through LiteLLM."""
+
+    return LiteLLMAnswerGenerationService(settings)

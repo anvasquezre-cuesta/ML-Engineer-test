@@ -158,3 +158,14 @@ class GroundedContext(BaseModel):
         ):
             raise ValueError("grounded passages must match approved evidence")
         return self
+
+
+class GeneratedAnswer(BaseModel):
+    """One provider-neutral LLM answer tied to its exact grounded context."""
+
+    model_config = ConfigDict(frozen=True)
+
+    context: GroundedContext
+    answer: str = Field(min_length=1, max_length=50_000)
+    model_name: str = Field(min_length=1)
+    finish_reason: str | None = None
