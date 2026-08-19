@@ -8,7 +8,12 @@ from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
 from app.models.domain import OCRDocument, OCRPage, PersonMention
-from app.models.ingestion import IngestionJob, OCRIngestionResult
+from app.models.ingestion import (
+    IngestionJob,
+    OCRIngestionResult,
+    StructuredDocument,
+    StructuredIngestionResult,
+)
 from app.models.schemas import (
     ExtractedName,
     ExtractionResponse,
@@ -69,3 +74,15 @@ class IngestionService(Protocol):
     """Run the implemented stages of the document-ingestion pipeline."""
 
     def run_ocr(self, job: IngestionJob) -> OCRIngestionResult: ...
+
+    def identify_structure(
+        self,
+        result: OCRIngestionResult,
+    ) -> StructuredIngestionResult: ...
+
+
+@runtime_checkable
+class DocumentStructureService(Protocol):
+    """Recover titles, sections, paragraphs, and lists from OCR output."""
+
+    def parse(self, document: OCRDocument) -> StructuredDocument: ...

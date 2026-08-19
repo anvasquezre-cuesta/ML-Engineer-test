@@ -7,10 +7,11 @@ from uuid import UUID, uuid4
 from app.models.ingestion import (
     IngestionJob,
     OCRIngestionResult,
+    StructuredIngestionResult,
     ValidatedPDFUpload,
 )
 from app.services.errors import IngestionServiceError, OCRProcessingError
-from app.services.protocols import OCRService
+from app.services.protocols import DocumentStructureService, OCRService
 
 IngestionIdFactory = Callable[[], UUID]
 logger = logging.getLogger(__name__)
@@ -29,8 +30,13 @@ def create_ingestion_job(
 class DocumentIngestionService:
     """Orchestrate the implemented stages of document ingestion."""
 
-    def __init__(self, ocr_service: OCRService) -> None:
+    def __init__(
+        self,
+        ocr_service: OCRService,
+        structure_service: DocumentStructureService,
+    ) -> None:
         self._ocr_service = ocr_service
+        self._structure_service = structure_service
 
     def run_ocr(self, job: IngestionJob) -> OCRIngestionResult:
         """Run OCR and ensure every validated PDF page is represented."""
@@ -69,3 +75,22 @@ class DocumentIngestionService:
             sum(len(page.words) for page in document.pages),
         )
         return OCRIngestionResult(job=job, document=document)
+
+    def identify_structure(
+        self,
+        result: OCRIngestionResult,
+    ) -> StructuredIngestionResult:
+        """Identify the title, sections, paragraphs, and lists in OCR output."""
+
+        logger.info(
+            "Document structure identification started: ingestion_id=%s",
+            result.job.ingestion_id,
+        )
+        document = self._structure_service.parse(result.document)
+        logger.info(
+            "Document structure identification completed: ingestion_id=%s, sections=%s, elements=%s",
+            result.job.ingestion_id,
+            len(document.sections),
+            sum(len(section.elements) for section in document.sections),
+        )
+        return StructuredIngestionResult(ocr=result, document=document)

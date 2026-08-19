@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     bbox_match_threshold: float = Field(default=0.80, ge=0, le=1)
     bbox_max_horizontal_gap_factor: float = Field(default=3.0, gt=0)
 
+    structure_max_heading_words: int = Field(default=12, ge=1, le=30)
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="DOC_INTEL_",

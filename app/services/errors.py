@@ -27,3 +27,7 @@ class BoundingBoxMappingError(ExtractionServiceError):
 
 class IngestionServiceError(RuntimeError):
     """Raised when the document-ingestion pipeline cannot continue."""
+
+
+class DocumentStructureError(IngestionServiceError):
+    """Raised when useful structure cannot be recovered from OCR output."""

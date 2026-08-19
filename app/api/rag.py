@@ -14,7 +14,11 @@ from app.api.dependencies import get_ingestion_service
 from app.api.validation import validate_ingestion_request
 from app.models.ingestion import ValidatedPDFUpload
 from app.models.schemas import IngestResponse
-from app.services.errors import IngestionServiceError, OCRProcessingError
+from app.services.errors import (
+    DocumentStructureError,
+    IngestionServiceError,
+    OCRProcessingError,
+)
 from app.services.ingestion_service import create_ingestion_job
 from app.services.protocols import IngestionService
 
@@ -27,8 +31,8 @@ logger = logging.getLogger(__name__)
     response_model=IngestResponse,
     summary="Validate and ingest a scanned PDF",
     description=(
-        "Accepts a scanned PDF for the RAG ingestion pipeline. The current "
-        "implementation validates the upload before OCR and indexing."
+        "Validates a scanned PDF, runs OCR on every page, and identifies its "
+        "title, sections, paragraphs, and lists before indexing."
     ),
     responses={
         400: {"description": "Empty, unreadable, or password-protected PDF"},
@@ -49,7 +53,7 @@ async def ingest_document(
         Depends(get_ingestion_service),
     ],
 ) -> IngestResponse:
-    """Validate an upload and run OCR outside the event loop."""
+    """Validate an upload and recover its text and document structure."""
 
     ingestion_job = create_ingestion_job(pdf_upload)
     logger.info(
@@ -63,6 +67,10 @@ async def ingest_document(
             ingestion_service.run_ocr,
             ingestion_job,
         )
+        structured_result = await run_in_threadpool(
+            ingestion_service.identify_structure,
+            ocr_result,
+        )
     except OCRProcessingError as exc:
         logger.error(
             "Ingestion OCR dependency failed: ingestion_id=%s",
@@ -73,15 +81,24 @@ async def ingest_document(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OCR service is unavailable",
         ) from exc
+    except DocumentStructureError as exc:
+        logger.warning(
+            "Document structure could not be identified: ingestion_id=%s",
+            ingestion_job.ingestion_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="document does not contain readable structured text",
+        ) from exc
     except IngestionServiceError as exc:
         logger.error(
-            "Ingestion OCR failed: ingestion_id=%s",
+            "Ingestion processing failed: ingestion_id=%s",
             ingestion_job.ingestion_id,
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="document ingestion failed during OCR",
+            detail="document ingestion failed",
         ) from exc
     except Exception as exc:
         logger.exception(
@@ -94,12 +111,13 @@ async def ingest_document(
         ) from exc
 
     logger.info(
-        "Ingestion OCR result ready for chunking: ingestion_id=%s, pages=%s",
-        ocr_result.job.ingestion_id,
-        len(ocr_result.document.pages),
+        "Structured document ready for chunking: ingestion_id=%s, title=%s, sections=%s",
+        structured_result.ocr.job.ingestion_id,
+        structured_result.document.title,
+        len(structured_result.document.sections),
     )
     # Chunking, embeddings, and storage are added in the next pipeline steps.
-    return IngestResponse(status="ocr_complete", chunks_stored=0)
+    return IngestResponse(status="structure_identified", chunks_stored=0)
 
 
 # TODO: implement POST /api/ask    (response_model=RAGResponse)
