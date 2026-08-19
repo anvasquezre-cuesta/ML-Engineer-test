@@ -1,5 +1,9 @@
 # Internal grader material — never ship to candidates
 GRADING.md
+/tests/
+
+# Local design artifact
+/docs/lean-rag-visual.html
 
 # Python
 __pycache__/
