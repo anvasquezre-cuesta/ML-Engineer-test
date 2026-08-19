@@ -12,15 +12,12 @@ from PIL import Image
 from app.config import Settings
 from app.models.domain import OCRDocument, OCRPage, OCRWord
 from app.models.schemas import BoundingBox
+from app.services.errors import OCRProcessingError
 
 logger = logging.getLogger(__name__)
 
 OCRData = dict[str, list[Any]]
 ImageToData = Callable[..., OCRData]
-
-
-class OCRProcessingError(RuntimeError):
-    """Raised when a PDF page cannot be rendered or processed by Tesseract."""
 
 
 class TesseractOCRService:

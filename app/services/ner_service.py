@@ -9,18 +9,11 @@ import spacy
 
 from app.config import Settings
 from app.models.domain import OCRPage, PersonMention
+from app.services.errors import NERModelLoadError, NERProcessingError
 
 logger = logging.getLogger(__name__)
 
 NLPModel = Callable[[str], Any]
-
-
-class NERModelLoadError(RuntimeError):
-    """Raised when the configured spaCy model cannot be loaded."""
-
-
-class NERProcessingError(RuntimeError):
-    """Raised when person extraction fails for an OCR page."""
 
 
 class SpacyNERService:

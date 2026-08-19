@@ -165,8 +165,30 @@ async def read_and_validate_pdf(
 
 
 async def validate_extraction_request(
-    pdf_file: Annotated[UploadFile, File(description="Scanned PDF document")],
-    names: Annotated[str, Form(description="JSON array of names to match")],
+    pdf_file: Annotated[
+        UploadFile,
+        File(
+            title="Scanned PDF",
+            description=(
+                "PDF document to process. The file is validated by content, must "
+                "contain at least one page, and cannot be password protected."
+            ),
+            media_type="application/pdf",
+        ),
+    ],
+    names: Annotated[
+        str,
+        Form(
+            title="Names to match",
+            description=(
+                "JSON-encoded array of people to fuzzy-match against detected "
+                "names. Each item requires first_name and last_name."
+            ),
+            examples=[
+                '[{"first_name":"Maria","last_name":"Gonzalez"}]'
+            ],
+        ),
+    ],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> ValidatedExtractionRequest:
     """Validate and normalize all fields accepted by ``POST /api/extract``."""

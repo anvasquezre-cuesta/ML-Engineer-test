@@ -10,13 +10,10 @@ from thefuzz import fuzz
 from app.config import Settings
 from app.models.domain import OCRDocument, OCRPage, OCRWord, PersonMention
 from app.models.schemas import BoundingBox, ExtractedName
+from app.services.errors import BoundingBoxMappingError
 from app.services.text_normalization import normalize_name
 
 logger = logging.getLogger(__name__)
-
-
-class BoundingBoxMappingError(RuntimeError):
-    """Raised when OCR and NER page metadata is inconsistent."""
 
 
 class OCRBoundingBoxService:
