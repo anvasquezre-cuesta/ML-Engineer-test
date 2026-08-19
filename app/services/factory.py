@@ -2,6 +2,7 @@
 
 from app.config import Settings
 from app.services.bbox_service import OCRBoundingBoxService
+from app.services.chunking_service import StructureAwareChunkingService
 from app.services.document_structure_service import OCRDocumentStructureService
 from app.services.extraction_service import DocumentExtractionService
 from app.services.fuzzy_service import TheFuzzMatchingService
@@ -28,4 +29,5 @@ def build_ingestion_service(settings: Settings) -> IngestionService:
     return DocumentIngestionService(
         ocr_service=TesseractOCRService(settings),
         structure_service=OCRDocumentStructureService(settings),
+        chunking_service=StructureAwareChunkingService(settings),
     )

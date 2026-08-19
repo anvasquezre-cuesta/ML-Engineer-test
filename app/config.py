@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     bbox_max_horizontal_gap_factor: float = Field(default=3.0, gt=0)
 
     structure_max_heading_words: int = Field(default=12, ge=1, le=30)
+    chunk_max_words: int = Field(default=300, ge=50, le=2_000)
 
     model_config = SettingsConfigDict(
         env_file=".env",

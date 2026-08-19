@@ -5,13 +5,14 @@ from collections.abc import Callable
 from uuid import UUID, uuid4
 
 from app.models.ingestion import (
+    ChunkedIngestionResult,
     IngestionJob,
     OCRIngestionResult,
     StructuredIngestionResult,
     ValidatedPDFUpload,
 )
 from app.services.errors import IngestionServiceError, OCRProcessingError
-from app.services.protocols import DocumentStructureService, OCRService
+from app.services.protocols import ChunkingService, DocumentStructureService, OCRService
 
 IngestionIdFactory = Callable[[], UUID]
 logger = logging.getLogger(__name__)
@@ -34,9 +35,11 @@ class DocumentIngestionService:
         self,
         ocr_service: OCRService,
         structure_service: DocumentStructureService,
+        chunking_service: ChunkingService,
     ) -> None:
         self._ocr_service = ocr_service
         self._structure_service = structure_service
+        self._chunking_service = chunking_service
 
     def run_ocr(self, job: IngestionJob) -> OCRIngestionResult:
         """Run OCR and ensure every validated PDF page is represented."""
@@ -88,9 +91,27 @@ class DocumentIngestionService:
         )
         document = self._structure_service.parse(result.document)
         logger.info(
-            "Document structure identification completed: ingestion_id=%s, sections=%s, elements=%s",
+            "Document structure identification completed: "
+            "ingestion_id=%s, sections=%s, elements=%s",
             result.job.ingestion_id,
             len(document.sections),
             sum(len(section.elements) for section in document.sections),
         )
         return StructuredIngestionResult(ocr=result, document=document)
+
+    def create_chunks(
+        self,
+        result: StructuredIngestionResult,
+    ) -> ChunkedIngestionResult:
+        """Create coherent chunks from the recognized document structure."""
+
+        ingestion_id = result.ocr.job.ingestion_id
+        logger.info("Document chunking started: ingestion_id=%s", ingestion_id)
+        chunks = self._chunking_service.chunk(result.document)
+        logger.info(
+            "Document chunking completed: ingestion_id=%s, chunks=%s, words=%s",
+            ingestion_id,
+            len(chunks),
+            sum(chunk.word_count for chunk in chunks),
+        )
+        return ChunkedIngestionResult(structured=result, chunks=chunks)

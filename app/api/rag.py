@@ -15,6 +15,7 @@ from app.api.validation import validate_ingestion_request
 from app.models.ingestion import ValidatedPDFUpload
 from app.models.schemas import IngestResponse
 from app.services.errors import (
+    DocumentChunkingError,
     DocumentStructureError,
     IngestionServiceError,
     OCRProcessingError,
@@ -71,6 +72,10 @@ async def ingest_document(
             ingestion_service.identify_structure,
             ocr_result,
         )
+        chunked_result = await run_in_threadpool(
+            ingestion_service.create_chunks,
+            structured_result,
+        )
     except OCRProcessingError as exc:
         logger.error(
             "Ingestion OCR dependency failed: ingestion_id=%s",
@@ -89,6 +94,15 @@ async def ingest_document(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="document does not contain readable structured text",
+        ) from exc
+    except DocumentChunkingError as exc:
+        logger.warning(
+            "Document could not be chunked: ingestion_id=%s",
+            ingestion_job.ingestion_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="document does not contain chunkable text",
         ) from exc
     except IngestionServiceError as exc:
         logger.error(
@@ -111,13 +125,13 @@ async def ingest_document(
         ) from exc
 
     logger.info(
-        "Structured document ready for chunking: ingestion_id=%s, title=%s, sections=%s",
-        structured_result.ocr.job.ingestion_id,
-        structured_result.document.title,
-        len(structured_result.document.sections),
+        "Document chunks ready for metadata: ingestion_id=%s, title=%s, chunks=%s",
+        chunked_result.structured.ocr.job.ingestion_id,
+        chunked_result.structured.document.title,
+        len(chunked_result.chunks),
     )
-    # Chunking, embeddings, and storage are added in the next pipeline steps.
-    return IngestResponse(status="structure_identified", chunks_stored=0)
+    # Metadata, embeddings, and storage are added in the next pipeline steps.
+    return IngestResponse(status="chunked", chunks_stored=0)
 
 
 # TODO: implement POST /api/ask    (response_model=RAGResponse)

@@ -9,6 +9,8 @@ from typing import Protocol, runtime_checkable
 
 from app.models.domain import OCRDocument, OCRPage, PersonMention
 from app.models.ingestion import (
+    ChunkDraft,
+    ChunkedIngestionResult,
     IngestionJob,
     OCRIngestionResult,
     StructuredDocument,
@@ -80,9 +82,21 @@ class IngestionService(Protocol):
         result: OCRIngestionResult,
     ) -> StructuredIngestionResult: ...
 
+    def create_chunks(
+        self,
+        result: StructuredIngestionResult,
+    ) -> ChunkedIngestionResult: ...
+
 
 @runtime_checkable
 class DocumentStructureService(Protocol):
     """Recover titles, sections, paragraphs, and lists from OCR output."""
 
     def parse(self, document: OCRDocument) -> StructuredDocument: ...
+
+
+@runtime_checkable
+class ChunkingService(Protocol):
+    """Create coherent chunks from recognized document structure."""
+
+    def chunk(self, document: StructuredDocument) -> tuple[ChunkDraft, ...]: ...

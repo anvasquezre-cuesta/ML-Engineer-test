@@ -89,3 +89,29 @@ class StructuredIngestionResult(BaseModel):
 
     ocr: OCRIngestionResult
     document: StructuredDocument
+
+
+class ChunkDraft(BaseModel):
+    """A coherent text chunk before retrieval metadata is attached."""
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str = Field(min_length=1)
+    section_heading: str | None = None
+    page_start: int = Field(ge=0)
+    page_end: int = Field(ge=0)
+
+    @property
+    def word_count(self) -> int:
+        """Return the whitespace-delimited size used by the chunker."""
+
+        return len(self.text.split())
+
+
+class ChunkedIngestionResult(BaseModel):
+    """A structured ingestion result enriched with coherent chunk drafts."""
+
+    model_config = ConfigDict(frozen=True)
+
+    structured: StructuredIngestionResult
+    chunks: tuple[ChunkDraft, ...]

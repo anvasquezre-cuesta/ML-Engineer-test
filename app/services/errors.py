@@ -31,3 +31,7 @@ class IngestionServiceError(RuntimeError):
 
 class DocumentStructureError(IngestionServiceError):
     """Raised when useful structure cannot be recovered from OCR output."""
+
+
+class DocumentChunkingError(IngestionServiceError):
+    """Raised when a structured document cannot produce useful chunks."""
