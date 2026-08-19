@@ -23,3 +23,7 @@ class NERProcessingError(ExtractionDependencyError):
 
 class BoundingBoxMappingError(ExtractionServiceError):
     """Raised when OCR and NER page metadata is inconsistent."""
+
+
+class IngestionServiceError(RuntimeError):
+    """Raised when the document-ingestion pipeline cannot continue."""

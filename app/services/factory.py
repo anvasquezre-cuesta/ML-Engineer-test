@@ -4,9 +4,10 @@ from app.config import Settings
 from app.services.bbox_service import OCRBoundingBoxService
 from app.services.extraction_service import DocumentExtractionService
 from app.services.fuzzy_service import TheFuzzMatchingService
+from app.services.ingestion_service import DocumentIngestionService
 from app.services.ner_service import SpacyNERService
 from app.services.ocr_service import TesseractOCRService
-from app.services.protocols import ExtractionService
+from app.services.protocols import ExtractionService, IngestionService
 
 
 def build_extraction_service(settings: Settings) -> ExtractionService:
@@ -17,4 +18,12 @@ def build_extraction_service(settings: Settings) -> ExtractionService:
         ner_service=SpacyNERService(settings),
         bounding_box_service=OCRBoundingBoxService(settings),
         fuzzy_matching_service=TheFuzzMatchingService(settings),
+    )
+
+
+def build_ingestion_service(settings: Settings) -> IngestionService:
+    """Assemble the production ingestion pipeline."""
+
+    return DocumentIngestionService(
+        ocr_service=TesseractOCRService(settings),
     )

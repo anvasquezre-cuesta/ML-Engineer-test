@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.domain import OCRDocument
+
 
 class ValidatedPDFUpload(BaseModel):
     """A PDF upload that passed size, content, and readability checks."""
@@ -28,3 +30,12 @@ class IngestionJob(BaseModel):
 
     ingestion_id: UUID
     pdf: ValidatedPDFUpload
+
+
+class OCRIngestionResult(BaseModel):
+    """An ingestion job enriched with OCR output from every PDF page."""
+
+    model_config = ConfigDict(frozen=True)
+
+    job: IngestionJob
+    document: OCRDocument

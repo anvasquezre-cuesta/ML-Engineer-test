@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
 from app.models.domain import OCRDocument, OCRPage, PersonMention
+from app.models.ingestion import IngestionJob, OCRIngestionResult
 from app.models.schemas import (
     ExtractedName,
     ExtractionResponse,
@@ -61,3 +62,10 @@ class ExtractionService(Protocol):
         pdf_content: bytes,
         query_names: Sequence[NamePair],
     ) -> ExtractionResponse: ...
+
+
+@runtime_checkable
+class IngestionService(Protocol):
+    """Run the implemented stages of the document-ingestion pipeline."""
+
+    def run_ocr(self, job: IngestionJob) -> OCRIngestionResult: ...

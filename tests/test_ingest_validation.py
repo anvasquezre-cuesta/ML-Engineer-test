@@ -5,8 +5,23 @@ import pymupdf
 import pytest
 from fastapi import UploadFile
 
+from app.api.dependencies import get_ingestion_service
 from app.api.validation import read_and_validate_pdf_upload
 from app.main import app
+from app.models.domain import OCRDocument, OCRPage
+from app.models.ingestion import IngestionJob, OCRIngestionResult
+
+
+class SuccessfulIngestionService:
+    def run_ocr(self, job: IngestionJob) -> OCRIngestionResult:
+        pages = tuple(
+            OCRPage(page_number=index, text="", words=())
+            for index in range(job.pdf.page_count)
+        )
+        return OCRIngestionResult(
+            job=job,
+            document=OCRDocument(pages=pages),
+        )
 
 
 def make_pdf(page_count: int = 1) -> bytes:
@@ -17,15 +32,19 @@ def make_pdf(page_count: int = 1) -> bytes:
 
 
 async def post_ingest(content: bytes, filename: str = "scan.pdf") -> httpx.Response:
+    app.dependency_overrides[get_ingestion_service] = SuccessfulIngestionService
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport,
-        base_url="http://test",
-    ) as client:
-        return await client.post(
-            "/api/ingest",
-            files={"pdf_file": (filename, content, "application/pdf")},
-        )
+    try:
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            return await client.post(
+                "/api/ingest",
+                files={"pdf_file": (filename, content, "application/pdf")},
+            )
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
@@ -33,7 +52,7 @@ async def test_ingest_accepts_a_readable_pdf() -> None:
     response = await post_ingest(make_pdf(page_count=2))
 
     assert response.status_code == 200
-    assert response.json() == {"status": "validated", "chunks_stored": 0}
+    assert response.json() == {"status": "ocr_complete", "chunks_stored": 0}
 
 
 @pytest.mark.asyncio
@@ -85,4 +104,6 @@ def test_ingest_openapi_describes_pdf_validation() -> None:
 
     assert operation["summary"] == "Validate and ingest a scanned PDF"
     assert "validated by content" in request_properties["pdf_file"]["description"]
-    assert {"400", "413", "415", "422"}.issubset(operation["responses"])
+    assert {"400", "413", "415", "422", "500", "503"}.issubset(
+        operation["responses"]
+    )

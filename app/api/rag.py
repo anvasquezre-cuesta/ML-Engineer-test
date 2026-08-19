@@ -7,12 +7,16 @@ Keep the router thin; delegate to the RAG / vector / OCR services. Map failures
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from starlette.concurrency import run_in_threadpool
 
+from app.api.dependencies import get_ingestion_service
 from app.api.validation import validate_ingestion_request
 from app.models.ingestion import ValidatedPDFUpload
 from app.models.schemas import IngestResponse
+from app.services.errors import IngestionServiceError, OCRProcessingError
 from app.services.ingestion_service import create_ingestion_job
+from app.services.protocols import IngestionService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -31,6 +35,8 @@ logger = logging.getLogger(__name__)
         413: {"description": "PDF exceeds the configured upload limit"},
         415: {"description": "Uploaded content is not a PDF"},
         422: {"description": "Missing or invalid multipart field"},
+        500: {"description": "Internal ingestion pipeline failure"},
+        503: {"description": "OCR dependency is unavailable"},
     },
 )
 async def ingest_document(
@@ -38,8 +44,12 @@ async def ingest_document(
         ValidatedPDFUpload,
         Depends(validate_ingestion_request),
     ],
+    ingestion_service: Annotated[
+        IngestionService,
+        Depends(get_ingestion_service),
+    ],
 ) -> IngestResponse:
-    """Receive a validated upload before subsequent ingestion steps are added."""
+    """Validate an upload and run OCR outside the event loop."""
 
     ingestion_job = create_ingestion_job(pdf_upload)
     logger.info(
@@ -48,8 +58,48 @@ async def ingest_document(
         ingestion_job.pdf.filename,
     )
 
-    # OCR, chunking, embeddings, and storage are added in the next pipeline steps.
-    return IngestResponse(status="validated", chunks_stored=0)
+    try:
+        ocr_result = await run_in_threadpool(
+            ingestion_service.run_ocr,
+            ingestion_job,
+        )
+    except OCRProcessingError as exc:
+        logger.error(
+            "Ingestion OCR dependency failed: ingestion_id=%s",
+            ingestion_job.ingestion_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OCR service is unavailable",
+        ) from exc
+    except IngestionServiceError as exc:
+        logger.error(
+            "Ingestion OCR failed: ingestion_id=%s",
+            ingestion_job.ingestion_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="document ingestion failed during OCR",
+        ) from exc
+    except Exception as exc:
+        logger.exception(
+            "Unexpected ingestion failure: ingestion_id=%s",
+            ingestion_job.ingestion_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="unexpected document ingestion failure",
+        ) from exc
+
+    logger.info(
+        "Ingestion OCR result ready for chunking: ingestion_id=%s, pages=%s",
+        ocr_result.job.ingestion_id,
+        len(ocr_result.document.pages),
+    )
+    # Chunking, embeddings, and storage are added in the next pipeline steps.
+    return IngestResponse(status="ocr_complete", chunks_stored=0)
 
 
 # TODO: implement POST /api/ask    (response_model=RAGResponse)
