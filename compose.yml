@@ -1,0 +1,96 @@
+name: document-intelligence
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-document_intelligence}
+      POSTGRES_USER: ${POSTGRES_USER:-doc_intel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-doc_intel_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/001-enable-vector.sql:ro
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  backend:
+    build:
+      context: .
+      target: runtime
+      args:
+        RERANKER_MODEL_NAME: ${DOC_INTEL_RERANKER_MODEL_NAME:-ms-marco-MiniLM-L-12-v2}
+        RERANKER_MAX_LENGTH: ${DOC_INTEL_RERANKER_MAX_LENGTH:-512}
+    environment:
+      DOC_INTEL_DATABASE_URL: postgresql://${POSTGRES_USER:-doc_intel}:${POSTGRES_PASSWORD:-doc_intel_dev}@${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-document_intelligence}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      MINIMAX_API_BASE: ${MINIMAX_API_BASE:-https://api.minimax.io/v1}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DOC_INTEL_LOG_LEVEL: ${DOC_INTEL_LOG_LEVEL:-INFO}
+      DOC_INTEL_VECTOR_STORE_TABLE_NAME: ${DOC_INTEL_VECTOR_STORE_TABLE_NAME:-document_chunks}
+      DOC_INTEL_RETRIEVAL_CANDIDATE_COUNT: ${DOC_INTEL_RETRIEVAL_CANDIDATE_COUNT:-10}
+      DOC_INTEL_RERANKER_MODEL_NAME: ${DOC_INTEL_RERANKER_MODEL_NAME:-ms-marco-MiniLM-L-12-v2}
+      DOC_INTEL_RERANKER_CACHE_DIR: /app/.cache/flashrank
+      DOC_INTEL_RERANKER_MAX_LENGTH: ${DOC_INTEL_RERANKER_MAX_LENGTH:-512}
+      DOC_INTEL_SELECTED_CANDIDATE_COUNT: ${DOC_INTEL_SELECTED_CANDIDATE_COUNT:-5}
+      DOC_INTEL_EVIDENCE_MIN_RELEVANCE_SCORE: ${DOC_INTEL_EVIDENCE_MIN_RELEVANCE_SCORE:-0.0001}
+      DOC_INTEL_LLM_MODEL_NAME: ${DOC_INTEL_LLM_MODEL_NAME:-deepseek/deepseek-chat}
+      DOC_INTEL_LLM_TEMPERATURE: ${DOC_INTEL_LLM_TEMPERATURE:-0.0}
+      DOC_INTEL_LLM_MAX_TOKENS: ${DOC_INTEL_LLM_MAX_TOKENS:-512}
+      DOC_INTEL_LLM_TIMEOUT_SECONDS: ${DOC_INTEL_LLM_TIMEOUT_SECONDS:-60}
+      DOC_INTEL_LLM_MAX_RETRIES: ${DOC_INTEL_LLM_MAX_RETRIES:-2}
+      DOC_INTEL_MAX_UPLOAD_SIZE_MB: ${DOC_INTEL_MAX_UPLOAD_SIZE_MB:-20}
+      DOC_INTEL_MAX_NAMES_PER_REQUEST: ${DOC_INTEL_MAX_NAMES_PER_REQUEST:-1000}
+      DOC_INTEL_OCR_DPI: ${DOC_INTEL_OCR_DPI:-300}
+      DOC_INTEL_OCR_LANGUAGE: ${DOC_INTEL_OCR_LANGUAGE:-eng}
+      DOC_INTEL_OCR_TIMEOUT_SECONDS: ${DOC_INTEL_OCR_TIMEOUT_SECONDS:-60}
+      DOC_INTEL_OCR_MIN_CONFIDENCE: ${DOC_INTEL_OCR_MIN_CONFIDENCE:-0.30}
+      DOC_INTEL_NER_MODEL_NAME: ${DOC_INTEL_NER_MODEL_NAME:-en_core_web_sm}
+      DOC_INTEL_FUZZY_MATCH_THRESHOLD: ${DOC_INTEL_FUZZY_MATCH_THRESHOLD:-0.90}
+      DOC_INTEL_BBOX_MATCH_THRESHOLD: ${DOC_INTEL_BBOX_MATCH_THRESHOLD:-0.80}
+      DOC_INTEL_BBOX_MAX_HORIZONTAL_GAP_FACTOR: ${DOC_INTEL_BBOX_MAX_HORIZONTAL_GAP_FACTOR:-3.0}
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_MAX_UPLOAD_MB: ${DOC_INTEL_MAX_UPLOAD_SIZE_MB:-20}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    stop_grace_period: 10s
+
+volumes:
+  postgres_data:

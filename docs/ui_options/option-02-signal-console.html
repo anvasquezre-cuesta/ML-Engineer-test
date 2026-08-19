@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Signal Console — UI direction 02</title>
+  <style>
+    :root {
+      --bg: #080d16;
+      --panel: #101826;
+      --panel-2: #151f2f;
+      --line: #263247;
+      --text: #edf4ff;
+      --muted: #8d9bb0;
+      --blue: #4d7cff;
+      --cyan: #2cd5c4;
+      --amber: #f6bd5a;
+      --green: #4ee3a1;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: var(--bg); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    button, input { color: inherit; font: inherit; }
+    button { cursor: pointer; }
+
+    .app { min-height: 100vh; }
+    .topbar { height: 64px; display: flex; align-items: center; padding: 0 22px; border-bottom: 1px solid var(--line); background: #0c1320; }
+    .logo { display: flex; align-items: center; gap: 11px; min-width: 245px; font-weight: 800; letter-spacing: .06em; }
+    .logo-mark { position: relative; width: 31px; height: 31px; border: 1px solid var(--blue); border-radius: 6px; }
+    .logo-mark::before, .logo-mark::after { content: ""; position: absolute; background: var(--cyan); }
+    .logo-mark::before { inset: 7px 13px; }
+    .logo-mark::after { inset: 13px 7px; }
+    .top-nav { display: flex; align-self: stretch; gap: 3px; }
+    .nav-button { position: relative; padding: 0 18px; border: 0; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .nav-button:hover, .nav-button.active { color: var(--text); }
+    .nav-button.active::after { content: ""; position: absolute; inset: auto 15px -1px; height: 2px; background: var(--blue); }
+    .top-right { display: flex; align-items: center; gap: 20px; margin-left: auto; color: var(--muted); font-size: 11px; }
+    .health { display: flex; align-items: center; gap: 7px; color: var(--green); }
+    .health::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
+    .avatar { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 5px; color: var(--text); background: var(--panel-2); }
+
+    .view { display: none; }
+    .view.active { display: block; }
+    .page-heading { min-height: 102px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 24px; border-bottom: 1px solid var(--line); }
+    .kicker { margin: 0 0 4px; color: var(--cyan); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font: 600 26px/1.1 ui-sans-serif, system-ui, sans-serif; letter-spacing: -.025em; }
+    .sub { margin: 6px 0 0; color: var(--muted); font: 12px ui-sans-serif, system-ui, sans-serif; }
+    .button { min-height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2); font-weight: 700; }
+    .button:hover { border-color: #41526d; }
+    .button.primary { border-color: var(--blue); background: var(--blue); }
+    .button.cyan { color: #042522; border-color: var(--cyan); background: var(--cyan); }
+    .heading-actions { display: flex; gap: 8px; }
+
+    .review-grid { height: calc(100vh - 166px); min-height: 650px; display: grid; grid-template-columns: 245px minmax(500px, 1fr) 360px; }
+    .side { min-width: 0; border-right: 1px solid var(--line); background: #0c1320; }
+    .side-head { display: flex; align-items: center; justify-content: space-between; height: 45px; padding: 0 15px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+    .badge { padding: 2px 6px; border: 1px solid var(--line); border-radius: 3px; color: var(--text); background: var(--panel); font-size: 10px; }
+    .job { margin: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+    .job.selected { border-color: var(--blue); box-shadow: inset 3px 0 var(--blue); }
+    .job-top { display: flex; gap: 10px; align-items: start; }
+    .file-icon { width: 28px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 3px; color: #ff9a90; background: #42252d; font-size: 9px; font-weight: 800; }
+    .job b { display: block; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .job small { color: var(--muted); }
+    .progress { height: 3px; overflow: hidden; margin-top: 12px; border-radius: 4px; background: #253044; }
+    .progress span { display: block; width: 100%; height: 100%; background: var(--green); }
+    .job-status { display: flex; justify-content: space-between; margin-top: 7px; color: var(--green); font-size: 9px; }
+    .new-job { width: calc(100% - 20px); margin: 4px 10px; border-style: dashed; color: var(--muted); background: transparent; }
+
+    .viewer { min-width: 0; display: flex; flex-direction: column; background-color: #0b111c; background-image: radial-gradient(#223047 1px, transparent 1px); background-size: 18px 18px; }
+    .viewer-bar { height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-bottom: 1px solid var(--line); background: #0c1320; }
+    .tools { display: flex; align-items: center; gap: 6px; }
+    .tool { min-width: 27px; height: 27px; padding: 0 7px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+    .viewer-stage { flex: 1; overflow: auto; padding: 28px 34px; }
+    .page { position: relative; width: min(100%, 545px); min-height: 704px; margin: 0 auto; padding: 55px 62px; color: #243038; background: #f6f7f5; box-shadow: 0 0 0 1px #3e4b60, 0 24px 60px #02050a; font: 12px/1.65 Georgia, serif; }
+    .page-title { text-align: center; font-size: 18px; font-weight: bold; letter-spacing: .13em; }
+    .page-rule { height: 1px; margin: 14px 0 22px; background: #506068; }
+    .page table { margin-bottom: 20px; border-collapse: collapse; }
+    .page td { padding: 2px 10px 2px 0; vertical-align: top; }
+    .page td:first-child { font-weight: bold; }
+    .page h3 { margin: 22px 0 7px; font-size: 12px; letter-spacing: .04em; }
+    .detected { position: relative; padding: 0 2px; border: 2px solid #ee4c6f; background: rgba(238,76,111,.09); }
+    .detected.blue { border-color: #4169e1; background: rgba(65,105,225,.09); }
+    .detect-label { position: absolute; left: -2px; bottom: calc(100% + 3px); padding: 2px 4px; color: white; background: #ee4c6f; font: 700 7px ui-monospace, monospace; }
+    .blue .detect-label { background: #4169e1; }
+    .coordinates { position: absolute; right: 13px; bottom: 11px; color: #829099; font: 8px ui-monospace, monospace; }
+
+    .results { min-width: 0; border-left: 1px solid var(--line); background: #0c1320; }
+    .result-summary { display: grid; grid-template-columns: repeat(3,1fr); border-bottom: 1px solid var(--line); }
+    .result-summary div { padding: 12px 8px; border-right: 1px solid var(--line); text-align: center; }
+    .result-summary b { display: block; font-size: 17px; }
+    .result-summary small { color: var(--muted); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+    .result-tabs { display: flex; border-bottom: 1px solid var(--line); }
+    .result-tabs span { flex: 1; padding: 12px; text-align: center; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .result-tabs .active { color: var(--text); box-shadow: inset 0 -2px var(--cyan); }
+    .result-list { max-height: calc(100vh - 300px); overflow: auto; }
+    .result { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .result-title { display: flex; justify-content: space-between; gap: 8px; }
+    .result-title b { font: 700 13px ui-sans-serif, system-ui, sans-serif; }
+    .match { color: var(--green); font-size: 10px; }
+    .match.warn { color: var(--amber); }
+    .result-meta { margin-top: 6px; color: var(--muted); font-size: 9px; }
+    .candidate { margin-top: 10px; padding: 8px; border-left: 2px solid var(--cyan); background: var(--panel); font-size: 10px; }
+    .candidate span { color: var(--muted); }
+    .data-note { margin: 13px; padding: 10px; border: 1px solid #554523; border-radius: 4px; color: var(--amber); background: #221d14; font-size: 9px; }
+
+    .content { padding: 24px; }
+    .ingest-grid { display: grid; grid-template-columns: minmax(400px,1fr) minmax(330px,.8fr); gap: 16px; }
+    .panel { border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+    .panel-heading { padding: 14px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; letter-spacing: .11em; text-transform: uppercase; }
+    .dropzone { min-height: 330px; display: grid; place-items: center; margin: 16px; border: 1px dashed #45536a; border-radius: 5px; text-align: center; background: #0b121e; }
+    .drop-glyph { width: 72px; height: 72px; display: grid; place-items: center; margin: 0 auto 16px; border: 1px solid var(--blue); border-radius: 8px; color: var(--blue); font-size: 30px; box-shadow: 0 0 25px rgba(77,124,255,.15); }
+    .dropzone h2 { margin: 0; font: 600 20px ui-sans-serif, system-ui, sans-serif; }
+    .dropzone p { color: var(--muted); }
+    .pipeline { padding: 14px 18px 20px; }
+    .pipe-row { display: grid; grid-template-columns: 24px 1fr auto; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .pipe-row i { width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid #32664f; border-radius: 50%; color: var(--green); font-style: normal; }
+    .pipe-row small { color: var(--muted); }
+    .pipe-row code { color: var(--cyan); }
+
+    .qa { height: calc(100vh - 214px); min-height: 560px; display: grid; grid-template-columns: minmax(450px,1fr) 380px; gap: 16px; }
+    .chat-panel { display: flex; flex-direction: column; }
+    .messages { flex: 1; padding: 22px; overflow: auto; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .message { max-width: 78%; margin-bottom: 22px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+    .message.user { margin-left: auto; border-color: #3659bc; background: #17254c; }
+    .message.assistant { border-left: 3px solid var(--cyan); }
+    .cite { padding: 2px 5px; border-radius: 3px; color: var(--cyan); background: #123633; font: 700 10px ui-monospace, monospace; }
+    .compose { display: flex; gap: 8px; padding: 14px; border-top: 1px solid var(--line); }
+    .compose input { flex: 1; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 4px; background: #0b121e; outline: none; }
+    .source { margin: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 5px; background: #0b121e; }
+    .source-head { display: flex; justify-content: space-between; color: var(--cyan); }
+    .source p { color: #bec9d8; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; }
+    .source small { color: var(--muted); }
+
+    @media (max-width: 1080px) {
+      .review-grid { height: auto; grid-template-columns: 180px minmax(430px,1fr); }
+      .results { grid-column: 1 / -1; border-top: 1px solid var(--line); border-left: 0; }
+      .result-list { max-height: none; display: grid; grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 760px) {
+      .topbar { height: auto; min-height: 64px; flex-wrap: wrap; padding: 10px 14px 0; }
+      .logo { min-width: 0; margin-right: auto; }
+      .top-right > span { display: none; }
+      .top-nav { order: 3; width: 100%; height: 42px; margin-top: 8px; }
+      .nav-button { flex: 1; padding: 0 5px; }
+      .page-heading { align-items: start; flex-direction: column; }
+      .review-grid, .ingest-grid, .qa { height: auto; grid-template-columns: 1fr; }
+      .side { display: none; }
+      .viewer { min-height: 720px; }
+      .results { grid-column: auto; }
+      .result-list { grid-template-columns: 1fr; }
+      .content { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="logo"><span class="logo-mark"></span> SIGNAL // DOCS</div>
+      <nav class="top-nav">
+        <button class="nav-button active" data-view="extract">Extract</button>
+        <button class="nav-button" data-view="ingest">Ingest</button>
+        <button class="nav-button" data-view="ask">Ask</button>
+      </nav>
+      <div class="top-right"><span>ENV / LOCAL</span><span class="health">ALL SYSTEMS NOMINAL</span><div class="avatar">CM</div></div>
+    </header>
+
+    <section class="view active" id="extract">
+      <div class="page-heading">
+        <div><p class="kicker">Extraction run / X-0241</p><h1>Document evidence console</h1><p class="sub">Audit OCR entities, PDF-space coordinates, and candidate matches.</p></div>
+        <div class="heading-actions"><button class="button">+ ADD CANDIDATES</button><button class="button primary">RUN NEW EXTRACTION</button></div>
+      </div>
+      <div class="review-grid">
+        <aside class="side">
+          <div class="side-head"><span>Recent runs</span><span class="badge">03</span></div>
+          <div class="job selected"><div class="job-top"><div class="file-icon">PDF</div><div><b>company_memo.pdf</b><small>X-0241 · 1.2 MB</small></div></div><div class="progress"><span></span></div><div class="job-status"><span>COMPLETE</span><span>2.8 SEC</span></div></div>
+          <div class="job"><div class="job-top"><div class="file-icon">PDF</div><div><b>meeting_minutes.pdf</b><small>X-0240 · 940 KB</small></div></div><div class="progress"><span></span></div><div class="job-status"><span>COMPLETE</span><span>3.1 SEC</span></div></div>
+          <div class="job"><div class="job-top"><div class="file-icon">PDF</div><div><b>research_report.pdf</b><small>X-0239 · 2.4 MB</small></div></div><div class="progress"><span></span></div><div class="job-status"><span>COMPLETE</span><span>5.4 SEC</span></div></div>
+          <button class="button new-job">+ NEW RUN</button>
+        </aside>
+
+        <div class="viewer">
+          <div class="viewer-bar"><div class="tools"><button class="tool">−</button><span>92%</span><button class="tool">+</button><button class="tool">FIT</button></div><span>PAGE 01 / 03</span><div class="tools"><button class="tool">‹</button><button class="tool">›</button></div></div>
+          <div class="viewer-stage"><article class="page">
+            <div class="page-title">COMPANY MEMORANDUM</div><div class="page-rule"></div>
+            <table><tr><td>TO:</td><td>All Employees</td></tr><tr><td>FROM:</td><td><span class="detected blue"><span class="detect-label">N-001</span>Margaret Thompson</span>, Chief Executive Officer</td></tr><tr><td>DATE:</td><td>March 15, 2024</td></tr><tr><td>RE:</td><td>Leadership appointments and organizational update</td></tr></table>
+            <p>We are pleased to announce several important leadership appointments that support our continued growth.</p>
+            <h3>ENGINEERING LEADERSHIP</h3><p><span class="detected"><span class="detect-label">N-002</span>Robert Chen</span> has been promoted to Vice President of Engineering. Robert has led the platform team through three major releases and will now oversee all engineering functions.</p>
+            <h3>DATA &amp; ANALYTICS</h3><p>Dr. <span class="detected blue"><span class="detect-label">N-003</span>Sarah Williams</span> joins us as Chief Data Scientist and will report directly to CTO James Anderson.</p>
+            <p>Please join me in congratulating our colleagues on their new roles and welcoming Sarah to the organization.</p>
+            <span class="coordinates">PDF SPACE // PAGE_NUMBER 0 // 72 PT/IN</span>
+          </article></div>
+        </div>
+
+        <aside class="results">
+          <div class="side-head"><span>Entity output</span><span>JSON ↗</span></div>
+          <div class="result-summary"><div><b>06</b><small>Located</small></div><div><b>04</b><small>Matched</small></div><div><b>90%</b><small>Threshold</small></div></div>
+          <div class="result-tabs"><span class="active">Entities</span><span>Candidate list</span></div>
+          <div class="result-list">
+            <div class="result"><div class="result-title"><b>N-001 · Margaret Thompson</b><span class="match">98.4%</span></div><div class="result-meta">P0 · [162.4, 148.8, 106.2, 11.7]</div><div class="candidate"><span>MATCHED TO</span><br>Margaret Thompson</div></div>
+            <div class="result"><div class="result-title"><b>N-002 · Robert Chen</b><span class="match">96.1%</span></div><div class="result-meta">P0 · [72.2, 312.1, 68.4, 11.7]</div><div class="candidate"><span>MATCHED TO</span><br>Robert Chen</div></div>
+            <div class="result"><div class="result-title"><b>N-003 · Sarah Williams</b><span class="match">94.2%</span></div><div class="result-meta">P0 · [91.0, 407.6, 89.1, 11.7]</div><div class="candidate"><span>MATCHED TO</span><br>Maria S. Williams</div></div>
+            <div class="result"><div class="result-title"><b>N-004 · James Anderson</b><span class="match warn">NO MATCH</span></div><div class="result-meta">P0 · [339.5, 407.6, 91.8, 11.7]</div></div>
+          </div>
+          <div class="data-note">ⓘ Bounding boxes are normalized from OCR pixels into PDF points. Visual overlay uses the same coordinates returned by the API.</div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view" id="ingest">
+      <div class="page-heading"><div><p class="kicker">Knowledge index / pgvector</p><h1>Ingestion pipeline</h1><p class="sub">Convert scanned PDFs into retrieval-ready, traceable evidence.</p></div><div class="heading-actions"><button class="button">VIEW INDEX</button></div></div>
+      <div class="content ingest-grid">
+        <div class="panel"><div class="panel-heading">Upload input</div><div class="dropzone"><div><div class="drop-glyph">⇧</div><h2>DROP PDF TO INITIALIZE</h2><p>Content signature validation · 20 MB limit</p><button class="button primary">SELECT FILE</button></div></div></div>
+        <div class="panel"><div class="panel-heading">Last completed / ING-0188</div><div class="pipeline">
+          <div class="pipe-row"><i>✓</i><div><b>VALIDATE</b><br><small>research_report.pdf · 2.4 MB</small></div><code>18ms</code></div>
+          <div class="pipe-row"><i>✓</i><div><b>OCR + STRUCTURE</b><br><small>8 pages · 4,280 words</small></div><code>4.1s</code></div>
+          <div class="pipe-row"><i>✓</i><div><b>CHUNK + CONTEXT</b><br><small>31 semantic chunks</small></div><code>22ms</code></div>
+          <div class="pipe-row"><i>✓</i><div><b>EMBED + STORE</b><br><small>31 unique vector IDs</small></div><code>680ms</code></div>
+        </div></div>
+      </div>
+    </section>
+
+    <section class="view" id="ask">
+      <div class="page-heading"><div><p class="kicker">Grounded retrieval / 3 documents online</p><h1>Evidence query</h1><p class="sub">Answers are constrained to retrieved chunks and verified source identifiers.</p></div><div class="heading-actions"><button class="button">NEW SESSION</button></div></div>
+      <div class="content qa">
+        <div class="panel chat-panel"><div class="panel-heading">Conversation / Q-0094</div><div class="messages">
+          <div class="message user">What year-over-year revenue increase was reported in the meeting minutes?</div>
+          <div class="message assistant">The meeting minutes reported a <b>12% year-over-year revenue increase</b>. <span class="cite">S1</span></div>
+        </div><div class="compose"><input value="Ask the indexed evidence…" aria-label="Question"><button class="button cyan">EXECUTE →</button></div></div>
+        <aside class="panel"><div class="panel-heading">Verified retrieval / 01 source</div><div class="source"><div class="source-head"><b>S1</b><span>0.941</span></div><p>Revenue for the quarter increased 12% year-over-year, exceeding the board's forecast.</p><small>meeting_minutes.pdf · page 2 · Financial Overview</small></div></aside>
+      </div>
+    </section>
+  </div>
+  <script>
+    document.querySelectorAll('.nav-button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.nav-button, .view').forEach(el => el.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(button.dataset.view).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

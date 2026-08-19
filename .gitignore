@@ -1,5 +1,9 @@
 # Internal grader material — never ship to candidates
 GRADING.md
+/tests/
+
+# Local design artifact
+/docs/lean-rag-visual.html
 
 # Python
 __pycache__/
@@ -10,6 +14,7 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.cache/
 
 # Env / secrets
 .env
@@ -19,3 +24,6 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# notebook
+notebooks/

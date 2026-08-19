@@ -15,20 +15,25 @@ dependencies = [
     "pytesseract",
     "pymupdf",
     "pillow",
-    # NER  (after sync: `uv run python -m spacy download en_core_web_sm`)
+    # NER
     "spacy",
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     # Fuzzy matching
     "thefuzz",
     "python-Levenshtein",
-    # Embeddings + vector store (Chroma is embedded/local; swap for qdrant-client if preferred)
-    "sentence-transformers",
-    "chromadb",
-    # LLM / HTTP
+    # External model APIs
     "httpx",
+    "langchain-openai>=1.5.2",
+    "langchain-postgres>=0.0.17",
+    # Provider-neutral answer generation through one OpenAI-compatible interface
+    "litellm>=1.80.0,<2.0.0",
+    # Lightweight ONNX cross-encoder inference for local candidate reranking
+    "flashrank>=0.2.10,<0.3.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "ipykernel>=7.3.0",
     "pytest",
     "pytest-asyncio",
 ]
@@ -39,3 +44,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
