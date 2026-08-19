@@ -23,6 +23,7 @@ from app.models.ingestion import (
     StructuredDocument,
     StructuredIngestionResult,
 )
+from app.models.retrieval import QueryScope
 from app.models.schemas import (
     ExtractedName,
     ExtractionResponse,
@@ -163,3 +164,10 @@ class VectorStoreService(Protocol):
     """Persist embedded chunks without exposing database details upstream."""
 
     def store_chunks(self, chunks: Sequence[EmbeddedChunk]) -> int: ...
+
+
+@runtime_checkable
+class QueryScopeService(Protocol):
+    """Detect explicit metadata constraints without inferring user intent."""
+
+    def detect(self, question: str) -> QueryScope: ...

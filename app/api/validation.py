@@ -13,7 +13,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from app.config import Settings, get_settings
 from app.models.ingestion import ValidatedPDFUpload
-from app.models.schemas import NamePair
+from app.models.schemas import NamePair, RAGRequest
 
 logger = logging.getLogger(__name__)
 name_list_adapter = TypeAdapter(list[NamePair])
@@ -25,6 +25,31 @@ class ValidatedExtractionRequest:
 
     pdf_content: bytes
     names: tuple[NamePair, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ValidatedRAGRequest:
+    """Normalized data passed from ``POST /api/ask`` to the RAG pipeline."""
+
+    question: str
+
+
+def validate_rag_request(request: RAGRequest) -> ValidatedRAGRequest:
+    """Normalize and validate the question accepted by ``POST /api/ask``."""
+
+    normalized_question = request.question.strip()
+    if not normalized_question:
+        logger.warning("RAG question rejected: question is blank")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="question cannot be blank",
+        )
+
+    logger.info(
+        "RAG question validated: question_length=%s",
+        len(normalized_question),
+    )
+    return ValidatedRAGRequest(question=normalized_question)
 
 
 def parse_names(raw_names: str, max_names: int) -> tuple[NamePair, ...]:
