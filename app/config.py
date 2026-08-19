@@ -12,6 +12,10 @@ class Settings(BaseSettings):
 
     app_name: str = "Document Intelligence Service"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    database_url: str | None = Field(
+        default=None,
+        description="PostgreSQL connection URL used by the future RAG persistence layer",
+    )
 
     max_upload_size_mb: int = Field(default=20, gt=0)
     max_names_per_request: int = Field(default=1_000, gt=0)
