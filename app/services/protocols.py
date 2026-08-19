@@ -13,6 +13,8 @@ from app.models.ingestion import (
     ChunkedIngestionResult,
     IngestionJob,
     OCRIngestionResult,
+    MetadataChunk,
+    MetadataIngestionResult,
     StructuredDocument,
     StructuredIngestionResult,
 )
@@ -87,6 +89,11 @@ class IngestionService(Protocol):
         result: StructuredIngestionResult,
     ) -> ChunkedIngestionResult: ...
 
+    def attach_metadata(
+        self,
+        result: ChunkedIngestionResult,
+    ) -> MetadataIngestionResult: ...
+
 
 @runtime_checkable
 class DocumentStructureService(Protocol):
@@ -100,3 +107,10 @@ class ChunkingService(Protocol):
     """Create coherent chunks from recognized document structure."""
 
     def chunk(self, document: StructuredDocument) -> tuple[ChunkDraft, ...]: ...
+
+
+@runtime_checkable
+class ChunkMetadataService(Protocol):
+    """Attach filterable source metadata to coherent chunks."""
+
+    def attach(self, result: ChunkedIngestionResult) -> tuple[MetadataChunk, ...]: ...

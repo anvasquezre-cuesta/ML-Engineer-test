@@ -76,6 +76,10 @@ async def ingest_document(
             ingestion_service.create_chunks,
             structured_result,
         )
+        metadata_result = await run_in_threadpool(
+            ingestion_service.attach_metadata,
+            chunked_result,
+        )
     except OCRProcessingError as exc:
         logger.error(
             "Ingestion OCR dependency failed: ingestion_id=%s",
@@ -125,13 +129,14 @@ async def ingest_document(
         ) from exc
 
     logger.info(
-        "Document chunks ready for metadata: ingestion_id=%s, title=%s, chunks=%s",
-        chunked_result.structured.ocr.job.ingestion_id,
-        chunked_result.structured.document.title,
-        len(chunked_result.chunks),
+        "Document chunks ready for embedding context: "
+        "ingestion_id=%s, title=%s, chunks=%s",
+        metadata_result.chunked.structured.ocr.job.ingestion_id,
+        metadata_result.chunked.structured.document.title,
+        len(metadata_result.chunks),
     )
-    # Metadata, embeddings, and storage are added in the next pipeline steps.
-    return IngestResponse(status="chunked", chunks_stored=0)
+    # Embedding context, embeddings, and storage are added in the next steps.
+    return IngestResponse(status="metadata_attached", chunks_stored=0)
 
 
 # TODO: implement POST /api/ask    (response_model=RAGResponse)

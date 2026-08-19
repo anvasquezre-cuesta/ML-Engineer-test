@@ -7,12 +7,18 @@ from uuid import UUID, uuid4
 from app.models.ingestion import (
     ChunkedIngestionResult,
     IngestionJob,
+    MetadataIngestionResult,
     OCRIngestionResult,
     StructuredIngestionResult,
     ValidatedPDFUpload,
 )
 from app.services.errors import IngestionServiceError, OCRProcessingError
-from app.services.protocols import ChunkingService, DocumentStructureService, OCRService
+from app.services.protocols import (
+    ChunkingService,
+    ChunkMetadataService,
+    DocumentStructureService,
+    OCRService,
+)
 
 IngestionIdFactory = Callable[[], UUID]
 logger = logging.getLogger(__name__)
@@ -36,10 +42,12 @@ class DocumentIngestionService:
         ocr_service: OCRService,
         structure_service: DocumentStructureService,
         chunking_service: ChunkingService,
+        metadata_service: ChunkMetadataService,
     ) -> None:
         self._ocr_service = ocr_service
         self._structure_service = structure_service
         self._chunking_service = chunking_service
+        self._metadata_service = metadata_service
 
     def run_ocr(self, job: IngestionJob) -> OCRIngestionResult:
         """Run OCR and ensure every validated PDF page is represented."""
@@ -115,3 +123,22 @@ class DocumentIngestionService:
             sum(chunk.word_count for chunk in chunks),
         )
         return ChunkedIngestionResult(structured=result, chunks=chunks)
+
+    def attach_metadata(
+        self,
+        result: ChunkedIngestionResult,
+    ) -> MetadataIngestionResult:
+        """Attach source and position metadata to every coherent chunk."""
+
+        ingestion_id = result.structured.ocr.job.ingestion_id
+        logger.info(
+            "Chunk metadata enrichment started: ingestion_id=%s",
+            ingestion_id,
+        )
+        chunks = self._metadata_service.attach(result)
+        logger.info(
+            "Chunk metadata enrichment completed: ingestion_id=%s, chunks=%s",
+            ingestion_id,
+            len(chunks),
+        )
+        return MetadataIngestionResult(chunked=result, chunks=chunks)

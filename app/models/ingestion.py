@@ -115,3 +115,47 @@ class ChunkedIngestionResult(BaseModel):
 
     structured: StructuredIngestionResult
     chunks: tuple[ChunkDraft, ...]
+
+
+class DocumentType(StrEnum):
+    """Business-document types recognized during ingestion."""
+
+    MEMO = "memo"
+    MEETING_MINUTES = "meeting_minutes"
+    RESEARCH_REPORT = "research_report"
+    UNKNOWN = "unknown"
+
+
+class ChunkMetadata(BaseModel):
+    """Filterable and auditable metadata attached to one chunk."""
+
+    model_config = ConfigDict(frozen=True)
+
+    chunk_id: str = Field(min_length=1)
+    document_id: UUID
+    filename: str = Field(min_length=1, max_length=255)
+    document_type: DocumentType
+    document_title: str = Field(min_length=1)
+    section: str = Field(min_length=1)
+    page_start: int = Field(ge=0)
+    page_end: int = Field(ge=0)
+    chunk_index: int = Field(ge=0)
+    word_count: int = Field(ge=1)
+
+
+class MetadataChunk(BaseModel):
+    """A coherent chunk paired with retrieval metadata."""
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str = Field(min_length=1)
+    metadata: ChunkMetadata
+
+
+class MetadataIngestionResult(BaseModel):
+    """A chunked ingestion result enriched with retrieval metadata."""
+
+    model_config = ConfigDict(frozen=True)
+
+    chunked: ChunkedIngestionResult
+    chunks: tuple[MetadataChunk, ...]
