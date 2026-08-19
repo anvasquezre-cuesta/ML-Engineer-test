@@ -159,3 +159,22 @@ class MetadataIngestionResult(BaseModel):
 
     chunked: ChunkedIngestionResult
     chunks: tuple[MetadataChunk, ...]
+
+
+class ContextualizedChunk(BaseModel):
+    """A raw source chunk plus the contextual text used for embedding."""
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str = Field(min_length=1)
+    embedding_text: str = Field(min_length=1)
+    metadata: ChunkMetadata
+
+
+class ContextualizedIngestionResult(BaseModel):
+    """A metadata result enriched with deterministic embedding context."""
+
+    model_config = ConfigDict(frozen=True)
+
+    metadata_result: MetadataIngestionResult
+    chunks: tuple[ContextualizedChunk, ...]

@@ -11,6 +11,8 @@ from app.models.domain import OCRDocument, OCRPage, PersonMention
 from app.models.ingestion import (
     ChunkDraft,
     ChunkedIngestionResult,
+    ContextualizedChunk,
+    ContextualizedIngestionResult,
     IngestionJob,
     OCRIngestionResult,
     MetadataChunk,
@@ -94,6 +96,11 @@ class IngestionService(Protocol):
         result: ChunkedIngestionResult,
     ) -> MetadataIngestionResult: ...
 
+    def add_embedding_context(
+        self,
+        result: MetadataIngestionResult,
+    ) -> ContextualizedIngestionResult: ...
+
 
 @runtime_checkable
 class DocumentStructureService(Protocol):
@@ -114,3 +121,13 @@ class ChunkMetadataService(Protocol):
     """Attach filterable source metadata to coherent chunks."""
 
     def attach(self, result: ChunkedIngestionResult) -> tuple[MetadataChunk, ...]: ...
+
+
+@runtime_checkable
+class EmbeddingContextService(Protocol):
+    """Add deterministic document context to text prepared for embedding."""
+
+    def contextualize(
+        self,
+        result: MetadataIngestionResult,
+    ) -> tuple[ContextualizedChunk, ...]: ...

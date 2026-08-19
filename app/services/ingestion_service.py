@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from app.models.ingestion import (
     ChunkedIngestionResult,
+    ContextualizedIngestionResult,
     IngestionJob,
     MetadataIngestionResult,
     OCRIngestionResult,
@@ -17,6 +18,7 @@ from app.services.protocols import (
     ChunkingService,
     ChunkMetadataService,
     DocumentStructureService,
+    EmbeddingContextService,
     OCRService,
 )
 
@@ -43,11 +45,13 @@ class DocumentIngestionService:
         structure_service: DocumentStructureService,
         chunking_service: ChunkingService,
         metadata_service: ChunkMetadataService,
+        embedding_context_service: EmbeddingContextService,
     ) -> None:
         self._ocr_service = ocr_service
         self._structure_service = structure_service
         self._chunking_service = chunking_service
         self._metadata_service = metadata_service
+        self._embedding_context_service = embedding_context_service
 
     def run_ocr(self, job: IngestionJob) -> OCRIngestionResult:
         """Run OCR and ensure every validated PDF page is represented."""
@@ -142,3 +146,25 @@ class DocumentIngestionService:
             len(chunks),
         )
         return MetadataIngestionResult(chunked=result, chunks=chunks)
+
+    def add_embedding_context(
+        self,
+        result: MetadataIngestionResult,
+    ) -> ContextualizedIngestionResult:
+        """Add document title and section context to embedding text."""
+
+        ingestion_id = result.chunked.structured.ocr.job.ingestion_id
+        logger.info(
+            "Embedding context generation started: ingestion_id=%s",
+            ingestion_id,
+        )
+        chunks = self._embedding_context_service.contextualize(result)
+        logger.info(
+            "Embedding context generation completed: ingestion_id=%s, chunks=%s",
+            ingestion_id,
+            len(chunks),
+        )
+        return ContextualizedIngestionResult(
+            metadata_result=result,
+            chunks=chunks,
+        )
