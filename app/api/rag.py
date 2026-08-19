@@ -21,6 +21,8 @@ from app.services.errors import (
     EmbeddingResponseError,
     IngestionServiceError,
     OCRProcessingError,
+    VectorStoreUnavailableError,
+    VectorStoreWriteError,
 )
 from app.services.ingestion_service import create_ingestion_job
 from app.services.protocols import IngestionService
@@ -34,8 +36,8 @@ logger = logging.getLogger(__name__)
     response_model=IngestResponse,
     summary="Validate and ingest a scanned PDF",
     description=(
-        "Validates a scanned PDF, runs OCR on every page, and identifies its "
-        "structure before creating contextualized chunk embeddings."
+        "Validates a scanned PDF, runs OCR, creates contextualized chunks and "
+        "embeddings, and stores them in PostgreSQL with pgvector."
     ),
     responses={
         400: {"description": "Empty, unreadable, or password-protected PDF"},
@@ -44,7 +46,9 @@ logger = logging.getLogger(__name__)
         422: {"description": "Missing or invalid multipart field"},
         502: {"description": "Embedding provider returned an invalid response"},
         500: {"description": "Internal ingestion pipeline failure"},
-        503: {"description": "OCR or embedding dependency is unavailable"},
+        503: {
+            "description": "OCR, embedding, or vector-store dependency is unavailable"
+        },
     },
 )
 async def ingest_document(
@@ -90,6 +94,10 @@ async def ingest_document(
         embedded_result = await run_in_threadpool(
             ingestion_service.generate_embeddings,
             contextualized_result,
+        )
+        stored_result = await run_in_threadpool(
+            ingestion_service.store_chunks,
+            embedded_result,
         )
     except OCRProcessingError as exc:
         logger.error(
@@ -137,6 +145,24 @@ async def ingest_document(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="embedding service returned an invalid response",
         ) from exc
+    except VectorStoreUnavailableError as exc:
+        logger.exception(
+            "Vector store unavailable: ingestion_id=%s",
+            ingestion_job.ingestion_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="vector store is unavailable",
+        ) from exc
+    except VectorStoreWriteError as exc:
+        logger.exception(
+            "Vector storage failed: ingestion_id=%s",
+            ingestion_job.ingestion_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="document chunks could not be stored",
+        ) from exc
     except IngestionServiceError as exc:
         logger.error(
             "Ingestion processing failed: ingestion_id=%s",
@@ -158,14 +184,15 @@ async def ingest_document(
         ) from exc
 
     logger.info(
-        "Document chunks embedded and ready for storage: "
-        "ingestion_id=%s, title=%s, chunks=%s",
-        embedded_result.contextualized.metadata_result.chunked.structured.ocr.job.ingestion_id,
-        embedded_result.contextualized.metadata_result.chunked.structured.document.title,
-        len(embedded_result.chunks),
+        "Document indexed: ingestion_id=%s, title=%s, chunks_stored=%s",
+        stored_result.embedded.contextualized.metadata_result.chunked.structured.ocr.job.ingestion_id,
+        stored_result.embedded.contextualized.metadata_result.chunked.structured.document.title,
+        stored_result.chunks_stored,
     )
-    # PostgreSQL/pgvector persistence is intentionally implemented in step 9.
-    return IngestResponse(status="embedded", chunks_stored=0)
+    return IngestResponse(
+        status="success",
+        chunks_stored=stored_result.chunks_stored,
+    )
 
 
 # TODO: implement POST /api/ask    (response_model=RAGResponse)

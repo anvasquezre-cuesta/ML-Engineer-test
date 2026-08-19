@@ -24,6 +24,7 @@ dependencies = [
     # External model APIs
     "httpx",
     "langchain-openai>=1.5.2",
+    "langchain-postgres>=0.0.17",
 ]
 
 [project.optional-dependencies]

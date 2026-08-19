@@ -14,8 +14,16 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     database_url: str | None = Field(
         default=None,
-        description="PostgreSQL connection URL used by the future RAG persistence layer",
+        description="PostgreSQL connection URL used by the RAG persistence layer",
     )
+    vector_store_table_name: str = Field(
+        default="document_chunks",
+        pattern=r"^[A-Za-z_][A-Za-z0-9_]*$",
+    )
+    vector_store_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
+    vector_store_statement_timeout_ms: int = Field(default=10_000, ge=100)
+    vector_store_max_retries: int = Field(default=2, ge=0, le=10)
+    vector_store_retry_delay_seconds: float = Field(default=0.25, ge=0, le=10)
 
     openai_api_key: SecretStr | None = Field(
         default=None,

@@ -52,6 +52,12 @@ class LangChainOpenAIEmbeddingService:
 
         self._provider = provider
 
+    @property
+    def provider(self) -> EmbeddingProvider:
+        """Expose the shared LangChain provider to the vector-store adapter."""
+
+        return self._provider
+
     def embed_documents(
         self,
         texts: Sequence[str],

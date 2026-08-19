@@ -12,6 +12,7 @@ from app.models.ingestion import (
     IngestionJob,
     MetadataIngestionResult,
     OCRIngestionResult,
+    StoredIngestionResult,
     StructuredIngestionResult,
     ValidatedPDFUpload,
 )
@@ -19,6 +20,7 @@ from app.services.errors import (
     EmbeddingResponseError,
     IngestionServiceError,
     OCRProcessingError,
+    VectorStoreWriteError,
 )
 from app.services.protocols import (
     ChunkingService,
@@ -27,6 +29,7 @@ from app.services.protocols import (
     EmbeddingContextService,
     EmbeddingService,
     OCRService,
+    VectorStoreService,
 )
 
 IngestionIdFactory = Callable[[], UUID]
@@ -54,6 +57,7 @@ class DocumentIngestionService:
         metadata_service: ChunkMetadataService,
         embedding_context_service: EmbeddingContextService,
         embedding_service: EmbeddingService,
+        vector_store: VectorStoreService,
     ) -> None:
         self._ocr_service = ocr_service
         self._structure_service = structure_service
@@ -61,6 +65,7 @@ class DocumentIngestionService:
         self._metadata_service = metadata_service
         self._embedding_context_service = embedding_context_service
         self._embedding_service = embedding_service
+        self._vector_store = vector_store
 
     def run_ocr(self, job: IngestionJob) -> OCRIngestionResult:
         """Run OCR and ensure every validated PDF page is represented."""
@@ -213,4 +218,32 @@ class DocumentIngestionService:
         return EmbeddedIngestionResult(
             contextualized=result,
             chunks=chunks,
+        )
+
+    def store_chunks(
+        self,
+        result: EmbeddedIngestionResult,
+    ) -> StoredIngestionResult:
+        """Persist embedded chunks and verify the complete document was stored."""
+
+        ingestion_id = result.contextualized.metadata_result.chunked.structured.ocr.job.ingestion_id
+        logger.info(
+            "Vector storage started: ingestion_id=%s, chunks=%s",
+            ingestion_id,
+            len(result.chunks),
+        )
+        chunks_stored = self._vector_store.store_chunks(result.chunks)
+        if chunks_stored != len(result.chunks):
+            raise VectorStoreWriteError(
+                "vector store did not persist every document chunk"
+            )
+
+        logger.info(
+            "Vector storage completed: ingestion_id=%s, chunks_stored=%s",
+            ingestion_id,
+            chunks_stored,
+        )
+        return StoredIngestionResult(
+            embedded=result,
+            chunks_stored=chunks_stored,
         )

@@ -198,3 +198,12 @@ class EmbeddedIngestionResult(BaseModel):
 
     contextualized: ContextualizedIngestionResult
     chunks: tuple[EmbeddedChunk, ...]
+
+
+class StoredIngestionResult(BaseModel):
+    """An embedded ingestion result persisted in the vector database."""
+
+    model_config = ConfigDict(frozen=True)
+
+    embedded: EmbeddedIngestionResult
+    chunks_stored: int = Field(ge=0)

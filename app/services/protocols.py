@@ -13,11 +13,13 @@ from app.models.ingestion import (
     ChunkedIngestionResult,
     ContextualizedChunk,
     ContextualizedIngestionResult,
+    EmbeddedChunk,
     EmbeddedIngestionResult,
     IngestionJob,
     MetadataChunk,
     MetadataIngestionResult,
     OCRIngestionResult,
+    StoredIngestionResult,
     StructuredDocument,
     StructuredIngestionResult,
 )
@@ -107,6 +109,11 @@ class IngestionService(Protocol):
         result: ContextualizedIngestionResult,
     ) -> EmbeddedIngestionResult: ...
 
+    def store_chunks(
+        self,
+        result: EmbeddedIngestionResult,
+    ) -> StoredIngestionResult: ...
+
 
 @runtime_checkable
 class DocumentStructureService(Protocol):
@@ -149,3 +156,10 @@ class EmbeddingService(Protocol):
     ) -> tuple[tuple[float, ...], ...]: ...
 
     def embed_query(self, text: str) -> tuple[float, ...]: ...
+
+
+@runtime_checkable
+class VectorStoreService(Protocol):
+    """Persist embedded chunks without exposing database details upstream."""
+
+    def store_chunks(self, chunks: Sequence[EmbeddedChunk]) -> int: ...

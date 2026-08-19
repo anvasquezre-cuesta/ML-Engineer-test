@@ -43,3 +43,15 @@ class EmbeddingDependencyError(IngestionServiceError):
 
 class EmbeddingResponseError(IngestionServiceError):
     """Raised when an embedding provider returns an invalid result."""
+
+
+class VectorStoreConfigurationError(IngestionServiceError):
+    """Raised when vector-store configuration is incomplete or invalid."""
+
+
+class VectorStoreUnavailableError(IngestionServiceError):
+    """Raised when PostgreSQL cannot be reached after configured retries."""
+
+
+class VectorStoreWriteError(IngestionServiceError):
+    """Raised when embedded chunks cannot be persisted safely."""
