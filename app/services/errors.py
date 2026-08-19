@@ -83,3 +83,7 @@ class RerankerResponseError(RerankerServiceError):
 
 class CandidateSelectionError(RuntimeError):
     """Raised when malformed reranking output cannot be selected safely."""
+
+
+class GroundedContextError(RuntimeError):
+    """Raised when safe answer context cannot be built from evidence."""

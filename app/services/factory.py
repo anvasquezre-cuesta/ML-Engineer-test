@@ -13,6 +13,7 @@ from app.services.embedding_service import LangChainOpenAIEmbeddingService
 from app.services.evidence_assessment_service import ThresholdEvidenceAssessmentService
 from app.services.extraction_service import DocumentExtractionService
 from app.services.fuzzy_service import TheFuzzMatchingService
+from app.services.grounded_context_service import JSONGroundedContextService
 from app.services.ingestion_service import DocumentIngestionService
 from app.services.ner_service import SpacyNERService
 from app.services.ocr_service import TesseractOCRService
@@ -20,6 +21,7 @@ from app.services.protocols import (
     CandidateSelectionService,
     EvidenceAssessmentService,
     ExtractionService,
+    GroundedContextService,
     IngestionService,
     QueryPreparationService,
     RerankerService,
@@ -92,3 +94,9 @@ def build_evidence_assessment_service(
     """Build the deterministic relevance gate for selected evidence."""
 
     return ThresholdEvidenceAssessmentService(settings)
+
+
+def build_grounded_context_service() -> GroundedContextService:
+    """Build deterministic JSON context serialization for approved evidence."""
+
+    return JSONGroundedContextService()

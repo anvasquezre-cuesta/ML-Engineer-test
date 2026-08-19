@@ -121,3 +121,40 @@ class EvidenceAssessmentResult(BaseModel):
         if self.reason is None or self.user_guidance is None:
             raise ValueError("insufficient evidence requires reason and guidance")
         return self
+
+
+class GroundedPassage(BaseModel):
+    """One approved evidence passage with a stable citation identifier."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source_id: str = Field(pattern=r"^S[1-9][0-9]*$")
+    evidence: RerankedChunk
+
+
+class GroundedContext(BaseModel):
+    """JSON-safe evidence context prepared for grounded answer generation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    assessment: EvidenceAssessmentResult
+    passages: tuple[GroundedPassage, ...] = Field(min_length=1, max_length=5)
+    context_text: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_grounding(self) -> Self:
+        """Ensure context labels map exactly to the approved evidence."""
+
+        if not self.assessment.sufficient:
+            raise ValueError("grounded context requires sufficient evidence")
+
+        expected_source_ids = tuple(
+            f"S{index}" for index in range(1, len(self.passages) + 1)
+        )
+        if tuple(passage.source_id for passage in self.passages) != expected_source_ids:
+            raise ValueError("grounded context requires sequential source identifiers")
+        if tuple(passage.evidence for passage in self.passages) != (
+            self.assessment.usable_candidates
+        ):
+            raise ValueError("grounded passages must match approved evidence")
+        return self
