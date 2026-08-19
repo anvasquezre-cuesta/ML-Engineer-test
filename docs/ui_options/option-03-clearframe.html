@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clearframe — UI direction 03</title>
+  <style>
+    :root {
+      --ink: #22202b;
+      --muted: #726e7e;
+      --bg: #f5f4fa;
+      --card: #ffffff;
+      --line: #e7e3ee;
+      --purple: #7056d8;
+      --purple-dark: #5236ba;
+      --purple-soft: #ece7ff;
+      --lime: #c7f066;
+      --lime-soft: #f0fbd4;
+      --pink: #f07891;
+      --pink-soft: #ffe8ed;
+      --blue-soft: #deefff;
+      --shadow: 0 14px 40px rgba(73, 59, 102, .09);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--bg); font: 14px/1.5 Inter, Avenir, "Segoe UI", ui-sans-serif, system-ui, sans-serif; }
+    button, input { color: inherit; font: inherit; }
+    button { cursor: pointer; }
+
+    .app { min-height: 100vh; display: grid; grid-template-columns: 236px 1fr; }
+    .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 26px 18px 20px; border-right: 1px solid var(--line); background: rgba(255,255,255,.78); backdrop-filter: blur(14px); }
+    .logo { display: flex; align-items: center; gap: 10px; padding: 0 8px; font-size: 19px; font-weight: 800; letter-spacing: -.04em; }
+    .logo-mark { position: relative; width: 34px; height: 34px; overflow: hidden; border-radius: 10px; background: var(--purple); transform: rotate(-4deg); }
+    .logo-mark::before { content: ""; position: absolute; width: 22px; height: 8px; left: 8px; top: 7px; border: 2px solid white; border-radius: 3px; box-shadow: 0 9px 0 -2px var(--lime); }
+    .section-label { margin: 44px 10px 10px; color: #a09aaa; font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .nav { display: grid; gap: 6px; }
+    .nav-button { display: flex; align-items: center; gap: 12px; min-height: 45px; padding: 0 12px; border: 0; border-radius: 11px; color: var(--muted); background: transparent; font-weight: 700; text-align: left; }
+    .nav-button i { width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-style: normal; }
+    .nav-button:hover { color: var(--ink); background: #f3f0fb; }
+    .nav-button.active { color: var(--purple-dark); background: var(--purple-soft); }
+    .nav-button.active i { color: #fff; border-color: var(--purple); background: var(--purple); }
+    .help-card { margin-top: auto; padding: 16px; border: 1px solid #d8eaa8; border-radius: 15px; background: var(--lime-soft); }
+    .help-card .spark { width: 34px; height: 34px; display: grid; place-items: center; margin-bottom: 10px; border-radius: 10px; background: var(--lime); font-size: 18px; }
+    .help-card b { display: block; }
+    .help-card p { margin: 4px 0 12px; color: #5f684d; font-size: 11px; }
+    .help-card button { padding: 0; border: 0; background: transparent; font-size: 11px; font-weight: 800; text-decoration: underline; }
+
+    .shell { min-width: 0; padding: 0 30px 40px; }
+    .topbar { height: 74px; display: flex; align-items: center; justify-content: flex-end; gap: 15px; }
+    .api { display: flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: #fff; font-size: 11px; }
+    .api::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #62bc73; }
+    .round-button { width: 37px; height: 37px; border: 1px solid var(--line); border-radius: 50%; background: #fff; }
+    .avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--purple); font-weight: 800; }
+
+    .view { display: none; }
+    .view.active { display: block; }
+    .page-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin: 10px 0 24px; }
+    .eyebrow { margin: 0 0 5px; color: var(--purple); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 44px); line-height: 1.08; letter-spacing: -.055em; }
+    .intro { max-width: 650px; margin: 9px 0 0; color: var(--muted); }
+    .button { min-height: 40px; padding: 0 16px; border: 1px solid var(--line); border-radius: 11px; background: #fff; font-weight: 800; box-shadow: 0 3px 10px rgba(48,40,64,.04); }
+    .button.primary { color: #fff; border-color: var(--purple); background: var(--purple); box-shadow: 0 8px 18px rgba(112,86,216,.2); }
+    .button.lime { border-color: var(--lime); background: var(--lime); }
+    .actions { display: flex; gap: 9px; }
+
+    .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 17px; }
+    .step { display: flex; align-items: center; gap: 11px; padding: 12px 15px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: #fff; }
+    .step span { width: 27px; height: 27px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 8px; background: #f3f1f6; font-size: 11px; font-weight: 900; }
+    .step b { color: var(--ink); }
+    .step.done span { color: #405a13; background: var(--lime); }
+    .step.active { color: var(--purple-dark); border-color: #cabfff; background: var(--purple-soft); }
+    .step.active span { color: #fff; background: var(--purple); }
+
+    .review-grid { display: grid; grid-template-columns: minmax(500px, 1.35fr) minmax(310px, .65fr); gap: 17px; }
+    .card { min-width: 0; border: 1px solid var(--line); border-radius: 18px; background: var(--card); box-shadow: var(--shadow); }
+    .viewer { overflow: hidden; }
+    .viewer-head { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 17px; border-bottom: 1px solid var(--line); }
+    .file { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .pdf { width: 31px; height: 36px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 7px; color: #bb3d58; background: var(--pink-soft); font-size: 9px; font-weight: 900; }
+    .file b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file small { color: var(--muted); }
+    .viewer-tools { display: flex; align-items: center; gap: 6px; }
+    .mini { min-width: 28px; height: 29px; padding: 0 7px; border: 1px solid var(--line); border-radius: 8px; background: #faf9fc; }
+    .document-stage { min-height: 665px; overflow: auto; padding: 30px; background: #e9e7ee; }
+    .page { position: relative; width: min(100%, 535px); min-height: 690px; margin: 0 auto; padding: 52px 60px; color: #343139; background: #fff; box-shadow: 0 15px 35px rgba(50,43,62,.16); font: 12px/1.65 Georgia, serif; }
+    .page-title { text-align: center; font-size: 18px; font-weight: 700; letter-spacing: .1em; }
+    .line { height: 1px; margin: 13px 0 22px; background: #55505c; }
+    .page dl { display: grid; grid-template-columns: 55px 1fr; gap: 5px 10px; margin-bottom: 25px; }
+    .page dt { font-weight: 700; }.page dd { margin: 0; }
+    .page h3 { margin: 22px 0 7px; font-size: 12px; }
+    .name { position: relative; z-index: 1; padding: 0 2px; white-space: nowrap; }
+    .name::before { content: ""; position: absolute; z-index: -1; inset: -2px -3px; border: 2px solid var(--pink); border-radius: 4px; background: rgba(240,120,145,.11); }
+    .name.purple::before { border-color: var(--purple); background: rgba(112,86,216,.10); }
+    .pin { position: absolute; left: -4px; bottom: calc(100% + 4px); padding: 2px 5px; border-radius: 4px; color: #fff; background: var(--pink); font: 800 7px Inter, sans-serif; }
+    .purple .pin { background: var(--purple); }
+    .page-note { position: absolute; right: 14px; bottom: 10px; color: #aaa4b1; font: 9px Inter, sans-serif; }
+
+    .findings { display: flex; flex-direction: column; max-height: 725px; overflow: hidden; }
+    .card-head { padding: 19px 19px 14px; border-bottom: 1px solid var(--line); }
+    .card-head-row { display: flex; align-items: center; justify-content: space-between; }
+    .card-head h2 { margin: 0; font-size: 18px; letter-spacing: -.03em; }
+    .count { padding: 4px 8px; border-radius: 999px; color: var(--purple-dark); background: var(--purple-soft); font-size: 10px; font-weight: 900; }
+    .search { width: 100%; margin-top: 13px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #faf9fc; outline: none; }
+    .finding-list { flex: 1; overflow: auto; padding: 7px 12px 15px; }
+    .finding { margin-top: 8px; padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+    .finding.selected { border-color: #c7bbff; background: #f8f6ff; }
+    .finding-top { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+    .name-index { display: flex; gap: 10px; }
+    .name-index i { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 7px; color: #a53750; background: var(--pink-soft); font-style: normal; font-size: 9px; font-weight: 900; }
+    .name-index b { display: block; }
+    .name-index small { color: var(--muted); }
+    .score { padding: 4px 7px; border-radius: 7px; color: #536b1b; background: var(--lime-soft); font-size: 10px; font-weight: 900; }
+    .score.none { color: #a25120; background: #fff0dd; }
+    .candidate { display: flex; justify-content: space-between; margin-top: 11px; padding-top: 10px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 11px; }
+    .candidate b { color: var(--ink); }
+    .coordinate-note { padding: 12px 18px; border-top: 1px solid var(--line); color: var(--muted); background: #faf9fc; font-size: 10px; }
+
+    .ingest-grid { display: grid; grid-template-columns: minmax(430px,1fr) minmax(350px,.8fr); gap: 17px; }
+    .drop { min-height: 380px; display: grid; place-items: center; margin: 17px; border: 2px dashed #c9bff2; border-radius: 16px; text-align: center; background: linear-gradient(145deg, #faf9ff, #f0ecff); }
+    .drop-icon { width: 76px; height: 76px; display: grid; place-items: center; margin: 0 auto 17px; border-radius: 23px; color: #fff; background: var(--purple); box-shadow: 0 12px 28px rgba(112,86,216,.25); font-size: 30px; transform: rotate(-3deg); }
+    .drop h2 { margin: 0; font-size: 22px; letter-spacing: -.03em; }
+    .drop p { color: var(--muted); }
+    .library { padding: 5px 18px 18px; }
+    .library-item { display: grid; grid-template-columns: 37px 1fr auto; gap: 11px; align-items: center; padding: 15px 0; border-bottom: 1px solid var(--line); }
+    .library-item .doc { width: 37px; height: 37px; display: grid; place-items: center; border-radius: 10px; background: var(--blue-soft); }
+    .library-item small { color: var(--muted); }
+    .ready { padding: 4px 8px; border-radius: 999px; color: #466316; background: var(--lime-soft); font-size: 9px; font-weight: 900; }
+    .library-total { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; padding: 15px 18px; border-top: 1px solid var(--line); background: #faf9fc; }
+    .library-total div { padding: 12px; border-radius: 12px; background: #fff; }
+    .library-total b { display: block; font-size: 19px; }
+    .library-total small { color: var(--muted); }
+
+    .ask-grid { display: grid; grid-template-columns: minmax(460px,1fr) 340px; gap: 17px; }
+    .chat-card { min-height: 635px; display: flex; flex-direction: column; overflow: hidden; }
+    .chat-intro { padding: 22px; border-bottom: 1px solid var(--line); background: linear-gradient(90deg, var(--purple-soft), #f9f7ff); }
+    .chat-intro b { display: block; font-size: 17px; }
+    .chat-intro p { margin: 4px 0 0; color: var(--muted); }
+    .messages { flex: 1; padding: 24px; }
+    .message { max-width: 78%; margin-bottom: 23px; padding: 14px 16px; border-radius: 14px; background: #f1eff5; }
+    .message.user { margin-left: auto; color: #fff; border-radius: 14px 14px 4px 14px; background: var(--purple); }
+    .message.answer { padding: 0 0 0 16px; border-left: 3px solid var(--lime); border-radius: 0; background: transparent; }
+    .cite { padding: 2px 6px; border-radius: 5px; color: var(--purple-dark); background: var(--purple-soft); font-size: 10px; font-weight: 900; }
+    .composer { display: flex; gap: 9px; padding: 15px; border-top: 1px solid var(--line); }
+    .composer input { flex: 1; min-width: 0; padding: 12px 13px; border: 1px solid var(--line); border-radius: 11px; background: #faf9fc; outline: none; }
+    .source { margin: 12px 14px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+    .source-tag { display: flex; justify-content: space-between; color: var(--purple); font-size: 10px; font-weight: 900; }
+    .source p { margin: 9px 0; font-size: 12px; }
+    .source small { color: var(--muted); }
+    .grounding { margin: 14px; padding: 13px; border-radius: 12px; color: #4f622b; background: var(--lime-soft); font-size: 11px; }
+
+    @media (max-width: 1000px) {
+      .app { grid-template-columns: 78px 1fr; }
+      .sidebar { align-items: center; padding: 22px 10px; }
+      .logo { padding: 0; }.logo span:last-child, .section-label, .nav-button span, .help-card { display: none; }
+      .nav-button { justify-content: center; padding: 0 8px; }
+      .review-grid, .ingest-grid, .ask-grid { grid-template-columns: 1fr; }
+      .findings { max-height: none; }
+    }
+    @media (max-width: 660px) {
+      .app { display: block; padding-bottom: 74px; }
+      .sidebar { z-index: 20; position: fixed; inset: auto 0 0; width: 100%; height: 66px; flex-direction: row; padding: 8px 12px; border-top: 1px solid var(--line); border-right: 0; }
+      .logo { display: none; }.nav { width: 100%; grid-template-columns: repeat(3,1fr); }.nav-button span { display: inline; }
+      .shell { padding: 0 14px 28px; }
+      .topbar { height: 60px; }
+      .page-head { align-items: start; flex-direction: column; }
+      .steps { grid-template-columns: 1fr; }
+      .step:not(.active) { display: none; }
+      .document-stage { padding: 18px 10px; }
+      .page { padding: 42px 36px; }
+      .viewer-head { align-items: start; flex-direction: column; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo"><span class="logo-mark"></span><span>clearframe</span></div>
+      <div class="section-label">Workspace</div>
+      <nav class="nav">
+        <button class="nav-button active" data-view="review"><i>⌖</i><span>Review names</span></button>
+        <button class="nav-button" data-view="ingest"><i>⇧</i><span>Add to library</span></button>
+        <button class="nav-button" data-view="ask"><i>✦</i><span>Ask documents</span></button>
+      </nav>
+      <div class="help-card"><div class="spark">?</div><b>Need a hand?</b><p>Learn how boxes and match scores should be reviewed.</p><button>Open reviewer guide →</button></div>
+    </aside>
+
+    <div class="shell">
+      <header class="topbar"><span class="api">API healthy</span><button class="round-button">?</button><div class="avatar">CM</div></header>
+
+      <main>
+        <section class="view active" id="review">
+          <div class="page-head"><div><p class="eyebrow">Name review</p><h1>Everything in its place.</h1><p class="intro">Compare detected people with your candidate list and verify every result directly on the scanned page.</p></div><div class="actions"><button class="button">Start over</button><button class="button primary">Download results</button></div></div>
+          <div class="steps"><div class="step done"><span>✓</span><div><b>Upload</b><br><small>company_memo.pdf</small></div></div><div class="step done"><span>✓</span><div><b>Process</b><br><small>3 pages scanned</small></div></div><div class="step active"><span>3</span><div><b>Review</b><br><small>6 people located</small></div></div></div>
+          <div class="review-grid">
+            <section class="card viewer">
+              <div class="viewer-head"><div class="file"><div class="pdf">PDF</div><div><b>company_memo.pdf</b><small>Page 1 of 3 · API page 0</small></div></div><div class="viewer-tools"><button class="mini">−</button><b>92%</b><button class="mini">+</button><button class="mini">‹</button><button class="mini">›</button></div></div>
+              <div class="document-stage"><article class="page">
+                <div class="page-title">COMPANY MEMORANDUM</div><div class="line"></div>
+                <dl><dt>TO:</dt><dd>All Employees</dd><dt>FROM:</dt><dd><span class="name purple"><span class="pin">01</span>Margaret Thompson</span>, Chief Executive Officer</dd><dt>DATE:</dt><dd>March 15, 2024</dd><dt>RE:</dt><dd>Leadership appointments and organizational update</dd></dl>
+                <p>We are pleased to announce several important leadership appointments that support our continued growth.</p>
+                <h3>ENGINEERING LEADERSHIP</h3><p><span class="name"><span class="pin">02</span>Robert Chen</span> has been promoted to Vice President of Engineering. Robert has led the platform team through three major releases and will now oversee all engineering functions.</p>
+                <h3>DATA &amp; ANALYTICS</h3><p>Dr. <span class="name purple"><span class="pin">03</span>Sarah Williams</span> joins us as Chief Data Scientist and will report directly to CTO James Anderson.</p>
+                <p>Please join me in congratulating our colleagues on their new roles and welcoming Sarah to the organization.</p>
+                <span class="page-note">Coordinates rendered in PDF points · 72/in</span>
+              </article></div>
+            </section>
+            <aside class="card findings">
+              <div class="card-head"><div class="card-head-row"><h2>People &amp; matches</h2><span class="count">6 found</span></div><input class="search" placeholder="Search findings…"></div>
+              <div class="finding-list">
+                <div class="finding selected"><div class="finding-top"><div class="name-index"><i>01</i><div><b>Margaret Thompson</b><small>Page 1 · x162.4, y148.8</small></div></div><span class="score">98%</span></div><div class="candidate"><span>Best candidate</span><b>Margaret Thompson</b></div></div>
+                <div class="finding"><div class="finding-top"><div class="name-index"><i>02</i><div><b>Robert Chen</b><small>Page 1 · x72.2, y312.1</small></div></div><span class="score">96%</span></div><div class="candidate"><span>Best candidate</span><b>Robert Chen</b></div></div>
+                <div class="finding"><div class="finding-top"><div class="name-index"><i>03</i><div><b>Sarah Williams</b><small>Page 1 · x91.0, y407.6</small></div></div><span class="score">94%</span></div><div class="candidate"><span>Best candidate</span><b>Maria S. Williams</b></div></div>
+                <div class="finding"><div class="finding-top"><div class="name-index"><i>04</i><div><b>James Anderson</b><small>Page 1 · x339.5, y407.6</small></div></div><span class="score none">No match</span></div><div class="candidate"><span>Below match threshold</span><b>—</b></div></div>
+              </div>
+              <div class="coordinate-note">Select a person to center their bounding box in the document viewer.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="ingest">
+          <div class="page-head"><div><p class="eyebrow">Knowledge library</p><h1>Bring documents into focus.</h1><p class="intro">Add scanned PDFs to the evidence library so every answer can link back to its source.</p></div></div>
+          <div class="ingest-grid">
+            <section class="card"><div class="drop"><div><div class="drop-icon">⇧</div><h2>Drop your PDF here</h2><p>Scanned PDFs up to 20 MB</p><button class="button primary">Browse files</button></div></div></section>
+            <section class="card"><div class="card-head"><div class="card-head-row"><h2>Your library</h2><span class="count">3 ready</span></div></div><div class="library">
+              <div class="library-item"><div class="doc">▤</div><div><b>company_memo.pdf</b><br><small>12 chunks · indexed now</small></div><span class="ready">READY</span></div>
+              <div class="library-item"><div class="doc">▤</div><div><b>meeting_minutes.pdf</b><br><small>18 chunks · 8 min ago</small></div><span class="ready">READY</span></div>
+              <div class="library-item"><div class="doc">▤</div><div><b>research_report.pdf</b><br><small>31 chunks · yesterday</small></div><span class="ready">READY</span></div>
+            </div><div class="library-total"><div><b>3</b><small>Documents</small></div><div><b>61</b><small>Searchable chunks</small></div></div></section>
+          </div>
+        </section>
+
+        <section class="view" id="ask">
+          <div class="page-head"><div><p class="eyebrow">Grounded questions</p><h1>Ask. Then verify.</h1><p class="intro">Clear answers from your indexed documents, with the evidence always attached.</p></div><div class="actions"><button class="button">New conversation</button></div></div>
+          <div class="ask-grid">
+            <section class="card chat-card"><div class="chat-intro"><b>Ask across 3 indexed documents</b><p>Answers without enough evidence will say so—no invented sources.</p></div><div class="messages">
+              <div class="message user">Who joined as Chief Data Scientist, and who does she report to?</div>
+              <div class="message answer"><b>Dr. Sarah Williams</b> joined as Chief Data Scientist. She reports directly to CTO James Anderson. <span class="cite">S1</span></div>
+            </div><div class="composer"><input value="Ask about your documents…" aria-label="Question"><button class="button lime">Ask ✦</button></div></section>
+            <aside class="card"><div class="card-head"><div class="card-head-row"><h2>Supporting evidence</h2><span class="count">1 source</span></div></div><div class="grounding">✓ This answer is supported by retrieved document evidence.</div><div class="source"><div class="source-tag"><span>S1 · VERIFIED</span><span>Page 1</span></div><p>Dr. Sarah Williams joins us as Chief Data Scientist and will report directly to CTO James Anderson.</p><small>company_memo.pdf · Data &amp; Analytics</small></div></aside>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script>
+    document.querySelectorAll('.nav-button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.nav-button, .view').forEach(el => el.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(button.dataset.view).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

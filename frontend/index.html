@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Extract, locate, match, and verify people in scanned PDF documents."
+    />
+    <title>EvidenceDesk · Document Intelligence</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail" aria-label="Primary navigation">
+        <a class="mark" href="#review" aria-label="EvidenceDesk home">E</a>
+        <nav class="rail-nav">
+          <button class="rail-button active" type="button" data-view="review" aria-current="page">
+            <span class="rail-icon" aria-hidden="true">⌖</span><span>Review</span>
+          </button>
+          <button class="rail-button" type="button" data-view="ingest">
+            <span class="rail-icon" aria-hidden="true">⇧</span><span>Ingest</span>
+          </button>
+          <button class="rail-button" type="button" data-view="ask">
+            <span class="rail-icon" aria-hidden="true">◌</span><span>Ask</span>
+          </button>
+        </nav>
+        <div class="rail-foot"><div class="avatar" aria-label="Current user">CM</div></div>
+      </aside>
+
+      <div class="shell">
+        <header class="topbar">
+          <a class="brand" href="#review">Evidence<span>Desk</span></a>
+          <div class="api-status" id="apiStatus" role="status">
+            <i aria-hidden="true"></i><span>Checking API…</span>
+          </div>
+        </header>
+
+        <main>
+          <section class="view active" id="review" aria-labelledby="reviewTitle">
+            <div class="page-head">
+              <div>
+                <p class="eyebrow">Name extraction · auditable results</p>
+                <h1 id="reviewTitle">Review the evidence.</h1>
+                <p class="lede">Every detected person stays tied to the exact place they appeared in the source document.</p>
+              </div>
+              <div class="head-actions result-action" hidden>
+                <button class="button" id="replacePdfButton" type="button">Replace PDF</button>
+                <button class="button primary" id="exportButton" type="button">Export findings</button>
+              </div>
+            </div>
+
+            <section class="setup-grid" id="extractSetup" aria-label="Extraction setup">
+              <div class="card upload-card">
+                <div class="card-heading">
+                  <div><span class="step-number">1</span><div><h2>Choose a scanned PDF</h2><p>The original remains in your browser for visual verification.</p></div></div>
+                </div>
+                <input id="extractFileInput" class="visually-hidden" type="file" accept="application/pdf,.pdf" />
+                <button class="dropzone" id="extractDropzone" type="button">
+                  <span class="drop-icon" aria-hidden="true">⇧</span>
+                  <span class="drop-copy"><strong>Drop a scanned PDF here</strong><small>or click to browse · PDF only · <span class="uploadLimit">20 MB</span> maximum</small></span>
+                </button>
+                <div class="selected-file" id="extractSelectedFile" hidden>
+                  <span class="pdf-icon">PDF</span><div><strong></strong><small></small></div>
+                  <button type="button" aria-label="Remove selected PDF">×</button>
+                </div>
+              </div>
+
+              <div class="card candidate-card">
+                <div class="card-heading">
+                  <div><span class="step-number">2</span><div><h2>Add names to match</h2><p>Optional candidates are compared with every person detected.</p></div></div>
+                  <span class="candidate-count" id="candidateCount">0 names</span>
+                </div>
+                <div class="candidate-columns" aria-hidden="true"><span>First name</span><span>Last name</span><span></span></div>
+                <div class="candidate-rows" id="candidateRows"></div>
+                <button class="text-button" id="addCandidateButton" type="button">＋ Add another person</button>
+              </div>
+
+              <div class="setup-actions">
+                <div class="privacy-note"><span aria-hidden="true">◇</span><span>Your file is sent only to this service and is not stored by the extraction endpoint.</span></div>
+                <button class="button primary run-button" id="extractButton" type="button" disabled>
+                  <span class="button-label">Extract &amp; locate names</span><span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </section>
+
+            <section id="extractProgress" class="processing-card card" hidden aria-live="polite">
+              <div class="processing-mark"><span></span><span></span><span></span></div>
+              <div><h2>Reading every page…</h2><p>Running OCR, detecting people, mapping PDF coordinates, and comparing candidates.</p></div>
+            </section>
+
+            <section id="reviewResults" hidden>
+              <div class="metrics">
+                <div class="metric"><small>Pages scanned</small><strong id="pageMetric">—</strong></div>
+                <div class="metric"><small>People located</small><strong id="peopleMetric">—</strong></div>
+                <div class="metric"><small>Candidate matches</small><strong class="good" id="matchMetric">—</strong></div>
+                <div class="metric"><small>Processing time</small><strong id="timeMetric">—</strong></div>
+              </div>
+
+              <div class="workspace">
+                <section class="viewer" aria-label="PDF evidence viewer">
+                  <div class="viewer-tools">
+                    <div class="toolgroup">
+                      <button class="icon-button" id="zoomOutButton" type="button" aria-label="Zoom out">−</button>
+                      <strong id="zoomValue">100%</strong>
+                      <button class="icon-button" id="zoomInButton" type="button" aria-label="Zoom in">+</button>
+                    </div>
+                    <div class="filename" id="viewerFilename"></div>
+                    <div class="toolgroup">
+                      <button class="icon-button" id="previousPageButton" type="button" aria-label="Previous page">‹</button>
+                      <span class="page-count" id="pageCount">— / —</span>
+                      <button class="icon-button" id="nextPageButton" type="button" aria-label="Next page">›</button>
+                    </div>
+                  </div>
+                  <div class="document-stage" id="documentStage">
+                    <div class="pdf-page" id="pdfPage">
+                      <canvas id="pdfCanvas"></canvas>
+                      <div class="overlay-layer" id="overlayLayer" aria-label="Detected name bounding boxes"></div>
+                    </div>
+                  </div>
+                </section>
+
+                <aside class="inspector">
+                  <div class="panel-title"><h2>Located people</h2><p id="occurrenceSummary">Document order</p></div>
+                  <label class="filter"><span aria-hidden="true">⌕</span><input id="findingFilter" type="search" placeholder="Filter by name or match" /></label>
+                  <div class="findings" id="findingsList"></div>
+                  <div class="inspector-foot">Coordinates use PDF points (72/in). Select a finding to locate it on the page.</div>
+                </aside>
+              </div>
+            </section>
+          </section>
+
+          <section class="view" id="ingest" aria-labelledby="ingestTitle">
+            <div class="page-head">
+              <div><p class="eyebrow">Knowledge library</p><h1 id="ingestTitle">Index a document.</h1><p class="lede">OCR, structure, chunk, embed, and store a scanned PDF for grounded retrieval.</p></div>
+            </div>
+            <div class="upload-layout">
+              <section class="card ingest-upload-card">
+                <input id="ingestFileInput" class="visually-hidden" type="file" accept="application/pdf,.pdf" />
+                <button class="dropzone ingest-dropzone" id="ingestDropzone" type="button">
+                  <span class="drop-icon" aria-hidden="true">⇧</span>
+                  <span class="drop-copy"><strong>Drop a scanned PDF here</strong><small>PDF only · <span class="uploadLimit">20 MB</span> maximum</small></span>
+                </button>
+                <div class="selected-file" id="ingestSelectedFile" hidden>
+                  <span class="pdf-icon">PDF</span><div><strong></strong><small></small></div>
+                  <button type="button" aria-label="Remove selected PDF">×</button>
+                </div>
+                <div class="ingest-action"><button class="button primary" id="ingestButton" type="button" disabled>Index document →</button></div>
+              </section>
+              <section class="card activity-card">
+                <div class="card-head"><span>Recently indexed</span><span class="count-badge" id="ingestCount">0</span></div>
+                <div class="activity" id="ingestActivity">
+                  <div class="empty-state"><span>▤</span><p>Documents indexed in this session will appear here.</p></div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="view" id="ask" aria-labelledby="askTitle">
+            <div class="page-head">
+              <div><p class="eyebrow">Grounded Q&amp;A</p><h1 id="askTitle">Ask the library.</h1><p class="lede">Answers are generated only from indexed evidence and returned with verifiable sources.</p></div>
+              <button class="button" id="clearConversationButton" type="button">New conversation</button>
+            </div>
+            <div class="qa-layout">
+              <section class="card conversation">
+                <div class="chat" id="chatMessages" aria-live="polite">
+                  <div class="welcome-message"><span>✦</span><h2>Ask about your indexed documents</h2><p>Try a person, date, metric, or comparison. If the evidence is insufficient, the service will say so.</p></div>
+                </div>
+                <form class="composer" id="askForm">
+                  <label class="visually-hidden" for="questionInput">Question</label>
+                  <textarea id="questionInput" rows="1" maxlength="2000" placeholder="Ask a question about indexed documents…" required></textarea>
+                  <button class="button dark" id="askButton" type="submit">Ask <span aria-hidden="true">→</span></button>
+                </form>
+              </section>
+              <aside class="card sources-panel">
+                <div class="card-head"><span>Verified sources</span><span class="count-badge" id="sourceCount">0</span></div>
+                <div id="sourceList"><div class="empty-state"><span>⌕</span><p>Sources used by an answer will appear here.</p></div></div>
+              </aside>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="alert" aria-live="assertive" hidden>
+      <span class="toast-icon">!</span><div><strong>Something went wrong</strong><p></p></div><button type="button" aria-label="Dismiss notification">×</button>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
