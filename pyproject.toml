@@ -25,6 +25,7 @@ dependencies = [
     "chromadb",
     # LLM / HTTP
     "httpx",
+    "ipykernel>=7.3.0",
 ]
 
 [project.optional-dependencies]
