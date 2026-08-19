@@ -27,12 +27,14 @@ from app.services.protocols import (
     IngestionService,
     QueryPreparationService,
     RerankerService,
+    SourceConstructionService,
 )
 from app.services.query_preparation_service import (
     DocumentQueryPreparationService,
 )
 from app.services.query_scope_service import ExplicitQueryScopeService
 from app.services.reranker_service import FlashRankCrossEncoderReranker
+from app.services.source_service import CitationSourceService
 from app.services.vector_service import LangChainPostgresVectorStore
 
 
@@ -110,3 +112,9 @@ def build_answer_generation_service(
     """Build provider-neutral grounded answer generation through LiteLLM."""
 
     return LiteLLMAnswerGenerationService(settings)
+
+
+def build_source_construction_service() -> SourceConstructionService:
+    """Build deterministic citation verification and source construction."""
+
+    return CitationSourceService()

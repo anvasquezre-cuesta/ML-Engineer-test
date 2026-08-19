@@ -32,6 +32,7 @@ from app.models.retrieval import (
     QueryScope,
     RerankResult,
     VectorSearchResult,
+    VerifiedAnswer,
 )
 from app.models.schemas import (
     ExtractedName,
@@ -224,3 +225,10 @@ class AnswerGenerationService(Protocol):
     """Generate an answer using only an approved grounded context."""
 
     def generate(self, context: GroundedContext) -> GeneratedAnswer: ...
+
+
+@runtime_checkable
+class SourceConstructionService(Protocol):
+    """Verify generated citations and construct auditable answer sources."""
+
+    def construct(self, result: GeneratedAnswer) -> VerifiedAnswer: ...

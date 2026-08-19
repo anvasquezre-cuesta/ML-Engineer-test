@@ -99,3 +99,7 @@ class LLMDependencyError(LLMServiceError):
 
 class LLMResponseError(LLMServiceError):
     """Raised when the selected model returns an unusable answer."""
+
+
+class SourceVerificationError(RuntimeError):
+    """Raised when generated citations cannot be tied to retrieved evidence."""

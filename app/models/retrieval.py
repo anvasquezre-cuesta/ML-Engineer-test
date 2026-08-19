@@ -169,3 +169,76 @@ class GeneratedAnswer(BaseModel):
     answer: str = Field(min_length=1, max_length=50_000)
     model_name: str = Field(min_length=1)
     finish_reason: str | None = None
+
+
+class VerifiedSource(BaseModel):
+    """One answer citation resolved to the exact retrieved evidence passage."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source_id: str = Field(pattern=r"^S[1-9][0-9]*$")
+    passage: GroundedPassage
+
+    @model_validator(mode="after")
+    def validate_source_mapping(self) -> Self:
+        """Prevent a citation label from being paired with another passage."""
+
+        if self.source_id != self.passage.source_id:
+            raise ValueError("verified source identifier must match its passage")
+        return self
+
+    @property
+    def reference(self) -> str:
+        """Return an auditable, user-facing reference derived from metadata."""
+
+        metadata = self.passage.evidence.candidate.metadata
+        first_page = metadata.page_start + 1
+        last_page = metadata.page_end + 1
+        if first_page == last_page:
+            page_reference = f"page {first_page}"
+        else:
+            page_reference = f"pages {first_page}–{last_page}"
+        return (
+            f"[{self.source_id}] {metadata.filename} · {page_reference} · "
+            f"{metadata.section}"
+        )
+
+
+class VerifiedAnswer(BaseModel):
+    """A generated answer paired only with cited, retrieved source passages."""
+
+    model_config = ConfigDict(frozen=True)
+
+    generation: GeneratedAnswer
+    sources: tuple[VerifiedSource, ...] = Field(min_length=1, max_length=5)
+
+    @model_validator(mode="after")
+    def validate_sources(self) -> Self:
+        """Ensure every source comes unchanged from the answer's context."""
+
+        passages_by_id = {
+            passage.source_id: passage
+            for passage in self.generation.context.passages
+        }
+        source_ids = tuple(source.source_id for source in self.sources)
+        if len(source_ids) != len(set(source_ids)):
+            raise ValueError("verified answer sources must be unique")
+
+        for source in self.sources:
+            if passages_by_id.get(source.source_id) != source.passage:
+                raise ValueError(
+                    "verified answer sources must come from the grounded context"
+                )
+        return self
+
+    @property
+    def answer(self) -> str:
+        """Expose the verified generated answer without duplicating its text."""
+
+        return self.generation.answer
+
+    @property
+    def source_references(self) -> tuple[str, ...]:
+        """Return source strings in the fixed API contract's expected shape."""
+
+        return tuple(source.reference for source in self.sources)
