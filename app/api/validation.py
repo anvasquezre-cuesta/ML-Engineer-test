@@ -1,9 +1,10 @@
-"""Validation helpers for multipart extraction requests."""
+"""Validation helpers for multipart document requests."""
 
 import json
 import logging
 from dataclasses import dataclass
 from json import JSONDecodeError
+from pathlib import PurePosixPath
 from typing import Annotated
 
 import pymupdf
@@ -11,6 +12,7 @@ from fastapi import Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import TypeAdapter, ValidationError
 
 from app.config import Settings, get_settings
+from app.models.ingestion import ValidatedPDFUpload
 from app.models.schemas import NamePair
 
 logger = logging.getLogger(__name__)
@@ -79,8 +81,8 @@ def parse_names(raw_names: str, max_names: int) -> tuple[NamePair, ...]:
     return tuple(normalized_names)
 
 
-def validate_pdf_content(content: bytes) -> None:
-    """Verify that bytes contain a readable, non-encrypted PDF with pages."""
+def validate_pdf_content(content: bytes) -> int:
+    """Validate PDF bytes and return the number of readable pages."""
 
     if b"%PDF-" not in content[:1024]:
         logger.warning("PDF rejected: missing PDF signature")
@@ -103,6 +105,7 @@ def validate_pdf_content(content: bytes) -> None:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="pdf_file must contain at least one page",
                 )
+            return document.page_count
     except HTTPException:
         raise
     except (pymupdf.EmptyFileError, pymupdf.FileDataError) as exc:
@@ -113,11 +116,18 @@ def validate_pdf_content(content: bytes) -> None:
         ) from exc
 
 
-async def read_and_validate_pdf(
+def normalize_upload_filename(filename: str | None) -> str:
+    """Remove client-provided path components from an upload filename."""
+
+    normalized = PurePosixPath((filename or "").replace("\\", "/")).name.strip()
+    return normalized[:255] or "uploaded.pdf"
+
+
+async def read_and_validate_pdf_upload(
     pdf_file: UploadFile,
     max_size_bytes: int,
-) -> bytes:
-    """Read an upload up to its configured limit and always close its handle."""
+) -> ValidatedPDFUpload:
+    """Read and validate a PDF upload while always closing its handle."""
 
     try:
         if pdf_file.size is not None and pdf_file.size > max_size_bytes:
@@ -155,13 +165,59 @@ async def read_and_validate_pdf(
                 detail=f"pdf_file cannot exceed {max_size_bytes} bytes",
             )
 
-        validate_pdf_content(content)
-        return content
+        page_count = validate_pdf_content(content)
+        return ValidatedPDFUpload(
+            filename=normalize_upload_filename(pdf_file.filename),
+            content=content,
+            page_count=page_count,
+        )
     finally:
         try:
             await pdf_file.close()
         except Exception:
             logger.warning("PDF upload handle could not be closed", exc_info=True)
+
+
+async def read_and_validate_pdf(
+    pdf_file: UploadFile,
+    max_size_bytes: int,
+) -> bytes:
+    """Backward-compatible helper returning only validated PDF bytes."""
+
+    validated_upload = await read_and_validate_pdf_upload(
+        pdf_file,
+        max_size_bytes=max_size_bytes,
+    )
+    return validated_upload.content
+
+
+async def validate_ingestion_request(
+    pdf_file: Annotated[
+        UploadFile,
+        File(
+            title="Scanned PDF",
+            description=(
+                "PDF document to index. The file is validated by content, must "
+                "contain at least one page, and cannot be password protected."
+            ),
+            media_type="application/pdf",
+        ),
+    ],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ValidatedPDFUpload:
+    """Validate the PDF accepted by ``POST /api/ingest``."""
+
+    validated_upload = await read_and_validate_pdf_upload(
+        pdf_file,
+        max_size_bytes=settings.max_upload_size_bytes,
+    )
+    logger.info(
+        "Ingestion request validated: filename=%s, pdf_size=%s bytes, pages=%s",
+        validated_upload.filename,
+        validated_upload.size_bytes,
+        validated_upload.page_count,
+    )
+    return validated_upload
 
 
 async def validate_extraction_request(
