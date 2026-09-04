@@ -1,7 +1,18 @@
 import chromadb
+from chromadb.errors import InvalidArgumentError
+from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
 
 from app.core.errors import VectorStoreError
 from app.models.domain import RetrievedChunk
+
+# Embedded Chroma has no network to time out on, but its sqlite file can be briefly locked
+# by a concurrent write. Bad input is not worth retrying.
+transient = retry(
+    retry=retry_if_not_exception_type((InvalidArgumentError, ValueError)),
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(0.2),
+    reraise=True,
+)
 
 
 class ChromaStore:
@@ -17,6 +28,7 @@ class ChromaStore:
         except Exception as exc:
             raise VectorStoreError(f"could not open vector store at {path}: {exc}") from exc
 
+    @transient
     def add(self, ids, texts, embeddings, sources) -> None:
         try:
             self.collection.add(
@@ -28,6 +40,7 @@ class ChromaStore:
         except Exception as exc:
             raise VectorStoreError(f"vector store write failed: {exc}") from exc
 
+    @transient
     def query(self, embedding, top_k) -> list[RetrievedChunk]:
         try:
             if self.collection.count() == 0:
@@ -45,9 +58,3 @@ class ChromaStore:
                 res["documents"][0], res["metadatas"][0], res["distances"][0], strict=True
             )
         ]
-
-    def ping(self) -> None:
-        try:
-            self.client.heartbeat()
-        except Exception as exc:
-            raise VectorStoreError(f"vector store unreachable: {exc}") from exc

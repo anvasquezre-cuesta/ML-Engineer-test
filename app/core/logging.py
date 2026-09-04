@@ -33,5 +33,6 @@ def configure_logging(level: str) -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level.upper())
-    for noisy in ("httpx", "httpcore", "chromadb", "sentence_transformers"):
+    # uvicorn.access would print a second, unstructured line per request
+    for noisy in ("httpx", "httpcore", "chromadb", "sentence_transformers", "uvicorn.access"):
         logging.getLogger(noisy).setLevel(logging.WARNING)

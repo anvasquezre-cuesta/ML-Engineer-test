@@ -52,9 +52,6 @@ class InMemoryStore:
             RetrievedChunk(text=t, source=s, score=1.0) for t, s in list(self.rows.values())[:top_k]
         ]
 
-    def ping(self) -> None:
-        pass
-
 
 class FakeLLM:
     def __init__(self, answer="the answer"):

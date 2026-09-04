@@ -29,6 +29,7 @@ async def test_sources_are_exactly_what_was_retrieved(rag, store):
     assert response.answer == "grounded"
     assert response.sources
     assert set(response.sources) <= {source for _, source in store.rows.values()}
+    assert all("memo.pdf#" in s and "#page0#chunk" in s for s in response.sources)
 
 
 async def test_context_is_passed_to_the_llm(rag):

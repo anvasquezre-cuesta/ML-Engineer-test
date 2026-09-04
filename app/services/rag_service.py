@@ -2,6 +2,8 @@ import hashlib
 import logging
 import uuid
 
+from anyio import to_thread
+
 from app.models.schemas import RAGResponse
 from app.services.interfaces import Embedder, LLMClient, OcrEngine, VectorStore
 
@@ -68,9 +70,12 @@ class RagService:
         self.top_k = top_k
 
     def ingest(self, pdf: bytes, filename: str) -> int:
-        pages = self.ocr.run(pdf)
-        text = "\n".join(page.text for page in pages)
-        chunks = chunk_text(text, self.chunk_size, self.chunk_overlap)
+        # Chunks never cross a page so every source can name the page a reviewer should open.
+        chunks, page_of = [], []
+        for page in self.ocr.run(pdf):
+            for chunk in chunk_text(page.text, self.chunk_size, self.chunk_overlap):
+                chunks.append(chunk)
+                page_of.append(page.index)
         if not chunks:
             return 0
 
@@ -79,15 +84,16 @@ class RagService:
         doc_id = uuid.uuid4().hex[:12]
         digest = hashlib.sha256(pdf).hexdigest()[:8]
         ids = [f"{doc_id}:{i}" for i in range(len(chunks))]
-        sources = [f"{filename}#{digest}#chunk{i}" for i in range(len(chunks))]
+        sources = [f"{filename}#{digest}#page{p}#chunk{i}" for i, p in enumerate(page_of)]
 
         self.store.add(ids, chunks, self.embedder.embed(chunks), sources)
         log.info("ingested", extra={"doc_id": doc_id, "file": filename, "chunks": len(chunks)})
         return len(chunks)
 
     async def ask(self, question: str) -> RAGResponse:
-        [query_embedding] = self.embedder.embed([question])
-        hits = self.store.query(query_embedding, self.top_k)
+        # embedding and the store query are CPU work; keep them off the event loop
+        [query_embedding] = await to_thread.run_sync(self.embedder.embed, [question])
+        hits = await to_thread.run_sync(self.store.query, query_embedding, self.top_k)
         if not hits:
             return RAGResponse(answer=NO_DOCUMENTS_ANSWER, sources=[])
 
