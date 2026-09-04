@@ -7,10 +7,15 @@ from app.models.schemas import FuzzyMatch, NamePair
 
 
 def normalize(text: str) -> str:
-    """'María  GONZÁLEZ,' -> 'maria gonzalez'. Accents, case and punctuation are OCR noise."""
+    """'María  GONZÁLEZ,' -> 'maria gonzalez'. Accents, case and punctuation are OCR noise.
+
+    Apostrophes and hyphens are removed rather than turned into spaces so "O'Brien" and
+    "Jean-Luc" stay single tokens, matching how tesseract emits them.
+    """
     stripped = "".join(
         ch for ch in unicodedata.normalize("NFKD", text) if not unicodedata.combining(ch)
     )
+    stripped = re.sub(r"['’`\-]", "", stripped)
     stripped = re.sub(r"[^\w\s]", " ", stripped)
     return re.sub(r"\s+", " ", stripped).strip().casefold()
 

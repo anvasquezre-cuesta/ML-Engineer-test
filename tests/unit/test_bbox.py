@@ -36,3 +36,9 @@ def test_ocr_noise_in_a_token_is_tolerated():
 def test_partial_name_is_not_a_match():
     page = page_from_lines(0, ["Maria Lopez"])
     assert locate("Maria Gonzalez", page, 0.8) == []
+
+
+def test_apostrophe_name_matches_single_ocr_word():
+    page = page_from_lines(0, ["- Kevin O'Brien, General Counsel"])
+    [box] = locate("Kevin O'Brien", page, 0.8)
+    assert box.width > 40  # spans both words

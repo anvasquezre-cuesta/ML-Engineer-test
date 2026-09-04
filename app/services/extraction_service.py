@@ -11,12 +11,18 @@ log = logging.getLogger(__name__)
 
 class ExtractionPipeline:
     def __init__(
-        self, ocr: OcrEngine, ner: NerExtractor, fuzzy_threshold: float, bbox_token_threshold: float
+        self,
+        ocr: OcrEngine,
+        ner: NerExtractor,
+        fuzzy_threshold: float,
+        bbox_token_threshold: float,
+        min_name_tokens: int = 2,
     ):
         self.ocr = ocr
         self.ner = ner
         self.fuzzy_threshold = fuzzy_threshold
         self.bbox_token_threshold = bbox_token_threshold
+        self.min_name_tokens = min_name_tokens
 
     def run(self, pdf: bytes, requested: list[NamePair]) -> ExtractionResponse:
         pages = self.ocr.run(pdf)
@@ -41,7 +47,7 @@ class ExtractionPipeline:
         located = {e.name for e in extracted}
         for name in names:
             if name not in located:
-                log.warning("name not located on any page", extra={"name": name})
+                log.warning("name not located on any page", extra={"person": name})
 
         matches = match_names(sorted(located), requested, self.fuzzy_threshold)
         log.info(
@@ -59,5 +65,7 @@ class ExtractionPipeline:
         seen: dict[str, str] = {}
         for page in pages:
             for name in self.ner.person_names(page.text):
-                seen.setdefault(normalize(name), name)
+                # single tokens are mostly project names and OCR debris tagged as people
+                if len(name.split()) >= self.min_name_tokens:
+                    seen.setdefault(normalize(name), name)
         return list(seen.values())

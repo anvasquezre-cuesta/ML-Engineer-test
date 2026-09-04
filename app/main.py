@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
         s.llm_extra_body,
     )
     app.state.extraction = ExtractionPipeline(
-        ocr, SpacyNer(s.ner_model), s.fuzzy_threshold, s.bbox_token_threshold
+        ocr, SpacyNer(s.ner_model), s.fuzzy_threshold, s.bbox_token_threshold, s.min_name_tokens
     )
     app.state.rag = RagService(
         ocr,
@@ -72,6 +72,13 @@ def create_app() -> FastAPI:
     @app.exception_handler(AppError)
     async def app_error(_: Request, exc: AppError) -> JSONResponse:
         return JSONResponse({"detail": exc.message}, status_code=exc.status_code)
+
+    @app.exception_handler(Exception)
+    async def unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        log.exception("unhandled error", extra={"path": request.url.path})
+        return JSONResponse(
+            {"detail": "internal error", "request_id": request_id_var.get()}, status_code=500
+        )
 
     @app.middleware("http")
     async def request_log(request: Request, call_next):

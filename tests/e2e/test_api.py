@@ -98,3 +98,16 @@ def test_real_pipeline_on_sample_pdf():
     for e in body.extracted_names:
         b = e.bounding_box
         assert 0 <= b.x and b.x + b.width <= 612 and 0 <= b.y and b.y + b.height <= 792
+
+
+def test_unexpected_errors_are_json_with_request_id(client, monkeypatch):
+    from app.api import deps
+
+    class Boom:
+        def run(self, *a):
+            raise RuntimeError("kaboom")
+
+    client.app.dependency_overrides[deps.extraction] = lambda: Boom()
+    res = client.post("/api/extract", files={"pdf_file": ("memo.pdf", MINIMAL_PDF)})
+    assert res.status_code == 500
+    assert res.json()["detail"] == "internal error" and res.json()["request_id"]

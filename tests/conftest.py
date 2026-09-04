@@ -40,4 +40,4 @@ def client(settings, pages, fake_llm):
     app.dependency_overrides[deps.settings] = lambda: settings
     app.dependency_overrides[deps.extraction] = lambda: extraction
     app.dependency_overrides[deps.rag] = lambda: rag
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=False)

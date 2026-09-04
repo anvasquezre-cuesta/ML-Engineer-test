@@ -10,7 +10,8 @@ from app.services.fuzzy_service import match_names, normalize, similarity
         ("María González", "maria gonzalez"),
         ("  JOHN   smith, ", "john smith"),
         ("Søren Kierkegaard", "søren kierkegaard"),  # ø has no decomposition; left as is
-        ("O'Brien", "o brien"),
+        ("Kevin O'Brien", "kevin obrien"),
+        ("Jean-Luc Picard", "jeanluc picard"),
     ],
 )
 def test_normalize(raw, expected):

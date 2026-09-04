@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     # NER
     ner_model: str = "en_core_web_sm"
+    min_name_tokens: int = 2  # "Atlas" is a project, "Maria Garcia" is a person
 
     # name matching (0..1)
     fuzzy_threshold: float = 0.90  # extracted name vs requested name
