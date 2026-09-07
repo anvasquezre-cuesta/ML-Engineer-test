@@ -23,3 +23,6 @@ venv/
 
 # Local data
 chroma_data/
+
+# Claude Code session data
+.claude/

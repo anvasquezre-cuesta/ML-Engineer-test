@@ -123,9 +123,11 @@ them. Bullets are grouped by area.
 
 ## Use of AI tools
 
-I used Claude Code throughout: to read the assignment and draft the implementation plan,
-to write the first version of each module and test, to drive the Docker builds and the
-verification runs against the sample PDFs, and to draft these documents. I reviewed and
-edited every file, and the bugs listed above (the LogRecord collision, the apostrophe
-split, the slow chown) were found by running the real pipeline and fixed with the
-assistant's help. I authored every commit.
+I used a coding agent (Claude Code) to brainstorm the approach, generate most of the code
+and tests, drive the Docker builds and verification runs, and draft these documents. I
+made the calls that shaped the result: an OpenAI-compatible LLM client tested against my
+own Qwen3 deployment on vLLM, embedded Chroma over a separate service, which bonuses to
+build, and when to stop and commit. I reviewed every file against the assignment's graded
+items for accuracy and robustness, ran the pipeline on the sample PDFs and in the
+container myself, and asked for a rubric review that produced eight fixes before
+submission. I authored every commit and can walk through any part of the code.

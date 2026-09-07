@@ -19,10 +19,8 @@ def page_from_lines(index: int, lines: list[str], width=612.0, height=792.0) -> 
 class FakeOcr:
     def __init__(self, pages: list[Page]):
         self.pages = pages
-        self.calls = 0
 
     def run(self, pdf: bytes) -> list[Page]:
-        self.calls += 1
         return self.pages
 
 

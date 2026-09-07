@@ -100,7 +100,7 @@ def test_real_pipeline_on_sample_pdf():
         assert 0 <= b.x and b.x + b.width <= 612 and 0 <= b.y and b.y + b.height <= 792
 
 
-def test_unexpected_errors_are_json_with_request_id(client, monkeypatch):
+def test_unexpected_errors_are_json_with_request_id(client):
     from app.api import deps
 
     class Boom:

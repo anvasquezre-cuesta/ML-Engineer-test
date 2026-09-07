@@ -60,7 +60,7 @@ store the service answers without calling the LLM.
 |---|---|---|
 | Tesseract via PyMuPDF | Free, offline, returns word boxes with layout structure I need for name matching | Accuracy on poor scans; a cloud OCR would do better on handwriting and skew |
 | spaCy `en_core_web_sm` | Fast on CPU, PERSON label, tiny | Misses some names in OCR noise; `en_core_web_trf` is better and 10x slower |
-| `thefuzz` full-string ratio | Robust to OCR noise, cheap, and does not inflate substrings the way `partial_ratio` does | Two people with near-identical names can score above threshold (Patel vs Patil at 0.91) |
+| `thefuzz` full-string ratio | Tolerant of OCR noise, cheap, and does not inflate substrings the way `partial_ratio` does | Two people with near-identical names can score above threshold (Patel vs Patil at 0.91) |
 | `all-MiniLM-L6-v2` | 384-dim, fast on CPU, good enough for short chunks | Weaker than larger embedders on long or technical passages |
 | Embedded Chroma | Zero infrastructure, persisted to a directory, cosine HNSW | Single process, no sharing between replicas |
 | OpenAI-compatible HTTP | Works with OpenAI, vLLM, Ollama, LiteLLM without code changes; tested against a self-hosted Qwen3.8 27B on vLLM | No streaming, no structured outputs |
