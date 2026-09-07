@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Audit viewer</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 0; display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+  aside { padding: 16px; border-right: 1px solid #ddd; overflow: auto; }
+  main { overflow: auto; padding: 16px; background: #f3f3f3; }
+  textarea { width: 100%; height: 90px; font-family: monospace; font-size: 12px; }
+  button { margin-top: 8px; padding: 6px 14px; }
+  .page { position: relative; margin: 0 auto 16px; box-shadow: 0 1px 4px rgba(0,0,0,.3); width: fit-content; }
+  canvas { display: block; }
+  .box { position: absolute; border: 2px solid #e5322d; background: rgba(229,50,45,.05); box-sizing: border-box; border-radius: 3px; }
+  .box.match { border-color: #1a8f3c; background: rgba(26,143,60,.06); }
+  .box:hover::after { content: attr(data-label); position: absolute; left: 0; top: -20px; background: #222; color: #fff; padding: 1px 6px; font-size: 11px; white-space: nowrap; }
+  li { margin: 4px 0; } .score { color: #1a8f3c; font-weight: 600; } #status { color: #666; }
+</style>
+</head>
+<body>
+<aside>
+  <h3>Audit viewer</h3>
+  <p>Upload a scanned PDF. Detected names are boxed in red; names that fuzzy-match your list are green.</p>
+  <input type="file" id="pdf" accept="application/pdf">
+  <p>Names to match (JSON, optional):</p>
+  <textarea id="names">[{"first_name": "Maria", "last_name": "Gonzalez"}]</textarea>
+  <br><button id="run">Extract</button>
+  <p id="status"></p>
+  <ul id="results"></ul>
+</aside>
+<main id="pages"></main>
+
+<script type="module">
+import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
+const SCALE = 1.4;  // screen pixels per PDF point
+const PAD = 3;      // points of breathing room around the exact box, so the text stays readable
+const $ = (id) => document.getElementById(id);
+
+$("run").onclick = async () => {
+  const file = $("pdf").files[0];
+  if (!file) return ($("status").textContent = "Pick a PDF first.");
+  $("status").textContent = "Extracting...";
+  $("pages").innerHTML = ""; $("results").innerHTML = "";
+
+  const form = new FormData();
+  form.append("pdf_file", file);
+  form.append("names", $("names").value || "[]");
+  const res = await fetch("/api/extract", { method: "POST", body: form });
+  if (!res.ok) return ($("status").textContent = `API error ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+
+  const matched = new Map(data.fuzzy_matches.map(m => [m.extracted_name, m]));
+  const pages = await renderPdf(await file.arrayBuffer());
+
+  for (const item of data.extracted_names) {
+    const b = item.bounding_box;
+    const layer = pages[b.page_number];
+    if (!layer) continue;
+    const box = document.createElement("div");
+    box.className = "box" + (matched.has(item.name) ? " match" : "");
+    box.dataset.label = `${item.name} (p${b.page_number})`;
+    // boxes come back in PDF points with a top-left origin, so this is a plain scale
+    Object.assign(box.style, {
+      left: (b.x - PAD) * SCALE + "px", top: (b.y - PAD) * SCALE + "px",
+      width: (b.width + 2 * PAD) * SCALE + "px", height: (b.height + 2 * PAD) * SCALE + "px",
+    });
+    layer.appendChild(box);
+  }
+
+  for (const item of data.extracted_names) {
+    const li = document.createElement("li");
+    const m = matched.get(item.name);
+    li.textContent = `${item.name} (page ${item.bounding_box.page_number})`;
+    if (m) li.innerHTML += ` <span class="score">= ${m.matched_name} ${m.score.toFixed(2)}</span>`;
+    $("results").appendChild(li);
+  }
+  $("status").textContent = `${data.extracted_names.length} boxes, ${data.fuzzy_matches.length} matches`;
+};
+
+async function renderPdf(bytes) {
+  const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+  const layers = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: SCALE });
+    const wrap = document.createElement("div");
+    wrap.className = "page";
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    wrap.appendChild(canvas);
+    $("pages").appendChild(wrap);
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    layers.push(wrap);
+  }
+  return layers;
+}
+</script>
+</body>
+</html>

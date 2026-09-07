@@ -1,14 +1,10 @@
-"""Embeddings for RAG.
-
-Implement this. Load the embedding model ONCE (not per request) and reuse it.
-"""
+from sentence_transformers import SentenceTransformer
 
 
-def get_embeddings(texts: list[str]) -> list[list[float]]:
-    """Embed a batch of chunks."""
-    raise NotImplementedError
+class SentenceTransformerEmbedder:
+    def __init__(self, model: str):
+        self.model = SentenceTransformer(model)  # loaded once, at startup
 
-
-def get_query_embedding(text: str) -> list[float]:
-    """Embed a single query."""
-    raise NotImplementedError
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        vectors = self.model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+        return vectors.tolist()

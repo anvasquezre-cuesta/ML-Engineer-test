@@ -14,8 +14,15 @@ venv/
 # Env / secrets
 .env
 .env.*
+!.env.example
 
 # OS / IDE
 .DS_Store
 .idea/
 .vscode/
+
+# Local data
+chroma_data/
+
+# Claude Code session data
+.claude/
