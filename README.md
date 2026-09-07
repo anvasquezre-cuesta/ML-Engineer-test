@@ -178,3 +178,50 @@ expected** — that's how modern engineering works. Two conditions:
 
 We are evaluating *your* engineering judgment, not an agent's output. Submitting
 something you don't understand is the one thing that fails this test.
+
+---
+
+## Running this implementation
+
+Local, with Tesseract installed (`apt install tesseract-ocr tesseract-ocr-spa`):
+
+```bash
+uv sync --extra dev                 # installs deps and the spaCy models from the lock
+cp .env.example .env                # set LLM_BASE_URL / LLM_API_KEY / LLM_MODEL
+uv run uvicorn app.main:app --reload
+```
+
+Docker (Tesseract and the models are in the image; the Chroma data lives in a volume):
+
+```bash
+docker compose up --build
+curl localhost:8000/health
+```
+
+Try it:
+
+```bash
+curl -F pdf_file=@sample_pdfs/meeting_minutes.pdf \
+     -F 'names=[{"first_name":"Richard","last_name":"Hernández"}]' \
+     localhost:8000/api/extract | jq
+curl -F pdf_file=@sample_pdfs/research_report.pdf localhost:8000/api/ingest
+curl -H 'content-type: application/json' -d '{"question":"Who leads the research team?"}' \
+     localhost:8000/api/ask | jq
+```
+
+The audit viewer is at `http://localhost:8000/viewer/`: upload a PDF, optionally paste a
+names list, and the detected names are boxed on the rendered pages (green when they
+match your list).
+
+Tests and lint:
+
+```bash
+uv run pytest -q        # the real-OCR test skips if tesseract is not installed
+uv run ruff check .
+```
+
+Every setting is an environment variable; see `.env.example`. Any OpenAI-compatible
+endpoint works for the LLM. For a self-hosted Qwen3 on vLLM set
+`LLM_EXTRA_BODY={"chat_template_kwargs":{"enable_thinking":false}}` so the model does
+not write its reasoning into the answer. Design notes are in `DESIGN.md`, decisions and
+trade-offs in `DECISIONS.md`.
