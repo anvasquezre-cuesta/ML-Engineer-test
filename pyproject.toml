@@ -1,0 +1,35 @@
+[project]
+name = "document-intelligence-service"
+version = "0.1.0"
+description = "ML Engineer take-home — document extraction + RAG service (implement from scratch)."
+requires-python = ">=3.12"
+
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "pydantic",
+    "pydantic-settings",
+    "pytesseract",
+    "pymupdf",
+    "pillow",
+    "spacy",
+    "thefuzz",
+    "python-levenshtein",
+    "sentence-transformers",
+    "chromadb",
+    "httpx",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
