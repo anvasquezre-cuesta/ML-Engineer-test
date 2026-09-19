@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     tesseract_cmd: str | None = None
     ocr_dpi: int = 300
+    fuzzy_match_threshold: float = 0.90
 
     model_config = SettingsConfigDict(
         env_prefix="APP_",

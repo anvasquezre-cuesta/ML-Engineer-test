@@ -8,3 +8,5 @@ __pycache__/
 .env
 .env.*
 *.log
+WORK_LOG.md
+WORK_LOG2.md

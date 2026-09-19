@@ -1,7 +1,7 @@
 """
 Module: app.api.extract
 Path: app/api/extract.py
-Description: API endpoint for person-name extraction from scanned PDFs.
+Description: HTTP endpoint for document name extraction and matching.
 """
 
 import json
@@ -26,16 +26,13 @@ async def extract_names(
     ocr_service: OCRService = Depends(get_ocr_service),
     extraction_service: ExtractionService = Depends(get_extraction_service),
 ) -> ExtractionResponse:
-    """Extract person names and their PDF-space bounding boxes."""
+    """Extract person names from a PDF and fuzzy-match them against candidates."""
 
     if not pdf_file.filename:
-        raise HTTPException(
-            status_code=400,
-            detail="A PDF file is required.",
-        )
+        raise HTTPException(status_code=400, detail="A PDF file is required.")
 
     try:
-        TypeAdapter(list[NamePair]).validate_python(json.loads(names))
+        name_pairs = TypeAdapter(list[NamePair]).validate_python(json.loads(names))
     except (json.JSONDecodeError, ValidationError):
         raise HTTPException(
             status_code=400,
@@ -48,10 +45,7 @@ async def extract_names(
             detail="The uploaded file must be a PDF.",
         )
 
-    with tempfile.NamedTemporaryFile(
-        suffix=".pdf",
-        delete=False,
-    ) as temporary_file:
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temporary_file:
         temporary_path = Path(temporary_file.name)
 
         while chunk := await pdf_file.read(1024 * 1024):
@@ -59,7 +53,15 @@ async def extract_names(
 
     try:
         document = ocr_service.extract(str(temporary_path))
-        results = extraction_service.extract(document)
+
+        candidate_names = [
+            f"{name_pair.first_name} {name_pair.last_name}" for name_pair in name_pairs
+        ]
+
+        extraction_result = extraction_service.extract(
+            document=document,
+            candidate_names=candidate_names,
+        )
 
         return ExtractionResponse(
             extracted_names=[
@@ -73,9 +75,16 @@ async def extract_names(
                         "height": result.height,
                     },
                 }
-                for result in results
+                for result in extraction_result.extracted_names
             ],
-            fuzzy_matches=[],
+            fuzzy_matches=[
+                {
+                    "extracted_name": match.extracted_name,
+                    "matched_name": match.matched_name,
+                    "score": match.score,
+                }
+                for match in extraction_result.fuzzy_matches
+            ],
         )
     finally:
         temporary_path.unlink(missing_ok=True)
