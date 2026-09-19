@@ -53,6 +53,8 @@ class NERService:
                     text=person_name,
                     label=entity.label_,
                     page_number=page.page_number,
+                    start=entity.start_char,
+                    end=entity.end_char,
                 )
 
                 entities.append(ner_entity)

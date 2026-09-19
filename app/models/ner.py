@@ -13,7 +13,11 @@ class NEREntity:
         text: str,
         label: str,
         page_number: int,
+        start: int,
+        end: int,
     ) -> None:
         self.text = text
         self.label = label
         self.page_number = page_number
+        self.start = start
+        self.end = end

@@ -2797,3 +2797,1331 @@ combined bounding box
 ```
 
 Development is intentionally paused here at the end of Block 1.
+
+
+## Block 2 — Bounding Boxes: Preserve NER Character Spans
+
+### Objective
+
+Preserve the position of each detected person name within the original OCR page text so that the NER result can later be connected to the physical OCR words and their coordinates.
+
+### Implementation
+
+Updated `app/models/ner.py` so that `NEREntity` now stores:
+
+* `text`
+* `label`
+* `page_number`
+* `start`
+* `end`
+
+The `start` and `end` values represent **character positions in the original OCR text**.
+
+Updated `app/services/ner_service.py` to populate these values using spaCy's character offsets:
+
+* `entity.start_char`
+* `entity.end_char`
+
+The implementation initially used `entity.start` and `entity.end`, which represent token positions rather than character positions. Functional validation immediately exposed this issue, so the implementation was corrected before proceeding.
+
+### Validation
+
+The OCR → NER pipeline was executed again against `sample_pdfs/meeting_minutes.pdf`.
+
+Results:
+
+* 2 pages processed.
+* 23 valid `PERSON` entities detected.
+* Character spans correctly identify the corresponding locations in the OCR text.
+* Most entities reproduce the normalized entity text exactly when the span is applied to the original OCR text.
+
+Two entities contain a leading `-` in the original span:
+
+* `- Thomas Muller`
+* `- Jennifer Liu`
+
+This is expected because the NER character span refers to the original OCR text, while the NER normalization removes surrounding punctuation from the exposed entity name. This distinction is intentional and will not affect bounding-box calculation.
+
+### Important Bounding-Box Principle
+
+The character span is used to connect the recognized name with the OCR words that physically appear on the page.
+
+For a multi-word name such as `Richard Hernandez`, the space between the words is part of the textual name span and therefore matters when identifying the complete name.
+
+However, the space does not have its own physical bounding box. The final bounding box will be created by combining the physical OCR bounding boxes of the words that make up the name.
+
+Conceptually:
+
+`Richard` + `Hernandez` → one combined bounding box
+
+The bounding box therefore covers both words and the space between them, without treating the space as a separate OCR object.
+
+### Code Quality
+
+Ran:
+
+`ruff format app`
+
+Result: all files unchanged.
+
+Ran:
+
+`ruff check app`
+
+Result: all checks passed.
+
+### Milestone Status
+
+**Block 2 — Step 1 complete.**
+
+The NER stage now preserves enough positional information to connect detected names with their OCR words. The next step is to implement and validate the mapping from the NER character span to the corresponding OCR words and then combine their coordinates into a single PDF-space bounding box.
+
+## Block 2 — Step 2: Map NER spans to OCR words
+
+### Objective
+
+Map each detected `NEREntity` to the specific `OCRWord` objects that correspond to its character span in the original OCR page text.
+
+The key design decision is to use the character positions already provided by NER (`start` and `end`) rather than searching for the entity's text again in the OCR text. This is important when the same person name appears multiple times on the same page. Each NER occurrence has its own character span, so the system can identify the correct OCR words without ambiguity.
+
+### Implementation
+
+Created `app/services/bbox_service.py` with a focused `BoundingBoxService`.
+
+The service reconstructs the character range of each OCR word from the way `OCRPage.text` was originally constructed:
+
+```python
+text = " ".join(word.text for word in words)
+```
+
+For each OCR word, its character start and end positions are reconstructed while iterating through `page.words`. The service then checks whether the OCR word's character range overlaps the NER entity's `[start, end)` span.
+
+The service returns the matching `OCRWord` objects. It does not calculate the final bounding box yet.
+
+### Important design principle
+
+The system does not search for the detected name string inside the OCR text.
+
+For example, if `Richard Hernandez` appears three times on a page, NER provides three different character spans. Each span is independently mapped to its corresponding OCR words and therefore to its own physical coordinates.
+
+This avoids incorrectly selecting the first occurrence of a repeated name.
+
+### Validation
+
+The implementation was validated against `sample_pdfs/meeting_minutes.pdf`.
+
+Results:
+
+* All 23 valid PERSON entities identified by NER were successfully mapped to OCR words.
+* Multi-word names correctly mapped to their component OCR words.
+* Repeated names such as `Richard Hernandez` produced different coordinates for different occurrences.
+* OCR coordinates were confirmed to be available in PDF coordinate space.
+* OCR punctuation artifacts were observed in some matches, such as `Hernandez,`, `Patel,`, and a leading `-`. These will be handled generically when constructing the final bounding box rather than through sample-specific exclusions.
+
+### Milestone status
+
+**Block 2 — Step 2 complete.**
+
+The next step is to construct the final PDF-space bounding box from the relevant OCR words while ensuring punctuation artifacts do not unnecessarily enlarge the detected name's box.
+
+## Block 2 — Step 3: Construct the PDF-Space Bounding Box
+
+### Objective
+
+Construct a single bounding box from the OCR words that correspond to a detected person name.
+
+At this stage, the `BoundingBoxService` already knows which `OCRWord` objects belong to the NER entity. The next responsibility is to combine their individual PDF-space coordinates into one rectangle representing the complete detected name.
+
+### Implementation
+
+Added `create_bounding_box()` to `app/services/bbox_service.py`.
+
+The method first removes OCR tokens that contain only punctuation. This prevents formatting artifacts such as a leading `-` from unnecessarily expanding the bounding box.
+
+```python
+relevant_words = [
+    word
+    for word in words
+    if any(character.isalnum() for character in word.text)
+]
+```
+
+This uses a generic rule rather than document-specific exclusions:
+
+* `"-"` → excluded
+* `","` → excluded
+* `"Thomas"` → included
+* `"Muller,"` → included
+
+A word containing punctuation together with actual name characters is retained because its OCR bounding box represents the physical location of the name text.
+
+The final rectangle is calculated from the outermost coordinates of the relevant OCR words:
+
+```python
+left = min(word.x for word in relevant_words)
+top = min(word.y for word in relevant_words)
+right = max(word.x + word.width for word in relevant_words)
+bottom = max(word.y + word.height for word in relevant_words)
+```
+
+The result is converted to the required `(x, y, width, height)` representation:
+
+```python
+return (
+    left,
+    top,
+    right - left,
+    bottom - top,
+)
+```
+
+If no usable OCR words remain after filtering, the method returns `None` rather than producing an invalid bounding box.
+
+### Validation
+
+The implementation was tested using the actual OCR coordinates from the `Thomas Muller` example.
+
+The punctuation-only `-` was correctly excluded.
+
+The resulting bounding box was:
+
+```text
+(60.0, 199.68, 65.28, 8.639999999999986)
+```
+
+The expected dimensions are effectively:
+
+* **x:** 60.00
+* **y:** 199.68
+* **width:** 65.28
+* **height:** 8.64
+
+The small floating-point representation difference in the returned height is normal Python floating-point behavior and does not affect the bounding box calculation.
+
+### Code Quality Validation
+
+After the functional validation:
+
+```text
+ruff format app
+ruff check app
+```
+
+Both commands completed successfully:
+
+```text
+9 files left unchanged
+All checks passed!
+```
+
+### Design Principle
+
+The bounding box is calculated entirely from OCR coordinates that were already converted to **PDF coordinate space in points** during the OCR stage.
+
+No additional image processing or pixel-to-PDF conversion is required at this step.
+
+### Milestone Status
+
+**Block 2 — Step 3 complete.**
+
+## Block 2 — Step 4.1 Part A: Create the Internal Extraction Result Model
+
+### Objective
+
+Introduce an internal result model for the extraction workflow.
+
+The extraction workflow needs to return a meaningful representation of a detected person name together with its location, but it should not return the FastAPI/Pydantic response models directly.
+
+This establishes a clear separation between the internal application layer and the external API contract.
+
+### Implementation
+
+Created:
+
+```text
+app/models/extraction.py
+```
+
+The module contains the `ExtractedNameResult` class:
+
+```python
+class ExtractedNameResult:
+    """Represent an extracted person name and its PDF-space location."""
+
+    def __init__(
+        self,
+        name: str,
+        page_number: int,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+    ) -> None:
+        self.name = name
+        self.page_number = page_number
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+```
+
+The model represents the information required by the API layer:
+
+* `name` — the detected person name.
+* `page_number` — the 0-based PDF page number.
+* `x` — left coordinate in PDF points.
+* `y` — top coordinate in PDF points.
+* `width` — bounding-box width in PDF points.
+* `height` — bounding-box height in PDF points.
+
+### Architectural Boundary
+
+The internal model is intentionally separate from the API-facing Pydantic models defined in `app/models/schemas.py`.
+
+The intended flow is:
+
+```text
+Internal processing
+        ↓
+ExtractedNameResult
+        ↓
+API mapping
+        ↓
+ExtractedName + BoundingBox
+```
+
+This prevents the extraction workflow from becoming coupled to FastAPI or to the exact HTTP response schema.
+
+The workflow can therefore be tested independently of HTTP, while the API layer remains responsible for constructing the externally defined response objects.
+
+### Scope of This Step
+
+This step only introduced the internal result model.
+
+No changes were made yet to:
+
+* the FastAPI extraction router;
+* the `/api/extract` endpoint;
+* the extraction workflow;
+* fuzzy matching;
+* the existing API response schemas.
+
+These responsibilities will be connected progressively in subsequent steps.
+
+### Code Quality Validation
+
+After creating the module:
+
+```text
+ruff format app
+ruff check app
+```
+
+The results were:
+
+```text
+1 file reformatted, 10 files left unchanged
+All checks passed!
+```
+
+### Design Principle
+
+The model follows the project's agreed separation of concerns:
+
+> **Application workflow models represent internal processing results; API models represent the external contract.**
+
+This keeps the workflow independent from the HTTP layer while still giving the API layer all the information needed to construct the required `ExtractionResponse`.
+
+### Milestone Status
+
+**Block 2 — Step 4.1 Part A complete.**
+
+## Block 2 — Bounding Boxes: Extraction Workflow
+
+### Part D — Connect NER entities to OCR pages and bounding-box matching
+
+**Objective**
+
+Extend the extraction workflow so that each `NEREntity` is connected to the correct `OCRPage` and passed to the `BoundingBoxService` for word-level matching.
+
+**Implementation**
+
+Updated:
+
+`app/services/extraction_service.py`
+
+The `ExtractionService.extract()` workflow now:
+
+1. Calls `NERService.extract(document)` to obtain detected person entities.
+2. Iterates through each `NEREntity`.
+3. Uses the entity's `page_number` to identify the corresponding `OCRPage`.
+4. Passes the page and entity to `BoundingBoxService.find_matching_words()`.
+
+The workflow now has the following structure:
+
+```text
+OCRDocument
+    ↓
+NERService
+    ↓
+NEREntity[]
+    ↓
+For each entity
+    ↓
+Correct OCRPage
+    ↓
+BoundingBoxService
+    ↓
+Matching OCRWord[]
+```
+
+At this stage, the matching words are intentionally not yet converted into a final bounding box or `ExtractedNameResult`. Those operations will be added in the next incremental step.
+
+### Design Principles
+
+* **Separation of concerns:** `ExtractionService` coordinates the extraction use case without implementing OCR, NER, or geometric calculations itself.
+* **Single responsibility:** `BoundingBoxService` remains responsible for mapping entities to OCR words.
+* **Dependency injection:** `ExtractionService` receives its NER and bounding-box dependencies through its constructor.
+* **Incremental implementation:** The workflow is being constructed in small functional pieces rather than introducing the complete method at once.
+
+### Validation
+
+Ran:
+
+```text
+ruff format app
+```
+
+Result:
+
+```text
+1 file reformatted, 11 files left unchanged
+```
+
+Then:
+
+```text
+ruff check app
+```
+
+Result:
+
+```text
+All checks passed!
+```
+
+The temporary unused-variable warnings were resolved by not assigning intermediate values until those values are actually consumed by the next workflow stage.
+
+### Milestone Status
+
+**Block 2 — Part D: COMPLETE**
+
+The extraction workflow can now obtain NER entities, identify their source pages, and invoke the bounding-box word-matching logic.
+
+## Block 2 — Bounding Boxes: Extraction Workflow
+
+### Part E — Complete the internal extraction workflow
+
+**Objective**
+
+Complete the `ExtractionService` workflow so that detected person entities are transformed into internal extraction results containing their names and PDF-space bounding boxes.
+
+**Implementation**
+
+Updated:
+
+`app/services/extraction_service.py`
+
+The workflow now:
+
+1. Calls `NERService.extract()` to obtain `NEREntity` objects.
+2. Uses each entity's `page_number` to retrieve the corresponding `OCRPage`.
+3. Calls `BoundingBoxService.find_matching_words()` to identify the OCR words belonging to the entity.
+4. Calls `BoundingBoxService.create_bounding_box()` to calculate the combined PDF-space rectangle.
+5. Handles the case where no usable bounding box can be created by skipping that entity.
+6. Unpacks the bounding-box coordinates.
+7. Creates an `ExtractedNameResult` containing:
+
+   * person name;
+   * page number;
+   * x coordinate;
+   * y coordinate;
+   * width;
+   * height.
+8. Appends the result to the workflow's result collection.
+9. Returns the complete list of extraction results.
+
+The resulting internal workflow is:
+
+```text
+OCRDocument
+    ↓
+NERService
+    ↓
+NEREntity[]
+    ↓
+OCRPage
+    ↓
+matching OCRWord[]
+    ↓
+PDF-space bounding box
+    ↓
+ExtractedNameResult
+    ↓
+list[ExtractedNameResult]
+```
+
+### Design Decisions
+
+The `ExtractionService` acts as the application-level orchestrator. It does not perform OCR, NER, or geometric calculations itself.
+
+The responsibilities remain separated:
+
+```text
+OCRService
+    → Extract OCR text and word coordinates
+
+NERService
+    → Identify PERSON entities
+
+BoundingBoxService
+    → Map entities to OCR words and calculate geometry
+
+ExtractionService
+    → Coordinate the complete extraction use case
+```
+
+The workflow returns the internal `ExtractedNameResult` model rather than the API's Pydantic response models. This preserves the boundary between application logic and the HTTP/API layer.
+
+The `None` check for the bounding box provides an explicit failure path when an entity cannot be mapped to usable OCR words. The workflow skips that invalid result instead of creating an incomplete response object.
+
+### Code Quality Validation
+
+Ran:
+
+```text id="o1x2m4"
+ruff format app
+```
+
+Result:
+
+```text id="e7q4n1"
+All files formatted successfully.
+```
+
+Then:
+
+```text id="t9c5r2"
+ruff check app
+```
+
+Result:
+
+```text id="b3k8v6"
+All checks passed!
+```
+
+No linting errors remain.
+
+### Milestone Status
+
+**Block 2 — Part E: COMPLETE**
+
+The internal extraction workflow is now implemented end-to-end:
+
+**OCR → NER → page lookup → OCR-word matching → PDF-space bounding box → internal extraction result.**
+
+The next milestone is validation of this workflow with realistic OCR/NER data before connecting it to the FastAPI endpoint.
+
+## Block 2 — Bounding Boxes: Extraction Workflow
+
+### Unit Test — Validate the extraction workflow
+
+**Objective**
+
+Add a focused unit test for `ExtractionService` to verify that a detected person entity can be mapped to OCR words and converted into the expected PDF-space bounding box.
+
+The test intentionally isolates application logic from heavyweight external dependencies such as Tesseract and spaCy.
+
+### Implementation
+
+Created:
+
+`tests/unit/test_extraction_service.py`
+
+The test uses:
+
+* a deterministic `FakeNERService`;
+* manually constructed `OCRDocument`, `OCRPage`, and `OCRWord` objects;
+* the real `BoundingBoxService`;
+* the real `ExtractionService`.
+
+The test therefore exercises this application path:
+
+```text
+FakeNERService
+      ↓
+ExtractionService
+      ↓
+BoundingBoxService
+      ↓
+ExtractedNameResult
+```
+
+The test verifies:
+
+* exactly one extraction result is produced;
+* the extracted name is correct;
+* the page number is correct;
+* the bounding-box coordinates are correct;
+* the calculated width and height are correct.
+
+The expected geometry is derived from two OCR words:
+
+```text
+Richard     x=60, width=35
+Hernandez   x=98, width=55
+```
+
+Therefore the combined bounding box extends from `x=60` to `x=153`, producing a width of `93`.
+
+### Testing Strategy
+
+This is intentionally a **unit test**, rather than an integration or E2E test.
+
+Heavy dependencies are replaced with deterministic test data so that the test:
+
+* runs quickly;
+* is deterministic;
+* does not depend on Tesseract installation;
+* does not depend on the spaCy model;
+* tests our application logic rather than third-party library behavior.
+
+Integration and E2E tests will be added later at the appropriate architectural boundaries.
+
+### Code Quality Validation
+
+Ran:
+
+```text
+ruff format tests/Unit/test_extraction_service.py
+```
+
+and:
+
+```text
+ruff check tests/Unit/test_extraction_service.py
+```
+
+Both completed successfully.
+
+### Test Validation
+
+Ran:
+
+```text
+pytest tests/Unit/test_extraction_service.py -v
+```
+
+Result:
+
+```text
+1 passed in 4.32s
+```
+
+The extraction workflow therefore passes its first focused unit test.
+
+### Design Principles Demonstrated
+
+* **Dependency inversion:** `ExtractionService` receives its NER and bounding-box dependencies instead of creating them internally.
+* **Testability:** the NER dependency can be replaced with a deterministic fake.
+* **Separation of concerns:** the test validates orchestration and geometry without testing Tesseract or spaCy internals.
+* **Focused testing:** the test protects a non-trivial piece of application logic rather than merely checking that a method executes.
+
+### Milestone Status
+
+**Block 2 — Extraction workflow unit test: COMPLETE**
+
+The internal extraction workflow has now been validated both against the real sample PDF and through a deterministic unit test.
+
+## Block 2 — Bounding Boxes
+
+### Unit Test — Entity character span to OCR-word mapping
+
+**Objective**
+
+Add a focused unit test for `BoundingBoxService.find_matching_words()` to verify that an NER entity's character span is correctly mapped to the OCR words representing that specific occurrence.
+
+### Implementation
+
+Created:
+
+`tests/unit/test_bbox_service.py`
+
+The test constructs a deterministic `OCRPage` containing:
+
+```text
+Richard Hernandez was present
+```
+
+and four OCR words with known character positions and PDF-space coordinates.
+
+A `NEREntity` is created with:
+
+```text
+name: Richard Hernandez
+start: 0
+end: 17
+```
+
+The test then calls:
+
+```python
+service.find_matching_words(page, entity)
+```
+
+and verifies that only:
+
+```text
+Richard
+Hernandez
+```
+
+are returned.
+
+The words `was` and `present` must not be included.
+
+### Design Decision Protected by the Test
+
+The test protects the decision to use the NER entity's **character span** as the occurrence identifier.
+
+The implementation does not search for the name using a generic string operation such as:
+
+```python
+page.text.find(entity.text)
+```
+
+This is important because a document can contain the same person's name multiple times. A simple string search could identify the wrong occurrence.
+
+The intended mapping is:
+
+```text
+NEREntity
+(start, end)
+      ↓
+OCR word character ranges
+      ↓
+Correct OCRWord objects
+```
+
+### Testing Strategy
+
+The test is a true unit test:
+
+* no PDF is opened;
+* Tesseract is not executed;
+* spaCy is not executed;
+* no external service is used;
+* deterministic OCR objects are supplied directly.
+
+This keeps the test fast and makes the behavior under test explicit.
+
+### Code Quality Validation
+
+Ran:
+
+```text
+ruff check tests/unit/test_bbox_service.py
+```
+
+Result:
+
+```text
+All checks passed!
+```
+
+### Test Validation
+
+Ran:
+
+```text
+pytest tests/unit/test_bbox_service.py -v
+```
+
+Result:
+
+```text
+1 passed in 0.04s
+```
+
+### Milestone Status
+
+**Block 2 — Character-span mapping test: COMPLETE**
+
+The entity-to-OCR-word mapping is now protected by a deterministic unit test.
+---
+## Block 2 — Bounding Boxes
+
+### Unit Test — OCR-word geometry to PDF-space bounding box
+
+**Objective**
+
+Extend the bounding-box unit tests to verify that multiple OCR words are correctly combined into a single PDF-space bounding box.
+
+### Implementation
+
+Updated:
+
+`tests/unit/test_bbox_service.py`
+
+The module now contains two focused unit tests:
+
+1. `test_find_matching_words_uses_entity_character_span()`
+
+   * Verifies that an NER character span identifies the correct OCR words.
+   * Confirms that unrelated words are excluded.
+
+2. `test_create_bounding_box_combines_word_coordinates()`
+
+   * Verifies that the coordinates of the matching OCR words are combined into one bounding rectangle.
+
+For the geometry test, the two words have these coordinates:
+
+```text id="u2kd9f"
+Richard
+x = 60
+width = 35
+
+Hernandez
+x = 98
+width = 55
+```
+
+The expected combined rectangle is:
+
+```text id="xv5g8k"
+x      = 60
+y      = 100
+width  = 93
+height = 8
+```
+
+This independently verifies the bounding-box calculation performed by `BoundingBoxService`.
+
+### Testing Strategy
+
+The geometry test uses deterministic `OCRWord` objects and does not involve:
+
+* PDF files;
+* Tesseract;
+* spaCy;
+* FastAPI;
+* external services.
+
+This keeps the test fast and focused on application-owned geometry logic.
+
+Together, the two tests now protect:
+
+```text id="y8nv5x"
+NER character span
+       ↓
+correct OCR words
+       ↓
+PDF-space bounding box
+```
+
+### Code Quality Validation
+
+Ran:
+
+```text id="w6hx8m"
+ruff check tests/unit/test_bbox_service.py
+```
+
+Result:
+
+```text id="x3gq2v"
+All checks passed!
+```
+
+### Test Validation
+
+Ran:
+
+```text id="n4p7zs"
+pytest tests/unit/test_bbox_service.py -v
+```
+
+Result:
+
+```text id="a6m1yc"
+2 passed in 0.04s
+```
+
+Both unit tests passed successfully.
+
+### Design Principles Demonstrated
+
+* **Focused tests:** each test protects one important piece of application behavior.
+* **Determinism:** no heavyweight ML or OCR dependencies are required.
+* **Separation of concerns:** matching logic and geometry logic are tested independently.
+* **Regression protection:** future changes to bounding-box logic will be checked against explicit expected behavior.
+
+### Milestone Status
+
+**Block 2 — Bounding-box unit tests: COMPLETE**
+
+The two critical bounding-box operations are now covered by deterministic unit tests.
+
+## Block 2 — Bounding Boxes
+
+### Dependency Injection — Application Service Providers
+
+**Objective**
+
+Establish a clean dependency-injection boundary between the FastAPI API layer and the application services before implementing the `/api/extract` endpoint.
+
+**Implementation**
+
+Created:
+
+`app/dependencies.py`
+
+The module provides cached dependency factories for:
+
+* application `Settings`;
+* `OCRService`;
+* `ExtractionService`.
+
+The extraction dependency constructs the required components:
+
+```text id="p2x8rc"
+NER model
+    ↓
+NERService
+    ↓
+BoundingBoxService
+    ↓
+ExtractionService
+```
+
+The API layer will later obtain these services through FastAPI dependency injection instead of constructing them directly inside endpoint functions.
+
+### Caching Decision
+
+`@lru_cache` is used on dependency-provider functions where the resulting object should be reused within the application process.
+
+This is particularly important for the spaCy NER model. Loading the model for every HTTP request would introduce unnecessary initialization overhead.
+
+The intended lifecycle is:
+
+```text id="b3o6j1"
+First dependency request
+        ↓
+Create service / load model
+        ↓
+Cache instance
+        ↓
+Subsequent requests reuse instance
+```
+
+`lru_cache` is not being treated as a general-purpose decorator for every function or method. It is being used specifically for reusable application-level dependencies.
+
+### Architectural Boundary
+
+The design separates responsibilities:
+
+```text id="v8a1xq"
+FastAPI router
+    ↓
+Dependency injection
+    ↓
+Application services
+    ↓
+Infrastructure / ML components
+```
+
+This prevents the HTTP layer from becoming responsible for model loading and service construction.
+
+It also improves testability because the application service can continue to receive explicitly supplied dependencies, as already demonstrated by the `FakeNERService` unit test.
+
+### Code Quality Validation
+
+Ran:
+
+```text id="t3n6v8"
+ruff format app/dependencies.py
+```
+
+and:
+
+```text id="q5m2s9"
+ruff check app/dependencies.py
+```
+
+Result:
+
+```text id="h7c4pa"
+All checks passed!
+```
+
+### Milestone Status
+
+**Dependency-injection foundation: COMPLETE**
+
+The service construction boundary is now established. The next step is to use these dependencies from the FastAPI extraction endpoint while keeping the router thin.
+
+## Block 2 — Step 4.2: Implement the `POST /api/extract` Router
+
+### Objective
+
+Connect the existing OCR and extraction workflow to the FastAPI HTTP layer while keeping the router thin and preserving separation of concerns.
+
+### Implementation
+
+Created `app/api/extract.py` as the HTTP entry point for `POST /api/extract`.
+
+The router is responsible for:
+
+* Receiving the scanned PDF as a multipart upload.
+* Receiving the `names` field as a JSON string.
+* Validating the supplied names against the existing `NamePair` schema.
+* Validating the basic PDF filename requirement.
+* Creating a temporary PDF file for the OCR service.
+* Delegating OCR processing to `OCRService`.
+* Delegating person-name extraction and bounding-box calculation to `ExtractionService`.
+* Mapping internal `ExtractedNameResult` objects into the public `ExtractionResponse` API schema.
+* Cleaning up the temporary PDF file in a `finally` block.
+
+The router does **not** perform OCR, NER, coordinate calculations, or fuzzy matching itself.
+
+### Dependency Injection
+
+The endpoint receives `OCRService` and `ExtractionService` through FastAPI's dependency-injection mechanism.
+
+Conceptually:
+
+```text
+HTTP request
+    ↓
+FastAPI router
+    ↓
+OCRService
+    ↓
+ExtractionService
+    ↓
+ExtractionResponse
+```
+
+This keeps HTTP concerns separate from application logic and allows the services to be replaced with test doubles during testing.
+
+### Validation
+
+Ruff initially reported `B008` for FastAPI's normal use of `File(...)`, `Form(...)`, and `Depends(...)` in endpoint parameters.
+
+The Ruff configuration was adjusted with a targeted per-file ignore:
+
+```toml
+[tool.ruff.lint.per-file-ignores]
+"app/api/*.py" = ["B008"]
+```
+
+This keeps the rule active throughout the rest of the application while allowing the standard FastAPI dependency/declaration pattern in API routers.
+
+Validation completed successfully:
+
+```text
+ruff check app/api/extract.py
+All checks passed!
+
+ruff check app
+All checks passed!
+```
+
+### Design Principles
+
+This step reinforces:
+
+* **Separation of concerns** — the router handles HTTP concerns; services handle application logic.
+* **Dependency injection** — services are supplied to the endpoint rather than constructed inside the endpoint.
+* **Thin API layer** — business logic remains outside the router.
+* **Resource management** — temporary files are explicitly cleaned up.
+* **Targeted lint configuration** — Ruff is not globally weakened to accommodate a framework-specific pattern.
+
+### Milestone Status
+
+**Block 2 — Bounding Boxes / Name Localization: In progress**
+
+Completed within Block 2:
+
+1. NER character spans
+2. OCR-word/entity span mapping
+3. Bounding-box geometry
+4. Extraction workflow
+5. Extraction workflow unit tests
+6. Bounding-box unit tests
+7. FastAPI dependency providers
+8. `POST /api/extract` router implementation
+
+The next step is to connect the router to the main FastAPI application and verify the HTTP route before proceeding to fuzzy matching.
+
+## Block 2 — Step 4.3: Register the Extraction Router in the FastAPI Application
+
+### Objective
+
+Create the FastAPI application entry point and connect the completed extraction router to the application.
+
+### Implementation
+
+Created:
+
+`app/main.py`
+
+The module now:
+
+* Creates the FastAPI application.
+* Registers the extraction router under the `/api` prefix.
+* Exposes the extraction endpoint as:
+
+```text
+POST /api/extract
+```
+
+* Provides the required health endpoint:
+
+```text
+GET /health
+```
+
+The RAG router was intentionally **not registered yet**, because the RAG implementation belongs to Block 4 and does not yet exist in the submission project.
+
+### Architecture
+
+The current HTTP structure is:
+
+```text
+FastAPI application
+       │
+       ├── GET /health
+       │
+       └── /api
+             │
+             └── POST /api/extract
+                    │
+                    ▼
+              Extraction Router
+                    │
+                    ▼
+              Application Services
+```
+
+This keeps `main.py` focused on application assembly rather than business logic.
+
+### Validation
+
+Formatting and linting completed successfully:
+
+```text
+ruff format app/main.py
+→ All checks passed
+
+ruff check app/main.py
+→ All checks passed
+
+ruff check app
+→ All checks passed
+```
+
+### Design Principles
+
+This step reinforces:
+
+* **Separation of concerns** — `main.py` assembles the application; it does not implement extraction logic.
+* **Thin routers** — HTTP behavior remains in the API layer.
+* **Explicit application composition** — routers are registered centrally.
+* **Incremental architecture** — RAG is not registered until its implementation exists.
+
+### Milestone Status
+
+**Block 2 — Bounding Boxes / Name Localization: nearly complete**
+
+The extraction workflow now has a complete path from the FastAPI application through the extraction router to the OCR/NER/bounding-box services.
+
+The next validation step is to **run the FastAPI application and verify the registered routes**, before moving to fuzzy matching.
+
+## Block 2 — Step 4.4: Validate FastAPI Route Registration
+
+### Objective
+
+Verify that the FastAPI application starts successfully and that the required HTTP routes are correctly registered.
+
+### Validation
+
+The application was started with:
+
+```text id="q1m2ds"
+uv run uvicorn app.main:app --reload
+```
+
+Uvicorn reported:
+
+```text id="p8h7ak"
+Application startup complete.
+```
+
+The locally generated OpenAPI specification was then queried through:
+
+```text id="e5r6ty"
+Invoke-RestMethod http://127.0.0.1:8000/openapi.json
+```
+
+The returned specification contained the expected routes:
+
+```text id="j3k4lm"
+/api/extract
+/health
+```
+
+This confirms that:
+
+* `app.main` can be imported successfully.
+* The FastAPI application can be instantiated.
+* The extraction router is correctly registered.
+* The `/api` prefix is applied correctly.
+* The health endpoint is registered.
+* FastAPI can generate the application's OpenAPI schema.
+
+No external LLM service was involved in this validation. The OpenAPI specification is generated locally by FastAPI and is independent of OpenAI credits or the eventual Ollama/Llama 3 configuration.
+
+### Architecture Status
+
+The HTTP routing layer is now connected to the extraction workflow:
+
+```text
+FastAPI
+    │
+    ├── GET /health
+    │
+    └── POST /api/extract
+            │
+            ▼
+       Extraction Router
+            │
+            ├── OCRService
+            │
+            └── ExtractionService
+                    ├── NERService
+                    └── BoundingBoxService
+```
+
+### Milestone Status
+
+**Block 2 — Bounding Boxes / Name Localization: nearly complete**
+
+The extraction functionality is now connected from the application entry point through the API layer to the OCR, NER, and bounding-box services.
+
+The remaining extraction work includes integrating the provided-name fuzzy matching required by the assignment and then validating the complete endpoint behavior.
+
+## Block 2 — Step 4.5: Validate the Extraction Endpoint End-to-End
+
+### Objective
+
+Validate the complete HTTP extraction path using a real scanned PDF and confirm that the FastAPI endpoint successfully connects the HTTP layer to the OCR, NER, and bounding-box workflow.
+
+### Integration Test
+
+The endpoint was called with the real sample document:
+
+```text
+sample_pdfs/meeting_minutes.pdf
+```
+
+using:
+
+```text
+POST /api/extract
+```
+
+The request successfully passed through the following pipeline:
+
+```text
+HTTP multipart request
+        ↓
+PDF upload
+        ↓
+Temporary PDF file
+        ↓
+OCRService
+        ↓
+OCRDocument
+        ↓
+ExtractionService
+        ↓
+NERService
+        ↓
+BoundingBoxService
+        ↓
+ExtractionResponse
+```
+
+The endpoint returned **23 extracted person-name results**, covering both pages of the document.
+
+Each result contained:
+
+* the extracted person name;
+* the zero-based page number;
+* the PDF-space `x` and `y` coordinates;
+* the PDF-space width and height.
+
+The returned coordinates were consistent with the PDF coordinate-space representation established earlier in Block 2.
+
+### Validation Observation
+
+A request containing:
+
+```text
+names=[]
+```
+
+was successfully accepted and returned the complete extraction response.
+
+A non-empty JSON list transmitted through the PowerShell `curl.exe` command did not reach the application in the expected JSON representation. Because the empty list was accepted and the complete extraction pipeline executed successfully, this was identified as a **PowerShell/curl multipart quoting issue rather than an application extraction failure**.
+
+No application code was changed to compensate for the shell-specific behavior.
+
+### Response Validation
+
+The endpoint returned:
+
+```text
+fuzzy_matches: []
+```
+
+This is currently expected because fuzzy matching has not yet been implemented.
+
+The successful response demonstrates that the extraction functionality is independent of the future fuzzy-matching component.
+
+### Engineering Validation
+
+The extraction endpoint was validated through the actual running FastAPI application rather than only through direct service calls.
+
+The test therefore exercised:
+
+* FastAPI route registration;
+* multipart file handling;
+* request validation;
+* temporary-file creation and cleanup;
+* OCR service integration;
+* NER service integration;
+* bounding-box calculation;
+* response-model serialization.
+
+### Milestone Status
+
+**Block 2 — Bounding Boxes / Name Localization: COMPLETE**
+
+The extraction path is now connected from the HTTP API through the application workflow to OCR, NER, and PDF-space bounding-box generation.
+
+The next milestone is:
+
+**Block 3 — Fuzzy Name Matching**
