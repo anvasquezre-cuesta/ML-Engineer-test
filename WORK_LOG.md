@@ -2067,3 +2067,733 @@ Completed:
 * Functional OCR verification
 
 The next development stage is the **NER layer**, which will use the structured `OCRDocument` produced here to identify person names in the OCR text.
+---
+# Next Development Stage — NER Layer
+
+## 1. Objective
+
+With the OCR layer validated, the next development stage was to add **Named Entity Recognition (NER)**.
+
+The objective of this stage is to use the structured `OCRDocument` already produced by `OCRService` and identify **person names only** from the OCR text.
+
+The intended flow is:
+
+```text
+OCRDocument
+    ↓
+OCRPage.text
+    ↓
+spaCy NER
+    ↓
+PERSON entities
+    ↓
+NEREntity
+```
+
+At this stage, bounding boxes are **not** handled by the NER service. Bounding-box localization will be implemented separately in Block 2.
+
+---
+
+## 2. Technology Selection — spaCy
+
+spaCy was selected for the NER layer because the assignment explicitly calls for named entity recognition and spaCy provides a pretrained NER model suitable for identifying entities such as `PERSON`, `ORG`, `DATE`, `LOC`, etc.
+
+The English model used is:
+
+```text
+en_core_web_sm
+```
+
+The model was initially checked with:
+
+```python
+spacy.util.is_package("en_core_web_sm")
+```
+
+The result was:
+
+```text
+False
+```
+
+The model was then installed and verified again. The verification subsequently returned:
+
+```text
+True
+```
+
+This confirmed that the model was available in the project environment.
+
+---
+
+## 3. NER Internal Model
+
+A new internal model was created:
+
+`app/models/ner.py`
+
+```python
+"""
+Module: app.models.ner
+Path: app/models/ner.py
+Description: Internal data models used to represent NER results.
+"""
+
+
+class NEREntity:
+    """Represent one entity detected by named entity recognition."""
+
+    def __init__(
+        self,
+        text: str,
+        label: str,
+        page_number: int,
+    ) -> None:
+        self.text = text
+        self.label = label
+        self.page_number = page_number
+```
+
+The model intentionally contains only:
+
+* `text`
+* `label`
+* `page_number`
+
+Bounding-box information was intentionally left out because that is a different responsibility and will be addressed in **Block 2 — Bounding Boxes / Name Localization**.
+
+The separation is:
+
+```text
+NEREntity
+    ↓
+What entity was detected and on which page?
+
+Bounding-box service
+    ↓
+Where exactly is that entity located on the page?
+```
+
+---
+
+# 4. Initial NER Service
+
+A new service was created:
+
+`app/services/ner_service.py`
+
+The first implementation was intentionally simple. It received a spaCy model through dependency injection, processed each OCR page separately, and retained only entities whose label was `PERSON`.
+
+The initial version was:
+
+```python
+"""
+Module: app.services.ner_service
+Path: app/services/ner_service.py
+Description: Service responsible for named entity recognition.
+"""
+
+import spacy
+
+from app.models.ner import NEREntity
+from app.models.ocr import OCRDocument
+
+
+class NERService:
+    """Identify named entities in OCR text."""
+
+    def __init__(self, nlp: spacy.Language) -> None:
+        self.nlp = nlp
+
+        def extract(self, document: OCRDocument) -> list[NEREntity]:
+            """Identify person entities in an OCR document."""
+
+            entities: list[NEREntity] = []
+
+            for page in document.pages:
+                doc = self.nlp(page.text)
+
+                for entity in doc.ents:
+                    if entity.label_ != "PERSON":
+                        continue
+
+                    ner_entity = NEREntity(
+                        text=entity.text,
+                        label=entity.label_,
+                        page_number=page.page_number,
+                    )
+
+                    entities.append(ner_entity)
+
+            return entities
+```
+
+---
+
+# 5. First Implementation Problem — Incorrect Method Indentation
+
+The first implementation contained an indentation error.
+
+The `extract()` method was accidentally defined inside `__init__()`:
+
+```python
+def __init__(...):
+    self.nlp = nlp
+
+    def extract(...):
+        ...
+```
+
+instead of being a normal method of the `NERService` class:
+
+```python
+def __init__(...):
+    self.nlp = nlp
+
+def extract(...):
+    ...
+```
+
+When the service was executed, Python raised:
+
+```text
+AttributeError: 'NERService' object has no attribute 'extract'
+```
+
+### Resolution
+
+The indentation was corrected so that `extract()` became a proper instance method.
+
+This was caught immediately through focused validation before continuing with the implementation.
+
+---
+
+# 6. First Successful NER Run
+
+After correcting the indentation, the service was run against:
+
+```text
+sample_pdfs/meeting_minutes.pdf
+```
+
+The initial result was:
+
+```text
+PERSON entities: 26
+```
+
+At first glance this looked promising, but the actual entity list revealed problems.
+
+Among the detected `PERSON` entities were:
+
+```text
+DIRECTORS - MEETING MINUTES Date
+Richard Hernandez
+- Thomas Muller
+Aisha Patel
+Kevin O'Brien
+- Jennifer Liu
+Absent
+Carlos Mendoza
+...
+Approved
+Richard Hernandez
+```
+
+The actual person names were being detected, but spaCy was also producing several false positives and formatting artifacts.
+
+This led to the next step: **diagnosing exactly what spaCy was returning rather than immediately modifying the implementation.**
+
+---
+
+# 7. NER Diagnostic — Inspecting Exact Entity Spans
+
+A diagnostic was created to inspect:
+
+* page number
+* exact entity text
+* entity label
+* character start position
+* character end position
+
+The diagnostic showed, for example:
+
+```text
+Page 0: text='DIRECTORS - MEETING MINUTES Date', label='PERSON', start=9, end=41
+Page 0: text='Richard Hernandez', label='PERSON', start=141, end=158
+Page 0: text='- Thomas Muller', label='PERSON', start=224, end=239
+Page 0: text='Aisha Patel', label='PERSON', start=272, end=283
+Page 0: text="Kevin O'Brien", label='PERSON', start=308, end=321
+Page 0: text='- Jennifer Liu', label='PERSON', start=339, end=353
+Page 0: text='Absent', label='PERSON', start=365, end=371
+Page 0: text='Carlos Mendoza', label='PERSON', start=375, end=389
+```
+
+And on page 1:
+
+```text
+Page 1: text='Thomas Muller', label='PERSON', start=21, end=34
+Page 1: text='Yuki Tanaka', label='PERSON', start=131, end=142
+Page 1: text='Alexander Popov', label='PERSON', start=224, end=239
+...
+Page 1: text='Approved', label='PERSON', start=886, end=894
+Page 1: text='Richard Hernandez', label='PERSON', start=899, end=916
+```
+
+This diagnostic was important because it established that the false positives were actually coming from the spaCy NER output.
+
+The OCR text itself had already been inspected and was sufficiently clean.
+
+Therefore, there was no reason to redesign the OCR layer.
+
+---
+
+# 8. Problems Identified
+
+Three main issues were identified.
+
+### Problem 1 — False positive containing multiple non-name words
+
+spaCy classified:
+
+```text
+DIRECTORS - MEETING MINUTES Date
+```
+
+as:
+
+```text
+PERSON
+```
+
+This clearly does not represent a person name.
+
+### Problem 2 — Single-word false positives
+
+spaCy classified:
+
+```text
+Absent
+```
+
+and:
+
+```text
+Approved
+```
+
+as:
+
+```text
+PERSON
+```
+
+These are not person names in the context of the document.
+
+### Problem 3 — Leading punctuation
+
+Some valid person names were returned with list punctuation:
+
+```text
+- Thomas Muller
+- Jennifer Liu
+```
+
+The actual desired entity text is:
+
+```text
+Thomas Muller
+Jennifer Liu
+```
+
+---
+
+# 9. Decision — Do Not Add Name-Specific Exceptions
+
+An important design decision was made at this point.
+
+The false positives were **not** removed using rules such as:
+
+```python
+if entity.text == "Absent":
+    continue
+```
+
+or:
+
+```python
+if entity.text == "Approved":
+    continue
+```
+
+That would make the implementation dependent on the exact sample document.
+
+Instead, a small generic normalization and validation step was introduced.
+
+The reasoning was:
+
+```text
+spaCy
+    ↓
+candidate PERSON entity
+    ↓
+generic normalization
+    ↓
+generic structural validation
+    ↓
+accepted person name
+```
+
+This makes the post-processing rule applicable to similar OCR/NER artifacts rather than only to the current PDF.
+
+---
+
+# 10. Final NER Service
+
+The final version of:
+
+`app/services/ner_service.py`
+
+is:
+
+```python
+"""
+Module: app.services.ner_service
+Path: app/services/ner_service.py
+Description: Service responsible for named entity recognition.
+"""
+
+import re
+
+import spacy
+
+from app.models.ner import NEREntity
+from app.models.ocr import OCRDocument
+
+
+class NERService:
+    """Identify named entities in OCR text."""
+
+    def __init__(self, nlp: spacy.Language) -> None:
+        self.nlp = nlp
+
+    def _normalize_person_name(self, text: str) -> str | None:
+        """Normalize and validate a person-name entity."""
+
+        normalized = text.strip(" \t\r\n-–—:;,.")
+        tokens = normalized.split()
+
+        if len(tokens) < 2:
+            return None
+
+        if not all(re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", token) for token in tokens):
+            return None
+
+        return normalized
+
+    def extract(self, document: OCRDocument) -> list[NEREntity]:
+        """Identify person entities in an OCR document."""
+
+        entities: list[NEREntity] = []
+
+        for page in document.pages:
+            doc = self.nlp(page.text)
+
+            for entity in doc.ents:
+                if entity.label_ != "PERSON":
+                    continue
+
+                person_name = self._normalize_person_name(entity.text)
+
+                if person_name is None:
+                    continue
+
+                ner_entity = NEREntity(
+                    text=person_name,
+                    label=entity.label_,
+                    page_number=page.page_number,
+                )
+
+                entities.append(ner_entity)
+
+        return entities
+```
+
+---
+
+# 11. Explanation of the Final NER Implementation
+
+The service now has two clear responsibilities.
+
+## `extract()`
+
+`extract()` controls the NER workflow.
+
+For each OCR page:
+
+```text
+OCR page text
+    ↓
+spaCy
+    ↓
+all detected entities
+    ↓
+keep only PERSON
+    ↓
+normalize and validate
+    ↓
+create NEREntity
+```
+
+The important filtering step is:
+
+```python
+if entity.label_ != "PERSON":
+    continue
+```
+
+spaCy recognizes many entity types, but the assignment specifically requires person names.
+
+Therefore, entities such as:
+
+```text
+DATE
+TIME
+ORG
+LOC
+GPE
+CARDINAL
+PRODUCT
+PERCENT
+```
+
+are ignored.
+
+---
+
+## `_normalize_person_name()`
+
+The helper performs two generic operations.
+
+### First: remove surrounding punctuation
+
+```python
+normalized = text.strip(" \t\r\n-–—:;,.")
+```
+
+For example:
+
+```text
+"- Thomas Muller"
+```
+
+becomes:
+
+```text
+"Thomas Muller"
+```
+
+The rule is generic and does not contain any knowledge of the particular person's name.
+
+### Second: require at least two tokens
+
+```python
+tokens = normalized.split()
+
+if len(tokens) < 2:
+    return None
+```
+
+This eliminates the observed single-word false positives:
+
+```text
+Absent
+Approved
+```
+
+while retaining the expected first-name/last-name structures:
+
+```text
+Richard Hernandez
+Elizabeth Park
+Thomas Muller
+Aisha Patel
+Carlos Mendoza
+Yuki Tanaka
+Alexander Popov
+Catherine Dubois
+```
+
+### Third: verify that each token contains alphabetic characters
+
+```python
+if not all(
+    re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", token)
+    for token in tokens
+):
+    return None
+```
+
+This prevents obviously malformed candidate spans from being accepted.
+
+The character range also includes common Latin accented characters, which is useful for multilingual names without introducing a language-specific name dictionary.
+
+---
+
+# 12. Final Validation
+
+After the changes, the same validation was run against:
+
+```text
+sample_pdfs/meeting_minutes.pdf
+```
+
+The final result was:
+
+```text
+PERSON entities: 23
+```
+
+The resulting entities were:
+
+```text
+Page 0: 'Richard Hernandez' [PERSON]
+Page 0: 'Thomas Muller' [PERSON]
+Page 0: 'Aisha Patel' [PERSON]
+Page 0: "Kevin O'Brien" [PERSON]
+Page 0: 'Jennifer Liu' [PERSON]
+Page 0: 'Carlos Mendoza' [PERSON]
+Page 0: 'Richard Hernandez' [PERSON]
+Page 0: 'Jennifer Liu' [PERSON]
+Page 0: 'Elizabeth Park' [PERSON]
+Page 0: 'Thomas Muller' [PERSON]
+Page 0: 'Elizabeth Park' [PERSON]
+Page 0: 'Aisha Patel' [PERSON]
+Page 0: "Kevin O'Brien" [PERSON]
+Page 1: 'Thomas Muller' [PERSON]
+Page 1: 'Yuki Tanaka' [PERSON]
+Page 1: 'Alexander Popov' [PERSON]
+Page 1: 'Richard Hernandez' [PERSON]
+Page 1: 'Catherine Dubois' [PERSON]
+Page 1: 'Aisha Patel' [PERSON]
+Page 1: "Kevin O'Brien" [PERSON]
+Page 1: 'Richard Hernandez' [PERSON]
+Page 1: 'Jennifer Liu' [PERSON]
+Page 1: 'Richard Hernandez' [PERSON]
+```
+
+The problematic entities identified during the first run were no longer present:
+
+```text
+DIRECTORS - MEETING MINUTES Date
+Absent
+Approved
+```
+
+The leading punctuation was also removed:
+
+```text
+- Thomas Muller
+- Jennifer Liu
+```
+
+resulting in:
+
+```text
+Thomas Muller
+Jennifer Liu
+```
+
+---
+
+# 13. Why We Consider the NER Layer Complete
+
+The NER layer now successfully performs its intended responsibility:
+
+```text
+OCRDocument
+    ↓
+page-level OCR text
+    ↓
+spaCy NER
+    ↓
+PERSON filtering
+    ↓
+generic normalization/validation
+    ↓
+NEREntity[]
+```
+
+It also preserves the page number, which will be required later when producing the final extraction response.
+
+Most importantly, the implementation does **not** perform OCR again.
+
+The OCR layer already produced the structured representation required for subsequent stages:
+
+```text
+OCRDocument
+├── page text
+└── OCR words + coordinates
+```
+
+NER consumes the page text while Block 2 will consume the same OCR word information to resolve the physical location of each detected name.
+
+---
+
+# 14. Validation and Code Quality
+
+After the final NER implementation was completed, the application code was formatted and linted using:
+
+```powershell
+ruff format app
+ruff check app
+```
+
+The checks passed successfully.
+
+The NER implementation was therefore validated both functionally against the sample PDF and statically through the project's formatting/linting checks.
+
+---
+
+# 15. Block 1 Completion
+
+With the NER layer validated, **Block 1 — OCR + NER is complete**.
+
+The current internal pipeline is:
+
+```text
+PDF
+ ↓
+OCRService
+ ↓
+OCRDocument
+ ├── page text
+ └── OCR words + PDF-space coordinates
+ ↓
+NERService
+ ↓
+PERSON entities
+ ├── text
+ ├── label
+ └── page_number
+```
+
+The next development stage is:
+
+**Block 2 — Bounding Boxes / Name Localization**
+
+The key problem to solve there is how to connect:
+
+```text
+spaCy entity
+    ↓
+character offsets in page text
+    ↓
+corresponding OCR words
+    ↓
+word-level coordinates
+    ↓
+combined bounding box
+```
+
+Development is intentionally paused here at the end of Block 1.
