@@ -10,3 +10,6 @@ __pycache__/
 *.log
 WORK_LOG.md
 WORK_LOG2.md
+WORK_LOG3.md
+data/
+test-data/

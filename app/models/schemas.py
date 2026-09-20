@@ -1,19 +1,16 @@
 """
 Module: app.models.schemas
 Path: app/models/schemas.py
-Description: Public API request and response schemas.
+Description: Pydantic schemas for public API requests and responses.
 """
 
 from pydantic import BaseModel, Field
 
 
 class BoundingBox(BaseModel):
-    """Represent a name location in PDF coordinate space."""
+    """Represent a name bounding box in PDF coordinate space."""
 
-    page_number: int = Field(
-        ge=0,
-        description="0-based page index",
-    )
+    page_number: int = Field(ge=0, description="0-based page index")
     x: float
     y: float
     width: float
@@ -28,33 +25,29 @@ class ExtractedName(BaseModel):
 
 
 class FuzzyMatch(BaseModel):
-    """Represent a fuzzy match between extracted and provided names."""
+    """Represent a fuzzy match against a candidate name."""
 
     extracted_name: str
     matched_name: str
-    score: float = Field(
-        ge=0.0,
-        le=1.0,
-        description="0..1 similarity",
-    )
+    score: float = Field(ge=0.0, le=1.0)
 
 
 class NamePair(BaseModel):
-    """Represent a provided first-name and last-name pair."""
+    """Represent a candidate first-name and last-name pair."""
 
     first_name: str = Field(min_length=1)
     last_name: str = Field(min_length=1)
 
 
 class ExtractionResponse(BaseModel):
-    """Represent the response from the extraction endpoint."""
+    """Represent the document extraction API response."""
 
     extracted_names: list[ExtractedName]
-    fuzzy_matches: list[FuzzyMatch] = []
+    fuzzy_matches: list[FuzzyMatch] = Field(default_factory=list)
 
 
 class IngestResponse(BaseModel):
-    """Represent the response from document ingestion."""
+    """Represent the document ingestion API response."""
 
     status: str
     chunks_stored: int
@@ -63,20 +56,17 @@ class IngestResponse(BaseModel):
 class RAGRequest(BaseModel):
     """Represent a question submitted to the RAG endpoint."""
 
-    question: str = Field(
-        min_length=1,
-        max_length=2000,
-    )
+    question: str = Field(min_length=1, max_length=2000)
 
 
 class RAGResponse(BaseModel):
-    """Represent a grounded RAG answer."""
+    """Represent a grounded RAG answer and its sources."""
 
     answer: str
-    sources: list[str] = []
+    sources: list[str] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):
-    """Represent the health-check response."""
+    """Represent the service health response."""
 
     status: str

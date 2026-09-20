@@ -20,6 +20,10 @@ dependencies = [
     "sentence-transformers",
     "chromadb",
     "httpx",
+    "langchain-ollama==1.1.0",
+    "langchain-huggingface==1.2.2",
+    "langchain-chroma==1.1.0",
+    "langchain-text-splitters==1.1.2",
 ]
 
 [tool.uv.sources]
@@ -41,3 +45,8 @@ packages = ["app"]
 
 [tool.ruff.lint.per-file-ignores]
 "app/api/*.py" = ["B008"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:The anyio\\.abc\\.BlockingPortal alias is deprecated.*:DeprecationWarning",
+]

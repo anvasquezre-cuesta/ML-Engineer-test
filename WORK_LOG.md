@@ -2627,10 +2627,7 @@ Catherine Dubois
 ### Third: verify that each token contains alphabetic characters
 
 ```python
-if not all(
-    re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", token)
-    for token in tokens
-):
+if not all(re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", token) for token in tokens):
     return None
 ```
 
@@ -2940,9 +2937,7 @@ The method first removes OCR tokens that contain only punctuation. This prevents
 
 ```python
 relevant_words = [
-    word
-    for word in words
-    if any(character.isalnum() for character in word.text)
+    word for word in words if any(character.isalnum() for character in word.text)
 ]
 ```
 
