@@ -5,16 +5,19 @@ Description: HTTP endpoint for document name extraction and matching.
 """
 
 import json
-import tempfile
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import TypeAdapter, ValidationError
 
-from app.dependencies import get_extraction_service, get_ocr_service
+from app.dependencies import (
+    get_extraction_service,
+    get_ocr_service,
+    get_pdf_upload_service,
+)
 from app.models.schemas import ExtractionResponse, NamePair
 from app.services.extraction_service import ExtractionService
 from app.services.ocr_service import OCRService
+from app.services.pdf_upload_service import PDFUploadError, PDFUploadService
 
 router = APIRouter()
 
@@ -25,6 +28,7 @@ async def extract_names(
     names: str = Form(...),
     ocr_service: OCRService = Depends(get_ocr_service),
     extraction_service: ExtractionService = Depends(get_extraction_service),
+    pdf_upload_service: PDFUploadService = Depends(get_pdf_upload_service),
 ) -> ExtractionResponse:
     """Extract person names from a PDF and fuzzy-match them against candidates."""
 
@@ -45,13 +49,14 @@ async def extract_names(
             detail="The uploaded file must be a PDF.",
         )
 
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temporary_file:
-        temporary_path = Path(temporary_file.name)
-
-        while chunk := await pdf_file.read(1024 * 1024):
-            temporary_file.write(chunk)
+    temporary_path = None
 
     try:
+        try:
+            temporary_path = pdf_upload_service.save_validated_pdf(pdf_file.file)
+        except PDFUploadError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         document = ocr_service.extract(str(temporary_path))
 
         candidate_names = [
@@ -87,4 +92,7 @@ async def extract_names(
             ],
         )
     finally:
-        temporary_path.unlink(missing_ok=True)
+        pdf_file.file.close()
+
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)

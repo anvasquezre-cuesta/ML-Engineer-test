@@ -6,12 +6,24 @@ Description: Integration tests for the document extraction and health endpoints.
 
 from dataclasses import dataclass
 
+import pymupdf
 from fastapi.testclient import TestClient
 
 from app.dependencies import get_extraction_service, get_ocr_service
 from app.main import app
 from app.models.extraction import ExtractedNameResult, ExtractionResult
 from app.models.ocr import OCRDocument
+
+
+def create_valid_pdf() -> bytes:
+    """Create a minimal valid one-page PDF for API integration tests."""
+    document = pymupdf.open()
+    document.new_page()
+
+    try:
+        return document.tobytes()
+    finally:
+        document.close()
 
 
 @dataclass
@@ -61,13 +73,16 @@ def test_extract_endpoint_returns_extracted_names() -> None:
 
     try:
         client = TestClient(app)
-
         response = client.post(
             "/api/extract",
-            files={"pdf_file": ("document.pdf", b"%PDF-test", "application/pdf")},
-            data={
-                "names": '[{"first_name":"John","last_name":"Smith"}]',
+            files={
+                "pdf_file": (
+                    "document.pdf",
+                    create_valid_pdf(),
+                    "application/pdf",
+                )
             },
+            data={"names": '[{"first_name":"John","last_name":"Smith"}]'},
         )
 
         assert response.status_code == 200
@@ -95,7 +110,13 @@ def test_extract_endpoint_rejects_invalid_names_json() -> None:
 
     response = client.post(
         "/api/extract",
-        files={"pdf_file": ("document.pdf", b"%PDF-test", "application/pdf")},
+        files={
+            "pdf_file": (
+                "document.pdf",
+                create_valid_pdf(),
+                "application/pdf",
+            )
+        },
         data={"names": "not-valid-json"},
     )
 
@@ -110,10 +131,14 @@ def test_extract_endpoint_rejects_non_pdf_upload() -> None:
 
     response = client.post(
         "/api/extract",
-        files={"pdf_file": ("document.txt", b"not a pdf", "text/plain")},
-        data={
-            "names": '[{"first_name":"John","last_name":"Smith"}]',
+        files={
+            "pdf_file": (
+                "document.txt",
+                b"not a pdf",
+                "text/plain",
+            )
         },
+        data={"names": '[{"first_name":"John","last_name":"Smith"}]'},
     )
 
     assert response.status_code == 400

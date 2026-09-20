@@ -4,15 +4,16 @@ Path: app/api/rag.py
 Description: HTTP endpoints for document ingestion and retrieval-augmented generation.
 """
 
-import os
-import shutil
-import tempfile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from fastapi import APIRouter, Depends, File, UploadFile
-
-from app.dependencies import get_ingestion_service, get_rag_service
+from app.dependencies import (
+    get_ingestion_service,
+    get_pdf_upload_service,
+    get_rag_service,
+)
 from app.models.schemas import IngestResponse, RAGRequest, RAGResponse
 from app.services.ingestion_service import IngestionService
+from app.services.pdf_upload_service import PDFUploadError, PDFUploadService
 from app.services.rag_service import RAGService
 
 router = APIRouter()
@@ -22,19 +23,21 @@ router = APIRouter()
 def ingest_document(
     pdf_file: UploadFile = File(...),
     ingestion_service: IngestionService = Depends(get_ingestion_service),
+    pdf_upload_service: PDFUploadService = Depends(get_pdf_upload_service),
 ) -> IngestResponse:
     """Ingest an uploaded PDF into the vector store."""
 
     source = pdf_file.filename or "uploaded.pdf"
-    temporary_path: str | None = None
+    temporary_path = None
 
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temporary_file:
-            temporary_path = temporary_file.name
-            shutil.copyfileobj(pdf_file.file, temporary_file)
+        try:
+            temporary_path = pdf_upload_service.save_validated_pdf(pdf_file.file)
+        except PDFUploadError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         result = ingestion_service.ingest(
-            pdf_path=temporary_path,
+            pdf_path=str(temporary_path),
             source=source,
         )
 
@@ -46,10 +49,7 @@ def ingest_document(
         pdf_file.file.close()
 
         if temporary_path is not None:
-            try:
-                os.remove(temporary_path)
-            except FileNotFoundError:
-                pass
+            temporary_path.unlink(missing_ok=True)
 
 
 @router.post("/ask", response_model=RAGResponse)

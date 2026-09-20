@@ -54,3 +54,23 @@ def test_generate_retries_and_raises_provider_error_after_failures() -> None:
             provider.generate("What is the document about?")
 
     assert mock_llm.invoke.call_count == 3
+
+
+def test_provider_configures_llm_timeout() -> None:
+    settings = Settings(
+        llm_model="test-model",
+        llm_base_url="http://test-llm",
+        llm_temperature=0.0,
+        llm_timeout=17.5,
+        llm_max_retries=0,
+    )
+
+    with patch("app.services.llm_provider.ChatOllama") as mock_chat_ollama:
+        OllamaLLMProvider(settings)
+
+    mock_chat_ollama.assert_called_once_with(
+        model="test-model",
+        base_url="http://test-llm",
+        temperature=0.0,
+        sync_client_kwargs={"timeout": 17.5},
+    )
