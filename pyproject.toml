@@ -50,3 +50,8 @@ packages = ["app"]
 filterwarnings = [
     "ignore:The anyio\\.abc\\.BlockingPortal alias is deprecated.*:DeprecationWarning",
 ]
+
+markers = [
+    "e2e: end-to-end tests requiring local external/runtime dependencies",
+]
+addopts = "-m 'not e2e'"

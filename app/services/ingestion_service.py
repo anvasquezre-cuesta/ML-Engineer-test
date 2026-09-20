@@ -46,59 +46,75 @@ class IngestionService:
             extra={"document_id": document_id},
         )
 
-        ocr_document = self._ocr_service.extract(pdf_path)
+        try:
+            ocr_document = self._ocr_service.extract(pdf_path)
 
-        documents: list[Document] = []
-        chunk_index = 0
-        pages_with_content = 0
+            documents: list[Document] = []
+            chunk_index = 0
+            pages_with_content = 0
 
-        for page in ocr_document.pages:
-            page_text = page.text.strip()
-            if not page_text:
-                continue
+            for page in ocr_document.pages:
+                page_text = page.text.strip()
+                if not page_text:
+                    continue
 
-            pages_with_content += 1
-            chunks = self._text_chunker.split_text(page_text)
+                pages_with_content += 1
+                chunks = self._text_chunker.split_text(page_text)
 
-            for chunk in chunks:
-                metadata = ChunkMetadata(
-                    document_id=document_id,
-                    source=source,
-                    page_number=page.page_number,
-                    chunk_index=chunk_index,
-                )
-
-                documents.append(
-                    Document(
-                        page_content=chunk,
-                        metadata={
-                            "document_id": metadata.document_id,
-                            "source": metadata.source,
-                            "page_number": metadata.page_number,
-                            "chunk_index": metadata.chunk_index,
-                        },
+                for chunk in chunks:
+                    metadata = ChunkMetadata(
+                        document_id=document_id,
+                        source=source,
+                        page_number=page.page_number,
+                        chunk_index=chunk_index,
                     )
-                )
 
-                chunk_index += 1
+                    documents.append(
+                        Document(
+                            page_content=chunk,
+                            metadata={
+                                "document_id": metadata.document_id,
+                                "source": metadata.source,
+                                "page_number": metadata.page_number,
+                                "chunk_index": metadata.chunk_index,
+                            },
+                        )
+                    )
 
-        if documents:
-            self._vector_store_service.add_documents(documents)
+                    chunk_index += 1
 
-        duration_ms = (time.perf_counter() - start_time) * 1000
+            if documents:
+                self._vector_store_service.add_documents(documents)
 
-        logger.info(
-            "document_ingestion_completed",
-            extra={
-                "document_id": document_id,
-                "pages_processed": pages_with_content,
-                "chunks_stored": len(documents),
-                "duration_ms": round(duration_ms, 2),
-                "status": "success",
-            },
-        )
+            duration_ms = (time.perf_counter() - start_time) * 1000
 
-        return IngestionResult(
-            document_id=document_id,
-            chunks_stored=len(documents),
-        )
+            logger.info(
+                "document_ingestion_completed",
+                extra={
+                    "document_id": document_id,
+                    "pages_processed": pages_with_content,
+                    "chunks_stored": len(documents),
+                    "duration_ms": round(duration_ms, 2),
+                    "status": "success",
+                },
+            )
+
+            return IngestionResult(
+                document_id=document_id,
+                chunks_stored=len(documents),
+            )
+
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+
+            logger.error(
+                "document_ingestion_failed",
+                extra={
+                    "document_id": document_id,
+                    "duration_ms": round(duration_ms, 2),
+                    "error_type": type(exc).__name__,
+                    "status": "failure",
+                },
+            )
+
+            raise
