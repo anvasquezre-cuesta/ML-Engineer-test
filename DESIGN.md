@@ -10,8 +10,6 @@ The implementation nevertheless follows the assignment requirement that the LLM 
 
 Therefore, the same RAG implementation can be validated locally with Ollama/Llama 3 and deployed or evaluated with another OpenAI-compatible LLM endpoint by changing configuration rather than application code.
 
-
-
 ## 1. Architecture and Component View
 
 The service is a FastAPI application with thin HTTP routers, application services containing business logic, and isolated infrastructure integrations.
@@ -30,10 +28,10 @@ FastAPI Routers
   │
   └── /ingest ──► IngestionService
        /ask ─────► RAGService
-                       ├── TextChunker
-                       ├── EmbeddingService
-                       ├── VectorStoreService ──► ChromaDB
-                       └── LLMProvider ──► Ollama/Llama 3
+                      ├── TextChunker
+                      ├── EmbeddingService
+                      ├── VectorStoreService ──► ChromaDB
+                      └── LLMProvider ──► Ollama/Llama 3
 ```
 
 Dependencies are assembled in `app/dependencies.py` and injected into services. `RAGService` depends on the application-level `LLMProvider` Protocol rather than directly on Ollama. Routers remain responsible for HTTP concerns; business logic can therefore be tested independently of HTTP.
@@ -106,16 +104,16 @@ Stateless API
    ├── Object Storage ──► original PDFs
    │
    └── Durable Queue
-           │
-           ▼
-     Ingestion Workers
-       ├── OCR workers
-       ├── chunking
-       ├── embedding workers
-       └── vector-store writes
-                    │
-                    ▼
-             Distributed Vector DB
+          │
+          ▼
+    Ingestion Workers
+      ├── OCR workers
+      ├── chunking
+      ├── embedding workers
+      └── vector-store writes
+                   │
+                   ▼
+            Distributed Vector DB
 
 Question API
    │
@@ -198,7 +196,7 @@ This is a proposed scaling strategy, not functionality implemented in the curren
 
 ## 6. Testing, Evaluation, Safety and Observability
 
-Engineering tests are separated into unit, integration, and E2E tests. The final regression suite contains 44 non-E2E tests, with an additional E2E workflow using the real local OCR, embeddings, ChromaDB, and Llama 3 components.
+Engineering tests are separated into unit, integration, and E2E tests. The final regression suite contains 46 automated tests, with the real E2E workflow deselected from the normal regression run because it depends on the locally running OCR, embeddings, ChromaDB, and Llama 3 components. The E2E workflow can be executed separately against those real components.
 
 RAG evaluation is treated separately from software testing. Representative questions were used to check retrieval relevance, answer correctness, unavailable-answer behavior, groundedness, and source correctness. The `top_k=5` retrieval failure that led to `top_k=12` is an example of an evaluation-driven design decision.
 
@@ -215,3 +213,23 @@ The implementation intentionally prioritizes a correct and testable core over in
 Known limitations include OCR/model accuracy, simple vector retrieval without reranking or hybrid search, dependence on Llama 3 generation quality, local vector-store persistence, and the absence of authentication or distributed production infrastructure.
 
 For a production deployment, the scaling architecture described above would be introduced based on measured workload characteristics rather than prematurely adding infrastructure to the take-home solution.
+
+## 8. Bonus Features
+
+### Docker and Docker Compose
+
+The service includes Docker and Docker Compose configuration as a deployment bonus. The Dockerfile packages the FastAPI application together with its Tesseract OCR runtime dependency, while Docker Compose provides a reproducible application configuration and persistent storage for ChromaDB through a named volume.
+
+The containerized application was validated by rebuilding the image with the current application code and starting it through Docker Compose. The `/health` endpoint returned `200 OK`, and the `/audit` endpoint successfully served the browser-based audit viewer from the container.
+
+Docker is treated as the deployment layer rather than as part of the application architecture. The application services and their dependency boundaries remain unchanged between local and containerized execution.
+
+### Audit Viewer
+
+A lightweight browser-based audit viewer was implemented as a bonus using Vanilla JavaScript and PDF.js. The viewer submits a PDF and candidate names to the existing `/api/extract` endpoint, renders the original PDF in the browser, and overlays the bounding boxes returned by the extraction service.
+
+The viewer intentionally remains a thin client. OCR, PERSON NER, coordinate conversion, bounding-box calculation, and fuzzy matching remain responsibilities of the backend. PDF.js is used only for browser-side PDF rendering and visualization.
+
+The viewer was manually validated against a real sample PDF, confirming that the returned bounding boxes aligned with the detected names in the rendered document.
+
+This provides a practical visual audit of the extraction results while avoiding duplication of document-processing logic in the frontend.

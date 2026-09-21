@@ -21,7 +21,6 @@ This allows the same RAG implementation to be tested locally with Ollama and con
 
 The implementation does not claim native support for proprietary provider-specific APIs that do not expose an OpenAI-compatible interface. Supporting such an API would require an additional provider adapter.
 
-
 ## Notable Engineering Decisions and Trade-offs
 
 * **Separated text chunking from the RAG service**
@@ -43,9 +42,10 @@ The implementation does not claim native support for proprietary provider-specif
 
 * **`LLMProvider` Protocol**
 
-  * RAG depends on an application-level LLM abstraction rather than directly on Ollama.
+  * RAG depends on an application-level LLM abstraction rather than directly on a specific provider.
   * This allows the LLM implementation to be replaced without changing the RAG service.
-  * Trade-off: the current implementation supports only the Ollama provider required for development; additional providers can be added later.
+  * The application currently provides an Ollama implementation for local development and an OpenAI-compatible HTTP implementation for evaluation or deployment endpoints.
+  * Trade-off: provider-specific capabilities are intentionally kept outside the RAG application layer. Supporting a provider that does not expose an OpenAI-compatible interface would require an additional provider adapter.
 
 * **Vector-store adapter boundary**
 
@@ -110,7 +110,7 @@ The implementation does not claim native support for proprietary provider-specif
 
 * **Retries and timeouts at the LLM boundary**
 
-  * The Ollama provider uses a configurable timeout and retry count.
+  * The Ollama provider and OpenAI-compatible provider use configurable timeouts and retry counts.
   * Provider-specific failures are translated into an application-level error.
   * Trade-off: retries increase latency when the dependency remains unavailable, so the number of attempts is deliberately limited.
 
@@ -126,6 +126,32 @@ The implementation does not claim native support for proprietary provider-specif
   * Cleanup is handled explicitly even when processing fails.
   * A byte-stream PDF validation approach was used to avoid Windows file-locking issues encountered when validating a temporary file while PyMuPDF still had it open.
 
+## Bonus Features
+
+### Docker and Docker Compose
+
+Docker and Docker Compose were implemented as a deployment bonus.
+
+The Dockerfile packages the application and its required OCR runtime dependency, while Docker Compose provides a reproducible way to build and run the service and persists ChromaDB data through a named volume.
+
+The Compose configuration also supplies deployment-specific LLM settings through environment variables rather than modifying application source code.
+
+The containerized application was rebuilt and validated after the Audit Viewer was added. The running Compose service successfully returned `200 OK` from `/health` and served the Audit Viewer HTML from `/audit`.
+
+A separate database service was not introduced because the assignment explicitly permits an embedded/in-process vector store. ChromaDB therefore remains part of the application container while its persisted data is stored in a named Docker volume.
+
+### Audit Viewer
+
+The Audit Viewer was implemented as a lightweight deployment bonus using Vanilla JavaScript and PDF.js.
+
+The design intentionally reuses the existing `/api/extract` API rather than duplicating extraction logic in the browser. The frontend is responsible only for submitting the document, rendering the PDF, and visualizing the bounding boxes returned by the backend.
+
+PDF.js was selected because it provides browser-side PDF rendering without requiring a more complex frontend framework.
+
+The viewer was manually validated using a real sample PDF. The returned bounding boxes aligned with the detected PERSON entities in the rendered document, providing a direct visual check of the OCR-to-PDF coordinate conversion.
+
+The trade-off is that the viewer is intentionally minimal and is not intended to be a production document-review application. Its purpose is to provide a simple and explainable audit interface for the extraction pipeline.
+
 ## AI Tooling Disclosure
 
 * ChatGPT was used extensively as an engineering assistant throughout the take-home.
@@ -135,4 +161,3 @@ The implementation does not claim native support for proprietary provider-specif
 * The final design and implementation were reviewed against the assignment requirements, including architecture, correctness, testing and evaluation, safety and guardrails, observability, resilience, resource management, and documentation.
 * The submitted implementation was examined to ensure that its behavior, design decisions, trade-offs, limitations, and failure modes could be explained and defended.
 * AI assistance was treated as an engineering tool rather than as a substitute for implementation validation, testing, or understanding of the resulting system.
-

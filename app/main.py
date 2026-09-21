@@ -4,8 +4,10 @@ Path: app/main.py
 Description: FastAPI application entry point, router registration, and API error handling.
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.api.extract import router as extract_router
 from app.api.rag import router as rag_router
@@ -19,6 +21,7 @@ app.include_router(
     prefix="/api",
     tags=["extraction"],
 )
+
 app.include_router(
     rag_router,
     prefix="/api",
@@ -56,3 +59,10 @@ def handle_llm_provider_error(
 def health() -> dict[str, str]:
     """Return the basic application health status."""
     return {"status": "ok"}
+
+
+@app.get("/audit", response_class=FileResponse)
+def audit_viewer() -> FileResponse:
+    """Serve the browser-based document extraction audit viewer."""
+    viewer_path = Path(__file__).parent / "static" / "audit_viewer.html"
+    return FileResponse(viewer_path)
