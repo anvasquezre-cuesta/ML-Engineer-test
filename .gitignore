@@ -1,5 +1,4 @@
 .vscode/
-req.txt
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -8,10 +7,5 @@ __pycache__/
 .env
 .env.*
 *.log
-WORK_LOG.md
-WORK_LOG2.md
-WORK_LOG3.md
-WORK_LOG4.md
-WORK_LOG5.md
 data/
 test-data/
