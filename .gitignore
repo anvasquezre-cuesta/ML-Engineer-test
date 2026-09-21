@@ -1,21 +1,11 @@
-# Internal grader material — never ship to candidates
-GRADING.md
-
-# Python
+.vscode/
 __pycache__/
 *.py[cod]
-.venv/
-venv/
-*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-
-# Env / secrets
 .env
 .env.*
-
-# OS / IDE
-.DS_Store
-.idea/
-.vscode/
+*.log
+data/
+test-data/

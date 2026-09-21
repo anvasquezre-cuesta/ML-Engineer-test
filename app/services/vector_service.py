@@ -1,25 +1,84 @@
-"""Vector store for RAG.
-
-Use whatever store you like — an embedded/local one (e.g. Chroma) is fine; a
-separate service (e.g. Qdrant) is a bonus. Implement this. Reminders (graded):
-any connection/config comes from config, not hardcoded; IDs must be unique
-across documents (a second ingest must not overwrite the first); wrap the client
-so failures surface as meaningful errors.
+"""
+Module: app.services.vector_service
+Path: app/services/vector_service.py
+Description: ChromaDB vector-store adapter for RAG document chunks.
 """
 
+from dataclasses import dataclass
+from uuid import uuid4
 
-def init_collection() -> None:
-    """Create the collection if it does not exist."""
-    raise NotImplementedError
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
 
-
-def store_document_chunks(
-    chunks: list[str], metadata: list[dict] | None = None
-) -> None:
-    """Embed and store chunks with their metadata."""
-    raise NotImplementedError
+from app.config import Settings
+from app.services.embedding_service import EmbeddingService
 
 
-def search_similar(query_embedding: list[float], top_k: int = 5) -> list[dict]:
-    """Return the most similar chunks as ``{"text", "score"}``."""
-    raise NotImplementedError
+class VectorStoreError(RuntimeError):
+    """Raised when the vector-store operation cannot be completed."""
+
+
+@dataclass(frozen=True)
+class VectorSearchResult:
+    """Represent a retrieved document and its vector distance."""
+
+    document: Document
+    distance: float
+
+
+class VectorStoreService:
+    """Store and retrieve document chunks using ChromaDB."""
+
+    def __init__(
+        self,
+        settings: Settings,
+        embedding_service: EmbeddingService,
+    ) -> None:
+        self._vector_store = Chroma(
+            collection_name=settings.chroma_collection_name,
+            embedding_function=embedding_service.embedding_function,
+            persist_directory=settings.chroma_persist_directory,
+        )
+
+    def add_documents(
+        self,
+        documents: list[Document],
+    ) -> list[str]:
+        """Add document chunks using unique identifiers."""
+
+        ids = [str(uuid4()) for _ in documents]
+
+        try:
+            return self._vector_store.add_documents(
+                documents=documents,
+                ids=ids,
+            )
+        except Exception as exc:
+            raise VectorStoreError(
+                "Failed to store document chunks in the vector store."
+            ) from exc
+
+    def similarity_search(
+        self,
+        query: str,
+        k: int,
+    ) -> list[VectorSearchResult]:
+        """Retrieve the most similar document chunks with their vector distances."""
+
+        try:
+            results = self._vector_store.similarity_search_with_score(
+                query=query,
+                k=k,
+            )
+        except Exception as exc:
+            raise VectorStoreError(
+                "Failed to retrieve documents from the vector store."
+            ) from exc
+
+        return [
+            VectorSearchResult(
+                document=document,
+                distance=distance,
+            )
+            for document, distance in results
+        ]
