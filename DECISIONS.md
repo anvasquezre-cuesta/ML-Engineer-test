@@ -1,5 +1,27 @@
 # Engineering Decisions
 
+## LLM Provider and Configuration
+
+The application was developed and tested locally with Ollama and Llama 3 because the development environment does not rely on paid external LLM API credits.
+
+The assignment specifies an OpenAI-compatible LLM endpoint with a configurable base URL and API key. To satisfy that requirement without coupling the RAG application to a specific vendor, the LLM interaction is defined through the `LLMProvider` abstraction.
+
+LLM configuration is centralized in `app/config.py`. The module defines environment-overridable settings for the provider, model, base URL, API key, temperature, timeout, and retry policy. The default configuration supports the local Ollama setup.
+
+The application currently provides:
+
+* Ollama for local development and validation.
+* An OpenAI-compatible HTTP provider for evaluation and deployment endpoints.
+
+The RAG service depends only on the `LLMProvider` interface. Provider selection, model name, endpoint, credentials, timeout, temperature, and retry behavior are supplied through the configuration defined in `app/config.py`.
+
+The evaluator does not need to modify `app/config.py`. Instead, the relevant `APP_*` environment variables can be overridden in the evaluation environment, such as `APP_LLM_PROVIDER`, `APP_LLM_MODEL`, `APP_LLM_BASE_URL`, and `APP_LLM_API_KEY`. This keeps deployment-specific configuration and credentials outside the application source code.
+
+This allows the same RAG implementation to be tested locally with Ollama and configured for an evaluator-provided OpenAI-compatible endpoint without changing the application logic.
+
+The implementation does not claim native support for proprietary provider-specific APIs that do not expose an OpenAI-compatible interface. Supporting such an API would require an additional provider adapter.
+
+
 ## Notable Engineering Decisions and Trade-offs
 
 * **Separated text chunking from the RAG service**

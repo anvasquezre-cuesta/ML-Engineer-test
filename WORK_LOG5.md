@@ -751,3 +751,163 @@ The E2E test implementation and diagnostics are complete, but the final marked E
 **Block 6 is substantially complete.**
 
 The only remaining item is the final execution of the automated E2E test and recording its definitive result. After that, the implementation can move into **Block 7 — Final Documentation**.
+
+
+## Bonus 1 — Docker / Docker Compose
+
+### Bonus 1.3 — Dockerfile
+
+**Objective**
+
+Create the initial application Docker image containing the runtime dependencies required by the Document Intelligence Service, while deliberately keeping Ollama outside the container during the initial Docker validation.
+
+**Implementation**
+
+* Created the repository-root `Dockerfile`.
+* Used Python 3.12 slim as the base image.
+* Installed the system-level Tesseract OCR executable required by `pytesseract`.
+* Copied `pyproject.toml` and `uv.lock` before application code to preserve Docker build-layer caching.
+* Installed locked production dependencies with `uv sync --frozen --no-dev`.
+* Copied the `app` package into the image.
+* Configured Uvicorn to listen on `0.0.0.0:8000`.
+* Added a container startup command for `app.main:app`.
+
+**Validation**
+
+The image built successfully:
+
+```text
+docker build -t document-intelligence-service:bonus1 .
+```
+
+The build completed successfully.
+
+### Bonus 1.4 — Application Container Runtime Validation
+
+**Objective**
+
+Verify that the application image can start as a container and expose the FastAPI service independently of Docker Compose and Ollama.
+
+**Implementation**
+
+Started the image with the published port:
+
+```text
+docker run --rm -d --name document-intelligence-test -p 8000:8000 document-intelligence-service:bonus1
+```
+
+Container logs confirmed:
+
+* Uvicorn process started.
+* FastAPI application startup completed successfully.
+* Uvicorn was listening on `0.0.0.0:8000`.
+
+An initial `Invoke-RestMethod` request failed with an unexpected connection termination. This did not match the container logs, so the host-to-container connection was tested independently with `curl.exe`.
+
+The following request succeeded:
+
+```text
+curl.exe -v http://127.0.0.1:8000/health
+```
+
+Result:
+
+```json
+{"status":"ok"}
+```
+
+HTTP status: **200 OK**.
+
+**Issue encountered and resolution**
+
+PowerShell's `Invoke-RestMethod` did not successfully complete the request, despite the container reporting a healthy Uvicorn process. A direct request using `curl.exe` to `127.0.0.1` successfully reached the container and returned the expected response.
+
+No application or Dockerfile changes were required because the containerized service itself was functioning correctly.
+
+**Design / engineering principles**
+
+* Validated the Dockerfile independently before introducing Compose networking.
+* Isolated application-container validation from external LLM infrastructure.
+* Used container logs and an independent HTTP client to distinguish application startup problems from host networking/client behavior.
+* Avoided unnecessary code changes when the evidence showed that the application was functioning correctly.
+
+**Milestone status**
+
+**Bonus 1.3–1.4 complete.** The application Docker image builds successfully and the containerized FastAPI service passes the required `/health` check.
+
+
+# Work Log — Configuration Verification
+
+## Objective
+
+Verify that `app/config.py` correctly centralizes application configuration and supports the LLM provider architecture documented in `DESIGN.md` and `DECISIONS.md`.
+
+## Implementation Reviewed
+
+The existing `app/config.py` was reviewed without modifying its implementation.
+
+The configuration correctly provides:
+
+* Centralized application settings through Pydantic Settings.
+* `APP_` environment-variable overrides.
+* `.env` support.
+* Ollama/Llama 3 as the local development defaults.
+* Configurable LLM provider, model, base URL, API key, temperature, timeout, and retry policy.
+* Configurable OCR, fuzzy matching, RAG, embedding, Chroma, and upload-size parameters.
+* No hardcoded external API credentials.
+
+The LLM configuration is consistent with the documented deployment approach: local development uses Ollama, while an evaluator can configure an OpenAI-compatible endpoint through environment variables without modifying `app/config.py` or the RAG application logic.
+
+## Issues Encountered and Resolution
+
+An initial command was accidentally concatenated with the previous pytest command, causing pytest to interpret `run` as a test path:
+
+`ERROR: file or directory not found: run`
+
+This was a command-entry issue only. No project files or code were affected.
+
+The validation command was then executed correctly.
+
+## Validation
+
+Formatting:
+
+* `uv run ruff format app/config.py`
+* Result: **1 file left unchanged**
+
+Linting:
+
+* `uv run ruff check app/config.py`
+* Result: **All checks passed**
+
+Environment-variable validation:
+
+The following temporary environment variables were supplied:
+
+* `APP_LLM_PROVIDER=openai`
+* `APP_LLM_MODEL=test-model`
+* `APP_LLM_BASE_URL=https://example.com/v1`
+* `APP_LLM_API_KEY=test-key`
+
+The application loaded them successfully and produced:
+
+`openai test-model https://example.com/v1 test-key`
+
+The temporary environment variables were subsequently removed.
+
+## Code Quality and Design Principles
+
+* Centralized configuration.
+* Environment-based deployment configuration.
+* No credentials committed to source code.
+* Provider-neutral configuration boundary.
+* Local-development defaults separated from evaluator/deployment configuration.
+* No unnecessary code changes were introduced because the existing implementation already satisfied the requirements.
+
+## Milestone Status
+
+**Configuration verification: COMPLETE**
+
+`app/config.py` requires no changes.
+
+The project is ready to proceed to the bonus work, beginning with the Docker/containerization bonus.

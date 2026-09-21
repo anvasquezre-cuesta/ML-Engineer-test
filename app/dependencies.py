@@ -14,7 +14,11 @@ from app.services.embedding_service import EmbeddingService
 from app.services.extraction_service import ExtractionService
 from app.services.fuzzy_service import FuzzyMatchService
 from app.services.ingestion_service import IngestionService
-from app.services.llm_provider import LLMProvider, OllamaLLMProvider
+from app.services.llm_provider import (
+    LLMProvider,
+    OllamaLLMProvider,
+    OpenAICompatibleLLMProvider,
+)
 from app.services.ner_service import NERService
 from app.services.ocr_service import OCRService
 from app.services.pdf_upload_service import PDFUploadService
@@ -98,9 +102,13 @@ def get_ingestion_service() -> IngestionService:
 def get_llm_provider() -> LLMProvider:
     """Provide the configured LLM provider."""
     settings = get_settings()
+    provider = settings.llm_provider.casefold()
 
-    if settings.llm_provider.casefold() == "ollama":
+    if provider == "ollama":
         return OllamaLLMProvider(settings)
+
+    if provider in {"openai", "openai_compatible"}:
+        return OpenAICompatibleLLMProvider(settings)
 
     raise ValueError(f"Unsupported LLM provider: {settings.llm_provider}")
 

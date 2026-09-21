@@ -1,5 +1,17 @@
 # Document Intelligence Service — Design
 
+## LLM Configuration and Deployment
+
+The service was developed and validated locally using Ollama with Llama 3, which allows the complete RAG workflow to be tested without requiring paid external LLM API access.
+
+LLM configuration is centralized in the `app/config.py` module using environment-overridable application settings. The configuration includes the LLM provider, model, base URL, API key, temperature, timeout, and retry policy. The local defaults use Ollama with Llama 3.
+
+The implementation nevertheless follows the assignment requirement that the LLM use an OpenAI-compatible endpoint with a configurable base URL and API key. In an evaluation or deployment environment, the evaluator can override the relevant `APP_*` environment variables—for example, `APP_LLM_PROVIDER`, `APP_LLM_MODEL`, `APP_LLM_BASE_URL`, and `APP_LLM_API_KEY`—to point the service to an evaluator-provided OpenAI-compatible endpoint. No modification to `app/config.py` or the RAG application logic is required.
+
+Therefore, the same RAG implementation can be validated locally with Ollama/Llama 3 and deployed or evaluated with another OpenAI-compatible LLM endpoint by changing configuration rather than application code.
+
+
+
 ## 1. Architecture and Component View
 
 The service is a FastAPI application with thin HTTP routers, application services containing business logic, and isolated infrastructure integrations.
