@@ -1,180 +1,189 @@
-# ML Engineer Take-Home — Document Intelligence Service
+# Document Intelligence Service
 
-Build, from scratch, a small production-quality service that extracts person
-names (with their locations) from scanned PDFs, fuzzy-matches them against a
-provided list, and answers questions about ingested documents using RAG
-(Retrieval-Augmented Generation).
+A production-oriented FastAPI service for extracting person names and locations from scanned PDFs, fuzzy-matching detected names against candidate lists, and answering questions over ingested documents using retrieval-augmented generation (RAG).
 
-This repository is an **empty skeleton**. There is no working code to fix — you
-implement the whole thing. We care as much about *how* you build it (design,
-tests, engineering practices, decisions) as about whether it runs.
+## Features
 
-## Why this exists (the problem)
+* OCR of every PDF page using PyMuPDF and Tesseract.
+* PERSON entity extraction with spaCy.
+* Bounding boxes returned in PDF-point coordinates.
+* Accent- and case-insensitive fuzzy name matching.
+* PDF ingestion, word-safe chunking, embeddings, and ChromaDB vector storage.
+* Grounded RAG question answering with configurable LLM providers.
+* Local development with Ollama/Llama 3.
+* OpenAI-compatible LLM endpoint support through environment configuration.
+* Structured application logging and controlled external-service failures.
+* Browser-based extraction Audit Viewer.
+* Docker and Docker Compose support.
 
-Let's imagine a company that processes large volumes of scanned documents (contracts, KYC forms,
-filings) that mention people. For **compliance**, it isn't enough to know *that*
-a name appears — a reviewer has to be able to **find it on the page** and
-**double-check that specific name against other records** (an ID, a sanctions
-list, an internal system). A name with no location is not auditable.
+## Architecture
 
-So the core requirement is: **given a PDF, return each person's name together
-with exactly where it sits on the page** (page number + bounding box). That
-location is what lets a human or a downstream system verify the match against
-other information. The fuzzy-matching and RAG pieces build on the same extracted
-content. Keep this "locate it so it can be verified" purpose in mind — it's why
-bounding-box accuracy and correct pages matter more than they might first seem.
+The application uses thin FastAPI routers, application services, dependency injection, and isolated infrastructure components.
 
----
+```text
+Client
+  │
+  ▼
+FastAPI
+  │
+  ├── /extract ──► OCR → NER → Bounding Boxes → Fuzzy Matching
+  │
+  ├── /ingest ──► OCR → Chunking → Embeddings → ChromaDB
+  │
+  └── /ask ─────► Retrieval → Grounded Prompt → LLM → Answer + Sources
+```
 
-## What you're building
+See [`DESIGN.md`](DESIGN.md) for the detailed architecture, scaling strategy, failure modes, testing approach, and limitations.
 
-A FastAPI service exposing four endpoints. The request/response **contract is
-fixed** by `app/models/schemas.py` — do not change those shapes (add fields only
-if you have a reason and document it).
+See [`DECISIONS.md`](DECISIONS.md) for the main engineering decisions, trade-offs, bonus features, and AI tooling disclosure.
 
-### 1. `GET /health`
-Liveness probe. Returns `{"status": "ok"}` (plus anything else useful).
+## Requirements
 
-### 2. `POST /api/extract`  — names + bounding boxes + fuzzy match
-`multipart/form-data`:
-- `pdf_file`: a (scanned) PDF.
-- `names`: a JSON string — a list of `{"first_name": ..., "last_name": ...}`.
+* Python 3.12
+* [uv](https://docs.astral.sh/uv/)
+* Tesseract OCR
+* Ollama with the configured local LLM for local RAG execution
 
-Pipeline:
-1. **OCR** the PDF (it is scanned — there is no selectable text layer).
-2. **NER**: extract **person** names only (no organizations, places, dates).
-3. **Bounding boxes**: locate each extracted name in the page and return its box
-   in **PDF coordinate space** (points, 72 per inch — *not* raw image pixels),
-   with a **0-based page number**.
-4. **Fuzzy match** the extracted names against the provided `names`.
+The project uses the dependencies pinned in `uv.lock`.
 
-Response: `ExtractionResponse` (see `schemas.py`) — `extracted_names[]` with a
-`bounding_box`, and `fuzzy_matches[]`.
+## Local Setup
 
-### 3. `POST /api/ingest` — index a document for RAG
-`multipart/form-data` with `pdf_file`. OCR → chunk → embed → store in a vector
-database. Response: `IngestResponse` (`status`, `chunks_stored`).
+Install the project dependencies:
 
-### 4. `POST /api/ask` — answer a question with RAG
-JSON `{"question": "..."}`. Embed the question, retrieve the most relevant
-chunks, call an LLM to answer **grounded in the retrieved context**, and return
-`RAGResponse` (`answer`, `sources`).
+```text
+uv sync
+```
 
----
+Install the required spaCy model:
 
-## Requirements that matter (this is the actual evaluation)
-
-> **Scope & time.** This is time-boxed — we do **not** expect fully isolated
-> infrastructure. An **embedded / in-process vector store (e.g. Chroma) running
-> locally is completely fine**, and you do not need Docker to pass. Things like a
-> `docker-compose.yml` with an isolated vector DB, a hardened container, or a
-> clean separation of services are **not required** — but if you add them, they
-> count as **positive extras** in the evaluation. Prioritize a correct,
-> well-structured core; reach for the infra polish only if you have time.
-
-Anyone can wire libraries together. We're hiring an **ML Engineer**, so we look
-for production judgment:
-
-- **Architecture** — SOLID, dependency injection, separation of concerns.
-  Services depend on abstractions (Protocols/ABCs), not concrete singletons.
-  HTTP routers stay thin; business logic is testable without HTTP.
-- **Configuration** — no hardcoded hosts/ports/model names/thresholds/DPI.
-  Centralized, environment-overridable config.
-- **Resilience** — timeouts and retries on external calls (LLM, vector store);
-  meaningful failure modes; no silent `except: pass`.
-- **Validation** — reject non-PDFs (by content, not just extension), empty
-  files, oversized uploads; validate request bodies.
-- **Resource management** — no leaked file handles or temp files.
-- **Observability** — structured logging with useful context.
-- **Correctness details we will check**, e.g.:
-  - OCR must process **every** page (including the first).
-  - Bounding boxes must be in **PDF space**, not image pixels.
-  - Name matching must be **case-insensitive** and robust to OCR noise and
-    accents (`María González` ~ `Maria Gonzalez`); prefer full-string
-    similarity over substring tricks.
-  - RAG chunking must not cut words in half; retrieval must be grounded (no
-    hallucinated `sources`).
-  - Vector-store IDs must be unique across documents (a second ingest must not
-    overwrite the first).
-- **Tests** — you write them. Cover the tricky logic above with unit tests
-  (mock the heavy models / external services) and at least one end-to-end path.
-  We look at *what* you chose to test and how.
-- **Containerization (bonus, not required)** — if you have time, a `Dockerfile`
-  and a `docker-compose.yml` that brings up the app **and its dependencies** with
-  `docker compose up` (and `GET /health` passing) is a strong positive. Skipping
-  it costs you nothing on the core; a local/embedded setup is fine.
-- **Audit viewer (bonus, not required)** — a simple frontend that, given a PDF,
-  **renders the pages and draws the returned bounding boxes over the detected
-  names**. This is the compliance reviewer's tool: it's how a human confirms a
-  name really is where the API says it is. Nothing fancy — a single self-
-  contained page (e.g. vanilla JS + pdf.js) that calls `/api/extract` and
-  overlays the boxes is plenty. Strong positive if included.
-- **DESIGN.md** (≤ 3 pages) — component + sequence view, technology choices and
-  trade-offs, how you'd scale to 1000+ PDFs/hour, failure modes and mitigations,
-  and — if you were to route between models by query complexity — how.
-
----
-
-## Suggested stack (substitute freely, but justify it in DESIGN.md)
-
-- Python 3.12, FastAPI, `pytest`
-- OCR: Tesseract via `pytesseract` + `PyMuPDF` (PDF → image)
-- NER: spaCy (`en_core_web_sm`); handle non-English if you add it
-- Fuzzy: `thefuzz`
-- Embeddings: `sentence-transformers`
-- Vector DB: **Chroma** (embedded/local — simplest) or Qdrant if you prefer a
-  separate service
-- LLM: any OpenAI-compatible endpoint (configurable base URL + key)
-
-Dependencies live in `pyproject.toml` and are managed with **[uv](https://docs.astral.sh/uv/)** — change them as you see fit (`uv add ...`). Commit the resulting `uv.lock`.
-
----
-
-## Deliverables
-
-1. A **branch + pull request** against this repo with your implementation.
-2. `DESIGN.md`.
-3. A short **`DECISIONS.md`** — notable engineering decisions and trade-offs
-   (bullets are fine). This is where your reasoning earns credit.
-4. Tests (required). `Dockerfile` / `docker-compose.yml` are **optional bonus**.
-
-## How we evaluate (weights)
-
-| Criterion | Weight |
-|---|---|
-| Correctness — the pipeline works on the sample PDFs | 30% |
-| Architecture & design (SOLID, DI, abstractions, thin routers) | 20% |
-| Engineering practices (config, logging, resilience, validation) | 20% |
-| Code quality & decisions | 15% |
-| Tests you wrote (coverage of the tricky logic) | 10% |
-| Design document | 5% |
-
-**Positive extras (bonus, on top of the above):** an **audit viewer** that
-overlays the bounding boxes on the PDF, containerization (`Dockerfile` /
-`docker-compose.yml`), a truly isolated vector DB, multi-language support,
-batching, or other production hardening. Not required — credited when present.
-
-## Getting started
-
-```bash
-uv sync --extra dev                          # create .venv and install deps from pyproject.toml
+```text
 uv run python -m spacy download en_core_web_sm
-# Vector DB: embedded Chroma needs nothing extra. Only if you choose Qdrant:
-#   docker run -p 6333:6333 qdrant/qdrant
+```
+
+For local RAG execution, start Ollama and make the configured model available.
+
+The default application configuration uses:
+
+```text
+LLM provider: ollama
+LLM model: llama3
+LLM base URL: http://localhost:11434
+```
+
+Configuration can be overridden through `APP_*` environment variables. For example, an evaluator can configure an OpenAI-compatible endpoint without modifying application code.
+
+## Running the API
+
+Start the FastAPI application with:
+
+```text
 uv run uvicorn app.main:app --reload
 ```
 
-Sample scanned PDFs are in `sample_pdfs/`.
+The service is available at:
 
-## Use of AI tools
+```text
+http://localhost:8000
+```
 
-Using AI assistants (Copilot, Claude, ChatGPT, agents) is **allowed and
-expected** — that's how modern engineering works. Two conditions:
+Health check:
 
-1. **Disclose it** in `DECISIONS.md` (what you used it for).
-2. **Own every line.** In a follow-up conversation we will ask you to explain
-   design choices, walk through your code, and make a live change. Code you
-   can't reason about will not count in your favor.
+```text
+GET /health
+```
 
-We are evaluating *your* engineering judgment, not an agent's output. Submitting
-something you don't understand is the one thing that fails this test.
+## API Endpoints
+
+### `POST /api/extract`
+
+Upload a scanned PDF and a JSON list of candidate names.
+
+The endpoint performs OCR, PERSON NER, PDF-coordinate bounding-box generation, and fuzzy matching.
+
+### `POST /api/ingest`
+
+Upload a PDF for OCR, chunking, embedding, and vector-store ingestion.
+
+### `POST /api/ask`
+
+Submit a question against previously ingested documents.
+
+The response contains a grounded answer and sources derived from retrieved document metadata.
+
+### `GET /audit`
+
+Open the browser-based Audit Viewer for visually inspecting extracted-name bounding boxes.
+
+## Testing
+
+Run the normal automated regression suite:
+
+```text
+uv run pytest
+```
+
+The test suite is organized into:
+
+```text
+tests/
+├── unit/
+├── integration/
+└── e2e/
+```
+
+The normal regression run covers unit and integration tests. The real E2E workflow uses the local OCR, embedding, ChromaDB, and LLM components and can be executed separately when those dependencies are available.
+
+## Docker
+
+Build and start the application with Docker Compose:
+
+```text
+docker compose up --build
+```
+
+The container exposes port `8000`.
+
+Health check:
+
+```text
+http://localhost:8000/health
+```
+
+Audit Viewer:
+
+```text
+http://localhost:8000/audit
+```
+
+ChromaDB persistence is provided through a named Docker volume.
+
+## Project Structure
+
+```text
+app/
+├── api/             # FastAPI routers
+├── models/          # API schemas
+├── services/        # Application and infrastructure services
+├── static/          # Audit Viewer
+├── config.py        # Centralized configuration
+├── dependencies.py  # Dependency injection
+└── main.py          # Application entry point
+
+tests/
+├── unit/
+├── integration/
+└── e2e/
+
+DECISIONS.md
+DESIGN.md
+Dockerfile
+docker-compose.yml
+pyproject.toml
+uv.lock
+```
+
+## Validation
+
+The implementation has been validated with automated unit/integration tests, a real end-to-end workflow using the local OCR, embeddings, ChromaDB, and Llama 3 components, real sample PDFs, Docker, Docker Compose, and the browser-based Audit Viewer.
+
+AI-assisted development was used throughout the take-home and is disclosed in [`DECISIONS.md`](DECISIONS.md).

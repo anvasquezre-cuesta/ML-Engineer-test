@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: document-intelligence-service
+    ports:
+      - "8000:8000"
+    environment:
+      APP_LLM_PROVIDER: ollama
+      APP_LLM_MODEL: llama3
+      APP_LLM_BASE_URL: http://host.docker.internal:11434
+      APP_LLM_TEMPERATURE: "0.0"
+      APP_LLM_TIMEOUT: "60.0"
+      APP_LLM_MAX_RETRIES: "2"
+    volumes:
+      - chroma_data:/app/data
+
+volumes:
+  chroma_data:

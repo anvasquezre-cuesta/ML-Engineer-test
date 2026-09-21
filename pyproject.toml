@@ -4,33 +4,36 @@ version = "0.1.0"
 description = "ML Engineer take-home — document extraction + RAG service (implement from scratch)."
 requires-python = ">=3.12"
 
-# Baseline dependencies — change/pin these as you see fit (justify in DECISIONS.md).
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "python-multipart",
     "pydantic",
     "pydantic-settings",
-    # OCR / PDF
     "pytesseract",
     "pymupdf",
     "pillow",
-    # NER  (after sync: `uv run python -m spacy download en_core_web_sm`)
     "spacy",
-    # Fuzzy matching
+    "en-core-web-sm",
     "thefuzz",
-    "python-Levenshtein",
-    # Embeddings + vector store (Chroma is embedded/local; swap for qdrant-client if preferred)
+    "python-levenshtein",
     "sentence-transformers",
     "chromadb",
-    # LLM / HTTP
     "httpx",
+    "langchain-ollama==1.1.0",
+    "langchain-huggingface==1.2.2",
+    "langchain-chroma==1.1.0",
+    "langchain-text-splitters==1.1.2",
 ]
 
-[project.optional-dependencies]
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-asyncio",
+    "ruff",
 ]
 
 [build-system]
@@ -39,3 +42,16 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/*.py" = ["B008"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:The anyio\\.abc\\.BlockingPortal alias is deprecated.*:DeprecationWarning",
+]
+
+markers = [
+    "e2e: end-to-end tests requiring local external/runtime dependencies",
+]
+addopts = "-m 'not e2e'"
