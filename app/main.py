@@ -1,22 +1,24 @@
-"""FastAPI application entrypoint.
+"""FastAPI application factory and the module-level app uvicorn serves."""
 
-Assemble the app here: mount the routers under ``/api``, add ``GET /health``,
-and wire whatever cross-cutting concerns you decide on (config, logging,
-error handling, lifecycle). This skeleton just registers the routers.
-"""
-
+from collections.abc import AsyncIterator
 from collections.abc import Callable
+import contextlib
 
 import fastapi
 
 from app import bootstrap
 from app import config
+from app import logging_config
+from app.api import errors
 from app.api import extract
+from app.api import health
+from app.api import middleware
 from app.api import rag
-from app.models import schemas
+
+TITLE = "Document Intelligence Service"
 
 
-def create_app(  # noqa: DOC501, DOC503
+def create_app(
     settings: config.Settings | None = None,
     container_factory: Callable[
         [config.Settings], bootstrap.Container
@@ -31,20 +33,23 @@ def create_app(  # noqa: DOC501, DOC503
     Returns:
         The FastAPI application.
     """
-    raise NotImplementedError
+    resolved = settings or config.Settings()
+    logging_config.configure_logging(resolved.logging)
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
+        container = container_factory(resolved)
+        app.state.extract_names = container.extract_names
+        yield
+
+    app = fastapi.FastAPI(title=TITLE, lifespan=lifespan)
+    app.state.settings = resolved
+    app.middleware("http")(middleware.request_context)
+    errors.install_error_handlers(app)
+    app.include_router(health.router)
+    app.include_router(extract.router, prefix="/api", tags=["extraction"])
+    app.include_router(rag.router, prefix="/api", tags=["rag"])
+    return app
 
 
-app = fastapi.FastAPI(title="Document Intelligence Service")
-
-app.include_router(extract.router, prefix="/api", tags=["extraction"])
-app.include_router(rag.router, prefix="/api", tags=["rag"])
-
-
-@app.get("/health")
-def health() -> schemas.HealthResponse:
-    """Reports that the service is up.
-
-    Returns:
-        A response with status ``ok``.
-    """
-    return schemas.HealthResponse(status="ok")
+app = create_app()

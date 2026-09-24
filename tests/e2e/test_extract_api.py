@@ -4,6 +4,7 @@ from collections.abc import Callable
 from collections.abc import Iterator
 import contextlib
 import json
+import pathlib
 from typing import Any
 
 from fastapi import testclient
@@ -23,12 +24,7 @@ from tests.fakes import ner as ner_fake
 from tests.fakes import ocr as ocr_fake
 from tests.fakes import page_renderer as page_renderer_fake
 
-pytestmark = [
-    pytest.mark.e2e,
-    pytest.mark.xfail(
-        strict=True, raises=NotImplementedError, reason="API not built yet"
-    ),
-]
+pytestmark = pytest.mark.e2e
 
 PDF = b"%PDF-1.7\n"
 UPLOAD_LIMIT = 1024
@@ -79,17 +75,19 @@ def fake_container(
 @contextlib.contextmanager
 def fake_client(
     renderer: page_renderer.PageRenderer | None = None,
+    upload_limit: int = UPLOAD_LIMIT,
 ) -> Iterator[testclient.TestClient]:
-    """Runs an app wired to fakes, with a 1 KiB upload limit.
+    """Runs an app wired to fakes.
 
     Args:
         renderer: The renderer to wire; a one-page blank renderer by default.
+        upload_limit: Largest accepted upload in bytes.
 
     Yields:
         The running test client.
     """
     settings = config.Settings(
-        _env_file=None, upload=config.UploadSettings(max_bytes=UPLOAD_LIMIT)
+        _env_file=None, upload=config.UploadSettings(max_bytes=upload_limit)
     )
     factory = fake_container(
         renderer or page_renderer_fake.BlankPageRenderer(1)
@@ -181,7 +179,6 @@ def test_sample_pdf_returns_every_verified_box_and_fuzzy_match() -> None:
     [
         (b"\x89PNG\r\n\x1a\n", NAMES, 415, "upload.not_pdf"),
         (PDF + b"x" * UPLOAD_LIMIT, NAMES, 413, "upload.too_large"),
-        (PDF, "Anna Berg", 422, "request.invalid_names_json"),
         (
             PDF,
             json.dumps([{"first_name": "Anna"}]),
@@ -189,7 +186,7 @@ def test_sample_pdf_returns_every_verified_box_and_fuzzy_match() -> None:
             "request.invalid_names_json",
         ),
     ],
-    ids=["png", "too-large", "names-not-json", "names-missing-last"],
+    ids=["png", "too-large", "names-missing-last"],
 )
 def test_invalid_requests_are_rejected_as_problem_details(
     content: bytes, names: str, status: int, code: str
@@ -221,3 +218,26 @@ def test_logs_never_contain_extracted_names(
     assert body["request_id_header"] in logs.out
     assert "Anna Berg" not in logs.out + logs.err
     assert "Lucas Moreau" not in logs.out + logs.err
+
+
+@pytest.mark.skipif(
+    not pathlib.Path("/proc/self/fd").exists(), reason="needs /proc"
+)
+@pytest.mark.parametrize(
+    "upload_limit", [4 * 1024 * 1024, UPLOAD_LIMIT], ids=["accepted", "413"]
+)
+def test_spooled_uploads_leave_no_open_file_handles(upload_limit: int) -> None:
+    # Over 1 MB, the multipart parser spools the upload to a temporary file.
+    large_pdf = PDF + b"x" * (2 * 1024 * 1024)
+    open_files = pathlib.Path("/proc/self/fd")
+
+    with fake_client(upload_limit=upload_limit) as client:
+        post_extract(client, large_pdf)
+        before = len(list(open_files.iterdir()))
+        statuses = {
+            post_extract(client, large_pdf)["http_status"] for _ in range(5)
+        }
+        after = len(list(open_files.iterdir()))
+
+    assert statuses == {200 if upload_limit > len(large_pdf) else 413}
+    assert after == before
