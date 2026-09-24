@@ -102,7 +102,6 @@ def test_export_that_cannot_be_read_fails_instead_of_looking_empty(
     assert response.json()["code"] == "occurrence_store.integrity"
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError)
 def test_export_failing_after_the_first_document_sends_no_partial_file() -> (
     None
 ):
@@ -119,7 +118,6 @@ def test_export_failing_after_the_first_document_sends_no_partial_file() -> (
     assert response.json()["code"] == "occurrence_store.unavailable"
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError)
 def test_export_counts_its_rows_and_refuses_more_than_the_limit() -> None:
     export = "/api/occurrences/export"
     with wiring.fake_client(export_limit=2) as client:

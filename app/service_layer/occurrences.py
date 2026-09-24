@@ -238,6 +238,14 @@ class ExportOccurrences:
             The occurrences, document by document, in ordinal order.
 
         Raises:
-            NotImplementedError: Always, until implemented.
+            errors.OccurrenceExportTooLargeError: If more than ``max_rows``
+                occurrences match.
         """
-        raise NotImplementedError
+        rows: list[occurrences.StoredOccurrence] = []
+        async for row in self._query(document_key=document_key, name=name):
+            if len(rows) == self._max_rows:
+                raise errors.OccurrenceExportTooLargeError(
+                    f"The export holds more than {self._max_rows} occurrences."
+                )
+            rows.append(row)
+        return rows
