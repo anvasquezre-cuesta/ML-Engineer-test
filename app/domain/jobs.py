@@ -41,7 +41,10 @@ class Job:
         max_attempts: Attempts allowed before the job is dead-lettered.
         created_at: When the job was submitted (UTC).
         updated_at: When the record last changed (UTC).
-        document_key: Identity of the document, for ingestion jobs.
+        document_key: Identity of the document.
+        content_hash: SHA-256 of the staged PDF.
+        order: Occurrence acceptance order reserved at submission, for
+            extraction jobs.
         names: Names to match against, for extraction jobs.
         lease_expires_at: When a running job's lease lapses (UTC).
         last_error_code: Code of the most recent failure.
@@ -58,6 +61,8 @@ class Job:
     created_at: datetime.datetime
     updated_at: datetime.datetime
     document_key: str | None = None
+    content_hash: str | None = None
+    order: int | None = None
     names: tuple[extraction.QueryName, ...] = ()
     lease_expires_at: datetime.datetime | None = None
     last_error_code: str | None = None
