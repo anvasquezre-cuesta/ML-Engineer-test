@@ -22,10 +22,6 @@ from app.domain import errors
 from app.domain import rag
 from tests.fakes import llm_observability
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="LLM adapter not built"
-)
-
 PROMPT = rag.LlmPrompt(system="Use only the passages.", user="Who leads?")
 REQUEST = httpx2.Request("POST", "https://llm.example/v1/chat/completions")
 

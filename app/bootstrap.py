@@ -4,17 +4,21 @@ import dataclasses
 import re
 
 import qdrant_client
+import structlog
 
 from app import config
 from app.adapters.cpu_runner import thread_runner
 from app.adapters.fastembed_embedding import embedding
 from app.adapters.fastembed_sparse import sparse_embedding
 from app.adapters.fuzzy import name_matcher
+from app.adapters.langfuse_observability import observability as langfuse
+from app.adapters.noop_observability import observability as noop
 from app.adapters.pymupdf import page_renderer
 from app.adapters.qdrant import vector_store as qdrant_store
 from app.adapters.spacy_ner import ner
 from app.adapters.tesseract import ocr
 from app.adapters.text_chunker import sentence
+from app.ports import llm_observability
 from app.ports import vector_store
 from app.service_layer import extract
 from app.service_layer import ingest
@@ -50,6 +54,34 @@ def collection_name(prefix: str, *model_names: str) -> str:
         for name in model_names
     )
     return "_".join((prefix, *slugs))
+
+
+log = structlog.stdlib.get_logger(__name__)
+
+
+def build_observability(
+    settings: config.LlmObservabilitySettings,
+) -> llm_observability.LlmObservability:
+    """Traces to Langfuse when both keys are set, otherwise traces nothing.
+
+    Tracing is optional: missing keys never stop the service. Only one of
+    the two keys set is logged, since it is likely a configuration mistake.
+
+    Args:
+        settings: Langfuse host and keys.
+
+    Returns:
+        The Langfuse adapter, or the no-op adapter.
+    """
+    public = settings.langfuse_public_key
+    secret = settings.langfuse_secret_key
+    if public and secret:
+        return langfuse.LangfuseObservability(
+            settings, public.get_secret_value(), secret.get_secret_value()
+        )
+    if public or secret:
+        log.warning("llm_observability.partial_keys", tracing="off")
+    return noop.NoopObservability()
 
 
 def build_container(settings: config.Settings) -> Container:
