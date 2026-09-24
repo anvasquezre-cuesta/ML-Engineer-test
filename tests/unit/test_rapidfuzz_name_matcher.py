@@ -4,10 +4,6 @@ import pytest
 
 from app.adapters.fuzzy.name_matcher import RapidFuzzNameMatcher
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="adapter not built yet"
-)
-
 DEFAULT_THRESHOLD = 0.9
 
 
