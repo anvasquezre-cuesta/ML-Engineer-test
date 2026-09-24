@@ -2,14 +2,9 @@
 
 from hypothesis import given
 from hypothesis import strategies as st
-import pytest
 
 from app.domain.page_text import build_page_text
 from tests.builders import page_words
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="page text not built yet"
-)
 
 tokens = st.text(
     alphabet=st.characters(categories=["L", "N", "P"]), min_size=1, max_size=8

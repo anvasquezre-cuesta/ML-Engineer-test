@@ -1,7 +1,5 @@
 """Mapping PERSON spans to boxes: one box per occurrence and line, no titles."""
 
-import pytest
-
 from app.domain.extraction import NameOccurrence
 from app.domain.page_text import build_page_text
 from app.domain.span_boxes import locate_span
@@ -9,10 +7,6 @@ from tests.builders import box_of
 from tests.builders import page_words
 from tests.builders import span_of
 from tests.builders import union
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="span boxes not built yet"
-)
 
 PAGE = page_words(
     [

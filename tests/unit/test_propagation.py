@@ -7,10 +7,6 @@ from app.domain.propagation import propagate
 from tests.builders import page_words
 from tests.builders import span_of
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="propagation not built yet"
-)
-
 
 def test_recovers_untagged_repeats_and_skips_tagged_ones() -> None:
     text = build_page_text(

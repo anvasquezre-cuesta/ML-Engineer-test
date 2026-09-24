@@ -4,10 +4,6 @@ import pytest
 
 from app.domain.normalize import normalize_name
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="normalization not built"
-)
-
 
 @pytest.mark.parametrize(
     ("raw", "expected"),

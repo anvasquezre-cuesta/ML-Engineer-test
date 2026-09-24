@@ -8,10 +8,6 @@ from app.domain.errors import UploadNotPdfError
 from app.domain.errors import UploadTooLargeError
 from app.domain.pdf_validation import validate_pdf
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="validation not built yet"
-)
-
 LIMIT = 64
 
 

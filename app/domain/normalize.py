@@ -1,7 +1,29 @@
 """Normalization of person names for comparison."""
 
+import unicodedata
 
-def normalize_name(text: str) -> str:  # noqa: DOC501, DOC503
+EDGE_PUNCTUATION = ".,;:!?()[]{}\"'‘’“”«»"
+
+_APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "`": "'"})
+# Letters that NFKD leaves intact, so accent stripping would miss them.
+_UNDECOMPOSED = str.maketrans(
+    {
+        "Ł": "L",
+        "ł": "l",
+        "Ø": "O",
+        "ø": "o",
+        "Đ": "D",
+        "đ": "d",
+        "Æ": "AE",
+        "æ": "ae",
+        "Œ": "OE",
+        "œ": "oe",
+        "ı": "i",
+    }
+)
+
+
+def normalize_name(text: str) -> str:
     """Returns ``text`` in a form that ignores case, accents and OCR noise.
 
     Letters are casefolded and stripped of accents, including letters such as
@@ -15,4 +37,8 @@ def normalize_name(text: str) -> str:  # noqa: DOC501, DOC503
     Returns:
         The normalized name.
     """
-    raise NotImplementedError
+    plain = text.translate(_APOSTROPHES).translate(_UNDECOMPOSED).casefold()
+    decomposed = unicodedata.normalize("NFKD", plain)
+    letters = "".join(c for c in decomposed if not unicodedata.combining(c))
+    tokens = (token.strip(EDGE_PUNCTUATION) for token in letters.split())
+    return " ".join(token for token in tokens if token)
