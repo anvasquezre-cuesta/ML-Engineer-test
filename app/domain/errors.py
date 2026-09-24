@@ -155,6 +155,14 @@ class LlmNotConfiguredError(AppError):
     title = "The language model is not configured."
 
 
+class OccurrenceStoreUnavailableError(AppError):
+    """The occurrence store failed or timed out after adapter retries."""
+
+    code = "occurrence_store.unavailable"
+    retryable = True
+    title = "The occurrence store is unavailable."
+
+
 class JobNotFoundError(AppError):
     """No job exists with the requested id.
 
