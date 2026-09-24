@@ -251,6 +251,8 @@ class QueueSettings(pydantic.BaseModel):
         prefetch: Deliveries a worker holds unacknowledged at once.
         sqs_queue_url: URL of the SQS work queue.
         sqs_dead_letter_url: URL of the SQS dead-letter queue.
+        sqs_region: AWS region of the SQS queues.
+        sqs_wait_s: Long-poll wait of each receive, at most 20 seconds.
         retry_delay_s: Backoff before a transient failure is retried.
     """
 
@@ -261,6 +263,8 @@ class QueueSettings(pydantic.BaseModel):
     prefetch: int = pydantic.Field(default=1, ge=1)
     sqs_queue_url: str = ""
     sqs_dead_letter_url: str = ""
+    sqs_region: str = "us-east-1"
+    sqs_wait_s: int = pydantic.Field(default=20, ge=0, le=20)
     retry_delay_s: float = pydantic.Field(default=30.0, ge=0)
 
 
