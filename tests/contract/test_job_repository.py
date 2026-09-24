@@ -24,12 +24,7 @@ KINDS = [
     "fake",
     pytest.param(
         "dynamodb",
-        marks=[
-            pytest.mark.docker,
-            pytest.mark.xfail(
-                strict=True, raises=NotImplementedError, reason="not built"
-            ),
-        ],
+        marks=pytest.mark.docker,
     ),
 ]
 
