@@ -13,6 +13,7 @@ dependencies = [
     "fastapi",
     "fastembed>=0.8.1",
     "httpx",
+    "langchain>=1.0",
     "langchain-aws>=1.7.9",
     "langchain-core>=1.6.4",
     "langchain-openai>=1.6.5",

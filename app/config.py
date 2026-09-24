@@ -163,7 +163,8 @@ class LlmSettings(pydantic.BaseModel):
 
     Attributes:
         provider: ``bedrock`` or ``openai``.
-        model: Model id; empty uses the provider default.
+        bedrock_model: Bedrock model or inference profile id.
+        openai_model: Model id on the OpenAI-compatible endpoint.
         openai_base_url: Endpoint of any OpenAI-compatible API; empty uses
             OpenAI.
         openai_api_key: Key for the OpenAI-compatible endpoint.
@@ -177,10 +178,15 @@ class LlmSettings(pydantic.BaseModel):
         max_retries: Retries after the first attempt, done by the provider
             SDK, which honours the provider's Retry-After.
         deadline_s: Total time one call may take, SDK retries included.
+        temperature: Sampling temperature; 0 keeps answers reproducible.
+        max_tokens: Longest completion.
+        reasoning_effort: Reasoning effort for OpenAI reasoning models;
+            empty leaves the model's default.
     """
 
     provider: Literal["bedrock", "openai"] = "bedrock"
-    model: str = ""
+    bedrock_model: str = "us.amazon.nova-lite-v1:0"
+    openai_model: str = "gpt-6-luna"
     openai_base_url: str = ""
     openai_api_key: pydantic.SecretStr | None = None
     aws_region: str = "us-east-1"
@@ -190,6 +196,9 @@ class LlmSettings(pydantic.BaseModel):
     timeout_s: float = pydantic.Field(default=30.0, gt=0)
     max_retries: int = pydantic.Field(default=2, ge=0)
     deadline_s: float = pydantic.Field(default=60.0, gt=0)
+    temperature: float = pydantic.Field(default=0.0, ge=0)
+    max_tokens: int = pydantic.Field(default=2048, ge=1)
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
 
 
 class LlmObservabilitySettings(pydantic.BaseModel):
