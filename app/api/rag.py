@@ -6,6 +6,7 @@ from typing import cast
 import fastapi
 
 from app import config
+from app.domain import pdf_validation
 from app.models import schemas
 from app.service_layer import ingest as ingest_service
 
@@ -39,7 +40,7 @@ def upload_settings(request: fastapi.Request) -> config.UploadSettings:
 
 
 @router.post("/ingest")
-async def ingest(  # noqa: DOC501, DOC503
+async def ingest(
     pdf_file: fastapi.UploadFile,
     ingest_document: Annotated[
         ingest_service.IngestDocument, fastapi.Depends(ingest_use_case)
@@ -56,4 +57,12 @@ async def ingest(  # noqa: DOC501, DOC503
     Returns:
         What the ingest did and how many chunks are stored.
     """
-    raise NotImplementedError
+    try:
+        content = await pdf_file.read(limits.max_bytes + 1)
+    finally:
+        await pdf_file.close()
+    pdf_validation.validate_pdf(content, limits.max_bytes)
+    result = await ingest_document(content, pdf_file.filename or "document.pdf")
+    return schemas.IngestResponse(
+        status=result.status, chunks_stored=result.chunks_stored
+    )

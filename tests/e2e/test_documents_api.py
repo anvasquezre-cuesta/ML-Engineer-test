@@ -7,12 +7,7 @@ import pytest
 
 from tests.e2e import wiring
 
-pytestmark = [
-    pytest.mark.e2e,
-    pytest.mark.xfail(
-        strict=True, raises=NotImplementedError, reason="API not built yet"
-    ),
-]
+pytestmark = pytest.mark.e2e
 
 PDF = b"%PDF-1.7\nminutes"
 

@@ -75,9 +75,16 @@ class QdrantVectorStore(vector_store.VectorStore):
         self._settings = settings
         self._collection = collection
         self._dimension = dimension
+        self._ready = False
 
     async def ensure_collection(self) -> None:
-        """Creates the collection and payload indexes if they are missing."""
+        """Creates the collection and payload indexes if they are missing.
+
+        Every other method calls it first, so the collection appears on
+        first use and startup never needs Qdrant.
+        """
+        if self._ready:
+            return
 
         async def create() -> None:
             if await self._client.collection_exists(self._collection):
@@ -99,6 +106,7 @@ class QdrantVectorStore(vector_store.VectorStore):
         await retry.call_with_retries(
             create, self._settings, action="ensure_collection"
         )
+        self._ready = True
 
     async def upsert(self, chunks: Sequence[rag.EmbeddedChunk]) -> None:
         """Stores chunks; writing the same chunk twice leaves one copy.
@@ -106,6 +114,7 @@ class QdrantVectorStore(vector_store.VectorStore):
         Args:
             chunks: The chunks and their vectors.
         """
+        await self.ensure_collection()
         points = [
             models.PointStruct(
                 id=ids.chunk_point_id(item.chunk),
@@ -147,6 +156,7 @@ class QdrantVectorStore(vector_store.VectorStore):
         Returns:
             The document record, or ``None`` if nothing is stored for it.
         """
+        await self.ensure_collection()
         selector = _document_filter(document_key)
         counted = await retry.call_with_retries(
             lambda: self._client.count(
@@ -181,6 +191,7 @@ class QdrantVectorStore(vector_store.VectorStore):
         Returns:
             One record per document, ordered by key.
         """
+        await self.ensure_collection()
         facets = await retry.call_with_retries(
             lambda: self._client.facet(
                 self._collection,
@@ -208,6 +219,7 @@ class QdrantVectorStore(vector_store.VectorStore):
         Returns:
             The number of chunks deleted.
         """
+        await self.ensure_collection()
         record = await self.get_document(document_key)
         if record is None:
             return 0
@@ -237,6 +249,7 @@ class QdrantVectorStore(vector_store.VectorStore):
         Returns:
             The closest chunks, best first.
         """
+        await self.ensure_collection()
         response = await retry.call_with_retries(
             lambda: self._client.query_points(
                 self._collection,
