@@ -175,3 +175,17 @@ class NameMatch:
     extracted_name: str
     matched_name: str
     score: float
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractionResult:
+    """Every name found in a document and the queried names they match.
+
+    Attributes:
+        occurrences: Name occurrences ordered by page, then position.
+        matches: Matches ordered by the first occurrence of the extracted
+            name, then by the order of the queried names.
+    """
+
+    occurrences: tuple[NameOccurrence, ...]
+    matches: tuple[NameMatch, ...]
