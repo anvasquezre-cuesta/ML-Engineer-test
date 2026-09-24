@@ -256,23 +256,19 @@ class QueueSettings(pydantic.BaseModel):
 
 
 class JobSettings(pydantic.BaseModel):
-    """Asynchronous job tracking.
+    """Asynchronous job tracking in DynamoDB.
 
     Attributes:
-        repository: ``dynamodb`` or ``postgres``.
         max_attempts: Attempts before a job is dead-lettered.
         lease_s: Seconds a worker owns a running job.
         dynamodb_table: DynamoDB table name.
         dynamodb_endpoint_url: Custom endpoint (DynamoDB Local).
-        postgres_dsn: Async SQLAlchemy URL for the Postgres repository.
     """
 
-    repository: Literal["dynamodb", "postgres"] = "dynamodb"
     max_attempts: int = pydantic.Field(default=3, ge=1)
     lease_s: float = pydantic.Field(default=300.0, gt=0)
     dynamodb_table: str = "docintel-jobs"
     dynamodb_endpoint_url: str = ""
-    postgres_dsn: pydantic.SecretStr | None = None
 
 
 class CpuSettings(pydantic.BaseModel):

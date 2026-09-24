@@ -12,6 +12,10 @@ class JobRepository(abc.ABC):
     A transition returns the updated job, or ``None`` when the job is not in
     the state the transition requires, so concurrent workers cannot both
     win. Every method may raise ``JobStoreUnavailableError``.
+
+    DynamoDB implements it with conditional writes. A relational store such
+    as PostgreSQL could implement it with ``UPDATE ... WHERE status = ...``;
+    no such adapter is provided.
     """
 
     @abc.abstractmethod
