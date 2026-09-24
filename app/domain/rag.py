@@ -90,6 +90,23 @@ class DocumentRecord:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class Passage:
+    """A retrieved chunk as numbered in the answer prompt.
+
+    Attributes:
+        number: 1-based position the model cites as ``[number]``.
+        document_key: Identity of the chunk's document.
+        page: 1-based page number.
+        text: The chunk text with bracketed numbers defused.
+    """
+
+    number: int
+    document_key: str
+    page: int
+    text: str
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class LlmPrompt:
     """Instructions and user message sent to the language model.
 

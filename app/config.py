@@ -261,6 +261,17 @@ class CpuSettings(pydantic.BaseModel):
     max_concurrency: int = pydantic.Field(default=2, ge=1)
 
 
+class PromptSettings(pydantic.BaseModel):
+    """Prompt template files.
+
+    Attributes:
+        directory: Folder holding the prompt templates; defaults to the
+            templates shipped with the app.
+    """
+
+    directory: pathlib.Path = pathlib.Path(__file__).parent / "prompts"
+
+
 class LoggingSettings(pydantic.BaseModel):
     """Structured logging.
 
@@ -287,6 +298,7 @@ class Settings(pydantic_settings.BaseSettings):
         embeddings: FastEmbed embeddings.
         qdrant: Qdrant vector store.
         llm: Chat model.
+        prompts: Prompt template files.
         llm_observability: Langfuse tracing.
         blob: Object storage.
         queue: Job queue.
@@ -314,6 +326,7 @@ class Settings(pydantic_settings.BaseSettings):
     embeddings: EmbeddingSettings = EmbeddingSettings()
     qdrant: QdrantSettings = QdrantSettings()
     llm: LlmSettings = LlmSettings()
+    prompts: PromptSettings = PromptSettings()
     llm_observability: LlmObservabilitySettings = LlmObservabilitySettings()
     blob: BlobSettings = BlobSettings()
     queue: QueueSettings = QueueSettings()
