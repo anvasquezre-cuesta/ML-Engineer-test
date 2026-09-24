@@ -18,6 +18,9 @@ _BEDROCK_UNAVAILABLE = frozenset(
         "ServiceUnavailableException",
         "InternalServerException",
         "ModelNotReadyException",
+        # Seen transiently for valid cross-region inference profiles; a
+        # mistyped model id also lands here.
+        "ResourceNotFoundException",
     }
 )
 _BEDROCK_NOT_CONFIGURED = frozenset(

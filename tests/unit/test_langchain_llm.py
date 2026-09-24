@@ -111,6 +111,7 @@ BOTO = botocore.exceptions
         ),
         (BOTO.EndpointConnectionError(endpoint_url="b"), UNAVAILABLE),
         (aws_error("ThrottlingException"), UNAVAILABLE),
+        (aws_error("ResourceNotFoundException"), UNAVAILABLE),
         (
             openai.AuthenticationError("a", response=status(401), body=None),
             NOT_CONFIGURED,
