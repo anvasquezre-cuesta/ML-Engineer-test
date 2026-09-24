@@ -52,3 +52,23 @@ def cites_evidence(
         for chunk in shown
         if answering.source_reference(chunk) in cited
     )
+
+
+def hedged(completion: str, shown: Sequence[rag.Chunk], refusal: str) -> bool:
+    """Tells whether a completion cites passages and also refuses.
+
+    The parser reads such a completion as a refusal, which hides that the
+    model answered part of the question.
+
+    Args:
+        completion: The model's raw text.
+        shown: The chunks the completion could cite.
+        refusal: The refusal sentence.
+
+    Returns:
+        Whether the completion is a refusal with a valid citation.
+
+    Raises:
+        NotImplementedError: Always; not built yet.
+    """
+    raise NotImplementedError
