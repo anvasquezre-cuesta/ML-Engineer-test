@@ -157,7 +157,11 @@ class LlmSettings(pydantic.BaseModel):
             OpenAI.
         openai_api_key: Key for the OpenAI-compatible endpoint.
         aws_region: AWS region for Bedrock.
-        aws_profile: Named AWS profile for Bedrock; empty uses the task role.
+        aws_profile: Named AWS profile for Bedrock; empty uses the keys below
+            or the task role.
+        aws_access_key_id: Access key for Bedrock; empty uses the profile or
+            the task role.
+        aws_secret_access_key: Secret key paired with ``aws_access_key_id``.
         timeout_s: Per-attempt timeout.
         max_retries: Retries after the first attempt, done by the provider
             SDK, which honours the provider's Retry-After.
@@ -170,6 +174,8 @@ class LlmSettings(pydantic.BaseModel):
     openai_api_key: pydantic.SecretStr | None = None
     aws_region: str = "us-east-1"
     aws_profile: str = ""
+    aws_access_key_id: pydantic.SecretStr | None = None
+    aws_secret_access_key: pydantic.SecretStr | None = None
     timeout_s: float = pydantic.Field(default=30.0, gt=0)
     max_retries: int = pydantic.Field(default=2, ge=0)
     deadline_s: float = pydantic.Field(default=60.0, gt=0)
