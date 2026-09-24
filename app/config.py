@@ -255,6 +255,45 @@ class QueueSettings(pydantic.BaseModel):
     retry_delay_s: float = pydantic.Field(default=30.0, ge=0)
 
 
+class DynamoDbSettings(pydantic.BaseModel):
+    """DynamoDB access shared by the occurrence and job stores.
+
+    Attributes:
+        endpoint_url: Custom endpoint (DynamoDB Local); empty uses AWS.
+        region: AWS region.
+        access_key_id: Access key; empty uses the task role.
+        secret_access_key: Secret key paired with ``access_key_id``.
+        timeout_s: Connect and read timeout of each request.
+        max_retries: Retries after the first attempt, done by botocore.
+        create_tables: Create missing tables at startup (DynamoDB Local);
+            on AWS the tables come from the infrastructure code.
+    """
+
+    endpoint_url: str = ""
+    region: str = "us-east-1"
+    access_key_id: pydantic.SecretStr | None = None
+    secret_access_key: pydantic.SecretStr | None = None
+    timeout_s: float = pydantic.Field(default=5.0, gt=0)
+    max_retries: int = pydantic.Field(default=3, ge=0)
+    create_tables: bool = False
+
+
+class OccurrenceSettings(pydantic.BaseModel):
+    """Store of every extracted name occurrence.
+
+    Attributes:
+        table: DynamoDB table name.
+        batch_max_attempts: Batch writes tried before unprocessed items
+            fail the generation.
+        batch_backoff_s: First backoff before resending unprocessed items;
+            it doubles with each attempt.
+    """
+
+    table: str = "docintel-occurrences"
+    batch_max_attempts: int = pydantic.Field(default=5, ge=1)
+    batch_backoff_s: float = pydantic.Field(default=0.05, ge=0)
+
+
 class JobSettings(pydantic.BaseModel):
     """Asynchronous job tracking in DynamoDB.
 
@@ -262,13 +301,11 @@ class JobSettings(pydantic.BaseModel):
         max_attempts: Attempts before a job is dead-lettered.
         lease_s: Seconds a worker owns a running job.
         dynamodb_table: DynamoDB table name.
-        dynamodb_endpoint_url: Custom endpoint (DynamoDB Local).
     """
 
     max_attempts: int = pydantic.Field(default=3, ge=1)
     lease_s: float = pydantic.Field(default=300.0, gt=0)
     dynamodb_table: str = "docintel-jobs"
-    dynamodb_endpoint_url: str = ""
 
 
 class CpuSettings(pydantic.BaseModel):
@@ -354,6 +391,8 @@ class Settings(pydantic_settings.BaseSettings):
         llm_observability: Langfuse tracing.
         blob: Object storage.
         queue: Job queue.
+        dynamodb: DynamoDB access.
+        occurrences: Name occurrence store.
         jobs: Job tracking.
         cpu: CPU-bound work.
         logging: Structured logging.
@@ -383,6 +422,8 @@ class Settings(pydantic_settings.BaseSettings):
     llm_observability: LlmObservabilitySettings = LlmObservabilitySettings()
     blob: BlobSettings = BlobSettings()
     queue: QueueSettings = QueueSettings()
+    dynamodb: DynamoDbSettings = DynamoDbSettings()
+    occurrences: OccurrenceSettings = OccurrenceSettings()
     jobs: JobSettings = JobSettings()
     cpu: CpuSettings = CpuSettings()
     logging: LoggingSettings = LoggingSettings()
