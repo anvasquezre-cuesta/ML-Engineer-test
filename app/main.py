@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from app.api.extract import router as extract_router
 from app.api.rag import router as rag_router
+from app.models.schemas import HealthResponse
 
 app = FastAPI(title="Document Intelligence Service")
 
@@ -17,5 +18,10 @@ app.include_router(rag_router, prefix="/api", tags=["rag"])
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+def health() -> HealthResponse:
+    """Reports that the service is up.
+
+    Returns:
+        A response with status ``ok``.
+    """
+    return HealthResponse(status="ok")

@@ -10,12 +10,18 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.import_linter_cache/
+.hypothesis/
 
 # Env / secrets
 .env
 .env.*
+!.env.example
 
 # OS / IDE
 .DS_Store
 .idea/
 .vscode/
+
+# Local agent configuration
+.claude/
