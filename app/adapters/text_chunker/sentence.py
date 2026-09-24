@@ -1,5 +1,6 @@
 """TextChunker backed by LangChain's RecursiveCharacterTextSplitter."""
 
+import functools
 import re
 
 from langchain_text_splitters import character
@@ -61,9 +62,13 @@ class SentenceTextChunker(text_chunker.TextChunker):
         """Locates each chunk the splitter produces in ``text``.
 
         LangChain's own ``add_start_index`` searches with ``str.find`` and can
-        anchor a short chunk inside another word or on an earlier repeat. Here
-        a match must sit on word boundaries, start after the previous chunk's
-        start, and end after its end, since every chunk adds new text.
+        anchor a short chunk inside another word or on an earlier repeat. A
+        repeated chunk can also match several word-bounded places that all
+        look valid locally. So chunks are placed together: each starts after
+        the previous one's start, only whitespace is left uncovered before
+        it, and together they reach the end of the page. A chunk may lie
+        inside the previous one. The first placement that satisfies all of
+        these wins.
 
         Args:
             text: The page text.
@@ -72,23 +77,38 @@ class SentenceTextChunker(text_chunker.TextChunker):
             One ``(start, end)`` span per chunk, in page order.
 
         Raises:
-            ValueError: If a chunk cannot be located, which would mean the
-                splitter changed text it should only slice.
+            ValueError: If the chunks cannot cover the page, which would mean
+                the splitter changed text it should only slice.
         """
-        spans: list[tuple[int, int]] = []
-        previous_start, previous_end = -1, 0
-        for piece in self._splitter.split_text(text):
-            body = piece.strip()
-            if not body:
-                continue
-            pattern = re.compile(rf"(?<!\S){re.escape(body)}(?!\S)")
-            earliest = previous_end - self._chunk_overlap
-            position = max(previous_start + 1, earliest)
-            match = pattern.search(text, position)
-            while match is not None and match.end() <= previous_end:
-                match = pattern.search(text, match.start() + 1)
-            if match is None:
-                raise ValueError("A chunk does not occur in the page text.")
-            spans.append((match.start(), match.end()))
-            previous_start, previous_end = match.span()
-        return spans
+        bodies = [
+            body
+            for body in (
+                piece.strip() for piece in self._splitter.split_text(text)
+            )
+            if body
+        ]
+        patterns = [
+            re.compile(rf"(?<!\S){re.escape(body)}(?!\S)") for body in bodies
+        ]
+
+        @functools.cache
+        def place(
+            index: int, start: int, covered: int
+        ) -> tuple[tuple[int, int], ...] | None:
+            if index == len(patterns):
+                return () if text[covered:].strip() == "" else None
+            next_word = len(text) - len(text[covered:].lstrip())
+            match = patterns[index].search(text, start + 1)
+            while match is not None and match.start() <= next_word:
+                rest = place(
+                    index + 1, match.start(), max(covered, match.end())
+                )
+                if rest is not None:
+                    return (match.span(), *rest)
+                match = patterns[index].search(text, match.start() + 1)
+            return None
+
+        spans = place(0, -1, 0)
+        if spans is None:
+            raise ValueError("The chunks do not cover the page text.")
+        return list(spans)
