@@ -11,10 +11,6 @@ from app.domain.extraction import Box
 from app.domain.extraction import OcrWord
 from app.domain.extraction import PageImage
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="adapter not built yet"
-)
-
 # A page whose x and y scales differ: 0.75 pt/px across, 0.5 pt/px down.
 PAGE = PageImage(
     page_number=4,

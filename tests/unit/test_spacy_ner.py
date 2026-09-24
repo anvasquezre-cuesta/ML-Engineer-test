@@ -2,16 +2,11 @@
 
 from typing import cast
 
-import pytest
 import spacy
 from spacy.pipeline import EntityRuler
 
 from app.adapters.spacy_ner.ner import SpacyNer
 from app.domain.extraction import EntitySpan
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="adapter not built yet"
-)
 
 
 def test_only_person_entities_are_returned() -> None:

@@ -2,14 +2,23 @@
 
 from typing import Self
 
+import spacy
 from spacy.language import Language
 
+from app.domain.errors import NerError
 from app.domain.extraction import EntitySpan
 from app.ports.ner import Ner
 
+PERSON = "PERSON"
+UNUSED_COMPONENTS = ("tagger", "parser", "attribute_ruler", "lemmatizer")
+
 
 class SpacyNer(Ner):
-    """Finds PERSON entities with a loaded spaCy pipeline."""
+    """Finds PERSON entities with a loaded spaCy pipeline.
+
+    One pipeline instance is shared by every thread that calls
+    ``find_persons``.
+    """
 
     def __init__(self, nlp: Language) -> None:
         """Initializes the NER.
@@ -20,7 +29,7 @@ class SpacyNer(Ner):
         self._nlp = nlp
 
     @classmethod
-    def load(cls, model: str) -> Self:  # noqa: DOC501, DOC503
+    def load(cls, model: str) -> Self:
         """Loads an installed pipeline, keeping only what NER needs.
 
         Args:
@@ -28,10 +37,20 @@ class SpacyNer(Ner):
 
         Returns:
             The NER adapter.
-        """
-        raise NotImplementedError
 
-    def find_persons(self, text: str) -> list[EntitySpan]:  # noqa: DOC501, DOC503
+        Raises:
+            NerError: If the pipeline is not installed.
+        """
+        try:
+            nlp = spacy.load(model, exclude=list(UNUSED_COMPONENTS))
+        except OSError as exc:
+            raise NerError(
+                f"spaCy pipeline {model!r} is not installed; set "
+                "DOCINTEL_NER__MODEL to an installed pipeline."
+            ) from exc
+        return cls(nlp)
+
+    def find_persons(self, text: str) -> list[EntitySpan]:
         """Finds the PERSON entities in ``text``.
 
         Args:
@@ -39,5 +58,16 @@ class SpacyNer(Ner):
 
         Returns:
             Every PERSON span, as offsets into ``text``, in order.
+
+        Raises:
+            NerError: If the text exceeds the pipeline's ``max_length``.
         """
-        raise NotImplementedError
+        try:
+            doc = self._nlp(text)
+        except ValueError as exc:
+            raise NerError() from exc
+        return [
+            EntitySpan(start=ent.start_char, end=ent.end_char, text=ent.text)
+            for ent in doc.ents
+            if ent.label_ == PERSON
+        ]

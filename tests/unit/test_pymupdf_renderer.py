@@ -6,10 +6,6 @@ import pytest
 from app.adapters.pymupdf.page_renderer import PyMuPdfRenderer
 from app.domain.errors import OcrUnreadableError
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="adapter not built yet"
-)
-
 
 def portrait_then_rotated_pdf() -> bytes:
     """Returns an A4 page followed by an A4 page stored with ``/Rotate 90``.

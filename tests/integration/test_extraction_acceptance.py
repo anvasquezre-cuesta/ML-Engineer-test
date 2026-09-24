@@ -25,12 +25,7 @@ from scripts.make_synthetic_pdfs import CASES
 from scripts.make_synthetic_pdfs import build_all
 from tests.fakes.name_matcher import ScriptedNameMatcher
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.xfail(
-        strict=True, raises=NotImplementedError, reason="adapters not built"
-    ),
-]
+pytestmark = pytest.mark.integration
 
 REPO = Path(__file__).parents[2]
 GROUND_TRUTH = REPO / "tests" / "data" / "ground_truth"
