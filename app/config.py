@@ -107,11 +107,14 @@ class EmbeddingSettings(pydantic.BaseModel):
     Attributes:
         model_name: FastEmbed model to load.
         cache_dir: Directory holding the model files baked into the image.
+        local_files_only: Refuse to download the model; the container sets
+            it so a missing model fails at startup instead of downloading.
         query_prefix: Instruction prepended to questions, never to passages.
     """
 
     model_name: str = "BAAI/bge-small-en-v1.5"
     cache_dir: pathlib.Path = pathlib.Path(".cache/fastembed")
+    local_files_only: bool = False
     query_prefix: str = (
         "Represent this sentence for searching relevant passages: "
     )
