@@ -163,6 +163,14 @@ class OccurrenceStoreUnavailableError(AppError):
     title = "The occurrence store is unavailable."
 
 
+class OccurrenceIntegrityError(AppError):
+    """A sealed generation returned a different number of occurrences."""
+
+    code = "occurrence_store.integrity"
+    retryable = False
+    title = "A stored document version is incomplete."
+
+
 class JobNotFoundError(AppError):
     """No job exists with the requested id.
 

@@ -36,6 +36,7 @@ ERROR_STATUS = types.MappingProxyType(
         "llm.timeout": 504,
         "llm.not_configured": 503,
         "occurrence_store.unavailable": 503,
+        "occurrence_store.integrity": 500,
         "job.not_found": 404,
         "document.not_found": 404,
         "blob_store.unavailable": 503,

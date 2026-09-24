@@ -1,5 +1,6 @@
-"""Use case: record every name occurrence of a document version."""
+"""Use cases: record every name occurrence of a document, and query them."""
 
+from collections.abc import AsyncIterator
 from collections.abc import Sequence
 import uuid
 
@@ -107,3 +108,35 @@ class RecordOccurrences:
         if promoted == occurrences.PromoteOutcome.SUPERSEDED:
             return occurrences.RecordOutcome.SUPERSEDED
         return occurrences.RecordOutcome.RECORDED
+
+
+class QueryOccurrences:
+    """Streams the current occurrences, optionally filtered."""
+
+    def __init__(self, reader: occurrence_store.OccurrenceReader) -> None:
+        """Initializes the use case.
+
+        Args:
+            reader: The occurrence store.
+        """
+        self._reader = reader
+
+    def __call__(
+        self, document_key: str | None = None, name: str | None = None
+    ) -> AsyncIterator[occurrences.StoredOccurrence]:
+        """Streams every current occurrence matching the filters.
+
+        Each document is read at one generation and must return exactly the
+        count its seal recorded; documents are not read at one instant.
+
+        Args:
+            document_key: Only this document, if given.
+            name: Only names containing it, ignoring case and accents.
+
+        Returns:
+            The occurrences, document by document, in ordinal order.
+
+        Raises:
+            NotImplementedError: Always; not built yet.
+        """
+        raise NotImplementedError

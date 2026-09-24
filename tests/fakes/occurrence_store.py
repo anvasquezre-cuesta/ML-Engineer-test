@@ -18,11 +18,13 @@ class InMemoryOccurrenceStore(
     Attributes:
         fail_after: Items written before the next write fails; ``None``
             never fails.
+        lose_on_read: Items of each generation that reads leave out.
     """
 
     def __init__(self) -> None:
         """Initializes an empty store."""
         self.fail_after: int | None = None
+        self.lose_on_read = 0
         self._orders: dict[str, int] = {}
         self._items: dict[tuple[str, str], Items] = {}
         self._sealed: dict[tuple[str, str], occurrences.GenerationManifest] = {}
@@ -118,7 +120,8 @@ class InMemoryOccurrenceStore(
         if head.manifest is None:
             return
         key = (head.document_key, head.manifest.generation)
-        for item in self._items[key]:
+        items = self._items[key]
+        for item in items[: len(items) - self.lose_on_read]:
             yield item
 
     async def history(
