@@ -109,6 +109,14 @@ BOTO = botocore.exceptions
             openai.RateLimitError("r", response=status(429), body=None),
             UNAVAILABLE,
         ),
+        pytest.param(
+            openai.RateLimitError(
+                "q", response=status(429), body={"code": "insufficient_quota"}
+            ),
+            NOT_CONFIGURED,
+            marks=pytest.mark.xfail(strict=True, reason="quota not mapped"),
+            id="openai-quota",
+        ),
         (BOTO.EndpointConnectionError(endpoint_url="b"), UNAVAILABLE),
         (aws_error("ThrottlingException"), UNAVAILABLE),
         (aws_error("ResourceNotFoundException"), UNAVAILABLE),
@@ -178,3 +186,17 @@ def test_bedrock_client_uses_only_the_configured_credentials() -> None:
     assert key is not None and key.get_secret_value() == "AKIA-TEST"
     assert chat.config.retries == {"total_max_attempts": 3, "mode": "standard"}
     assert chat.config.read_timeout == 7
+
+
+@pytest.mark.xfail(strict=True, reason="temperature always sent")
+def test_openai_sends_no_temperature_unless_configured() -> None:
+    # Reasoning models reject any temperature but their default.
+    settings = config.LlmSettings(
+        provider="openai", openai_api_key=pydantic.SecretStr("sk-test")
+    )
+
+    chat = chat_models.build_chat_model(settings)
+
+    assert isinstance(chat, lc_chat_models.BaseChatModel)
+    payload = chat._get_request_payload([messages.HumanMessage("Who?")])  # type: ignore[attr-defined]
+    assert "temperature" not in payload
