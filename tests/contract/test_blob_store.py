@@ -11,9 +11,6 @@ from app.domain import errors
 from app.ports import blob_store
 from tests.fakes import jobs as job_fakes
 
-NOT_BUILT = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="not built"
-)
 LOCAL = config.BlobSettings(
     endpoint_url="http://localhost:8333",
     access_key_id=pydantic.SecretStr("docintel-local"),
@@ -37,7 +34,7 @@ def store_of(kind: str) -> blob_store.BlobStore:
 
 @pytest.mark.parametrize(
     "kind",
-    ["fake", pytest.param("s3", marks=[pytest.mark.docker, NOT_BUILT])],
+    ["fake", pytest.param("s3", marks=pytest.mark.docker)],
 )
 async def test_objects_round_trip_and_a_missing_one_reads_as_none(
     kind: str,
@@ -56,7 +53,6 @@ async def test_objects_round_trip_and_a_missing_one_reads_as_none(
 
 
 @pytest.mark.docker
-@NOT_BUILT
 async def test_rejected_credentials_fail_rather_than_read_as_missing() -> None:
     wrong = LOCAL.model_copy(
         update={"access_key_id": pydantic.SecretStr("wrong")}
