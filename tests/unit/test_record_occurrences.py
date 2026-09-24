@@ -8,10 +8,6 @@ from app.domain import occurrences
 from app.service_layer import occurrences as occurrence_service
 from tests.fakes import occurrence_store
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="occurrence store not built"
-)
-
 EXTRACTOR = "ner=en_core_web_lg|ocr=eng@300dpi"
 Store = occurrence_store.InMemoryOccurrenceStore
 

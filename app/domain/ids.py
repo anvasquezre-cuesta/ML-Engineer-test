@@ -6,6 +6,8 @@ import uuid
 from app.domain import rag
 
 ID_PREFIX = "docintel:chunk"
+DOCUMENT_PREFIX = "docintel:document"
+OCCURRENCE_PREFIX = "docintel:occurrence"
 
 
 def chunk_point_id(chunk: rag.Chunk) -> str:
@@ -44,11 +46,9 @@ def document_id(document_key: str) -> str:
 
     Returns:
         The id as a canonical UUID string.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
     """
-    raise NotImplementedError
+    key = json.dumps([DOCUMENT_PREFIX, document_key])
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
 def occurrence_id(
@@ -73,8 +73,15 @@ def occurrence_id(
 
     Returns:
         The id as a canonical UUID string.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
     """
-    raise NotImplementedError
+    key = json.dumps(
+        [
+            OCCURRENCE_PREFIX,
+            document_key,
+            content_hash,
+            generation,
+            page_number,
+            ordinal,
+        ]
+    )
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
