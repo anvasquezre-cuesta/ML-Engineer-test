@@ -4,8 +4,6 @@ from collections.abc import Collection
 from collections.abc import Mapping
 from collections.abc import Sequence
 
-import pytest
-
 from app.domain.extraction import ExtractionResult
 from app.domain.extraction import NameMatch
 from app.domain.extraction import NameOccurrence
@@ -20,10 +18,6 @@ from tests.fakes.name_matcher import ScriptedNameMatcher
 from tests.fakes.ner import ExactNer
 from tests.fakes.ocr import ScriptedOcr
 from tests.fakes.page_renderer import BlankPageRenderer
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="use case not built yet"
-)
 
 
 async def extract(
