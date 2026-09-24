@@ -22,6 +22,7 @@ from tests.fakes import name_matcher
 from tests.fakes import ner as ner_fake
 from tests.fakes import ocr as ocr_fake
 from tests.fakes import page_renderer as page_renderer_fake
+from tests.fakes import sparse_embedding
 
 UPLOAD_LIMIT = 1024
 PAGE = builders.page_words([["Dr. Anna Berg met Lucas Moreau"]])
@@ -67,6 +68,7 @@ def fake_container(
                 ocr=reader,
                 chunker=sentence.SentenceTextChunker(80, 10),
                 embedder=embedding.HashingEmbedding(),
+                sparse_embedder=sparse_embedding.WordCountSparseEmbedding(),
                 store=store,
                 cpu=cpu,
             ),

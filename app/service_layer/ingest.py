@@ -10,6 +10,7 @@ from app.ports import cpu_runner
 from app.ports import embedding
 from app.ports import ocr as ocr_port
 from app.ports import page_renderer
+from app.ports import sparse_embedding
 from app.ports import text_chunker
 from app.ports import vector_store
 
@@ -23,6 +24,7 @@ class IngestDocument:
         ocr: ocr_port.Ocr,
         chunker: text_chunker.TextChunker,
         embedder: embedding.Embedding,
+        sparse_embedder: sparse_embedding.SparseEmbedding,
         store: vector_store.VectorStore,
         cpu: cpu_runner.CpuRunner,
     ) -> None:
@@ -33,6 +35,7 @@ class IngestDocument:
             ocr: Reads the words on each page.
             chunker: Splits page text into chunks.
             embedder: Embeds the chunks.
+            sparse_embedder: Weights the chunks' terms for keyword search.
             store: Stores the chunks by document.
             cpu: Runs the blocking rendering, OCR and embedding calls.
         """
@@ -40,6 +43,7 @@ class IngestDocument:
         self._ocr = ocr
         self._chunker = chunker
         self._embedder = embedder
+        self._sparse_embedder = sparse_embedder
         self._store = store
         self._cpu = cpu
 
@@ -75,15 +79,19 @@ class IngestDocument:
                 )
             )
         ]
-        vectors = await self._cpu.run(
-            self._embedder.embed_documents, [chunk.text for chunk in chunks]
+        texts = [chunk.text for chunk in chunks]
+        vectors = await self._cpu.run(self._embedder.embed_documents, texts)
+        sparse = await self._cpu.run(
+            self._sparse_embedder.embed_documents, texts
         )
         if existing is not None:
             await self._store.delete_document(document_key)
         await self._store.upsert(
             [
-                rag.EmbeddedChunk(chunk, vector)
-                for chunk, vector in zip(chunks, vectors, strict=True)
+                rag.EmbeddedChunk(chunk, vector, terms)
+                for chunk, vector, terms in zip(
+                    chunks, vectors, sparse, strict=True
+                )
             ]
         )
         status = (

@@ -61,9 +61,6 @@ class SparseVector:
     values: tuple[float, ...]
 
 
-NO_TERMS = SparseVector(indices=(), values=())
-
-
 @dataclasses.dataclass(frozen=True, slots=True)
 class EmbeddedChunk:
     """A chunk together with its dense and sparse embeddings.
@@ -76,7 +73,7 @@ class EmbeddedChunk:
 
     chunk: Chunk
     vector: Vector
-    sparse: SparseVector = NO_TERMS
+    sparse: SparseVector
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

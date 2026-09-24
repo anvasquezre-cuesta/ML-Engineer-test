@@ -3,10 +3,12 @@
 import structlog
 
 from app.domain import answering
+from app.domain import rag
 from app.ports import cpu_runner
 from app.ports import embedding
 from app.ports import llm as llm_port
 from app.ports import prompts as prompts_port
+from app.ports import sparse_embedding
 from app.ports import vector_store
 
 log = structlog.stdlib.get_logger(__name__)
@@ -18,6 +20,7 @@ class AskQuestion:
     def __init__(
         self,
         embedder: embedding.Embedding,
+        sparse_embedder: sparse_embedding.SparseEmbedding,
         store: vector_store.VectorStore,
         prompts: prompts_port.Prompts,
         llm: llm_port.Llm,
@@ -28,13 +31,15 @@ class AskQuestion:
 
         Args:
             embedder: Embeds the question.
-            store: Finds the chunks closest to the question.
+            sparse_embedder: Weights the question's terms.
+            store: Finds the best chunks by hybrid search.
             prompts: Renders the grounded prompt.
             llm: Writes the answer.
-            cpu: Runs the blocking embedding call.
+            cpu: Runs the blocking embedding calls.
             top_k: Chunks shown to the model.
         """
         self._embedder = embedder
+        self._sparse_embedder = sparse_embedder
         self._store = store
         self._prompts = prompts
         self._llm = llm
@@ -54,8 +59,13 @@ class AskQuestion:
         Returns:
             The answer and the retrieved chunks it rests on.
         """
-        vector = await self._cpu.run(self._embedder.embed_query, question)
-        hits = await self._store.search(vector, self._top_k)
+        query = rag.SearchQuery(
+            dense=await self._cpu.run(self._embedder.embed_query, question),
+            sparse=await self._cpu.run(
+                self._sparse_embedder.embed_query, question
+            ),
+        )
+        hits = await self._store.hybrid_search(query, self._top_k)
         if not hits:
             return answering.refused(self._prompts.refusal)
         chunks = [hit.chunk for hit in hits]

@@ -7,11 +7,16 @@ from qdrant_client import models
 
 from app import config
 from app.adapters.qdrant import retry
+from app.domain import errors
 from app.domain import ids
 from app.domain import rag
 from app.ports import vector_store
 
 DOCUMENT_KEY = "document_key"
+DENSE = "dense"
+SPARSE = "bm25"
+# Per-query corpus IDF, which skips deleted points, arrived in Qdrant 1.19.0.
+MIN_SERVER = (1, 19)
 
 
 def _document_filter(document_key: str) -> models.Filter:
@@ -87,13 +92,29 @@ class QdrantVectorStore(vector_store.VectorStore):
             return
 
         async def create() -> None:
+            version = (await self._client.info()).version
+            if tuple(int(part) for part in version.split(".")[:2]) < MIN_SERVER:
+                raise errors.VectorStoreUnavailableError(
+                    f"Qdrant {version} is older than 1.19, which exact "
+                    "keyword ranking needs."
+                )
             if await self._client.collection_exists(self._collection):
                 return
+            # IDF is computed per shard, so one shard keeps keyword ranking
+            # exact.
             await self._client.create_collection(
                 self._collection,
-                vectors_config=models.VectorParams(
-                    size=self._dimension, distance=models.Distance.COSINE
-                ),
+                shard_number=1,
+                vectors_config={
+                    DENSE: models.VectorParams(
+                        size=self._dimension, distance=models.Distance.COSINE
+                    )
+                },
+                sparse_vectors_config={
+                    SPARSE: models.SparseVectorParams(
+                        modifier=models.Modifier.IDF
+                    )
+                },
                 timeout=self._settings.timeout_s,
             )
             await self._client.create_payload_index(
@@ -118,7 +139,13 @@ class QdrantVectorStore(vector_store.VectorStore):
         points = [
             models.PointStruct(
                 id=ids.chunk_point_id(item.chunk),
-                vector=list(item.vector),
+                vector={
+                    DENSE: list(item.vector),
+                    SPARSE: models.SparseVector(
+                        indices=list(item.sparse.indices),
+                        values=list(item.sparse.values),
+                    ),
+                },
                 payload={
                     "document_key": item.chunk.document_key,
                     "content_hash": item.chunk.content_hash,
@@ -237,38 +264,7 @@ class QdrantVectorStore(vector_store.VectorStore):
         )
         return record.chunk_count
 
-    async def search(
-        self, vector: rag.Vector, top_k: int
-    ) -> list[rag.ScoredChunk]:
-        """Finds the chunks closest to ``vector``.
-
-        Args:
-            vector: The query vector.
-            top_k: Maximum number of chunks to return.
-
-        Returns:
-            The closest chunks, best first.
-        """
-        await self.ensure_collection()
-        response = await retry.call_with_retries(
-            lambda: self._client.query_points(
-                self._collection,
-                query=list(vector),
-                limit=top_k,
-                with_payload=True,
-                timeout=self._settings.timeout_s,
-            ),
-            self._settings,
-            action="query",
-        )
-        return [
-            rag.ScoredChunk(
-                chunk=_chunk(point.payload or {}), score=point.score
-            )
-            for point in response.points
-        ]
-
-    async def hybrid_search(  # noqa: DOC501, DOC503
+    async def hybrid_search(
         self, query: rag.SearchQuery, top_k: int
     ) -> list[rag.ScoredChunk]:
         """Finds the best chunks by fusing dense and keyword rankings.
@@ -283,4 +279,49 @@ class QdrantVectorStore(vector_store.VectorStore):
         Returns:
             The best chunks, best first.
         """
-        raise NotImplementedError
+        await self.ensure_collection()
+        keyword_params = (
+            models.SearchParams(
+                idf=models.IdfCorpusParams(
+                    corpus=models.Filter(
+                        must=[models.HasVectorCondition(has_vector=SPARSE)]
+                    )
+                )
+            )
+            if self._settings.corpus_idf
+            else None
+        )
+        prefetch = [
+            models.Prefetch(
+                query=list(query.dense),
+                using=DENSE,
+                limit=self._settings.prefetch_limit,
+            ),
+            models.Prefetch(
+                query=models.SparseVector(
+                    indices=list(query.sparse.indices),
+                    values=list(query.sparse.values),
+                ),
+                using=SPARSE,
+                limit=self._settings.prefetch_limit,
+                params=keyword_params,
+            ),
+        ]
+        response = await retry.call_with_retries(
+            lambda: self._client.query_points(
+                self._collection,
+                prefetch=prefetch,
+                query=models.RrfQuery(rrf=models.Rrf(k=self._settings.rrf_k)),
+                limit=top_k,
+                with_payload=True,
+                timeout=self._settings.timeout_s,
+            ),
+            self._settings,
+            action="query",
+        )
+        return [
+            rag.ScoredChunk(
+                chunk=_chunk(point.payload or {}), score=point.score
+            )
+            for point in response.points
+        ]

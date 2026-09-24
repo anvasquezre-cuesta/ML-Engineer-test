@@ -58,20 +58,6 @@ class VectorStore(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def search(
-        self, vector: rag.Vector, top_k: int
-    ) -> list[rag.ScoredChunk]:
-        """Finds the chunks closest to ``vector``.
-
-        Args:
-            vector: The query vector.
-            top_k: Maximum number of chunks to return.
-
-        Returns:
-            The closest chunks, best first.
-        """
-
-    @abc.abstractmethod
     async def hybrid_search(
         self, query: rag.SearchQuery, top_k: int
     ) -> list[rag.ScoredChunk]:

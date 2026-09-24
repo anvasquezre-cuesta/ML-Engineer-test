@@ -110,6 +110,8 @@ class EmbeddingSettings(pydantic.BaseModel):
         local_files_only: Refuse to download the model; the container sets
             it so a missing model fails at startup instead of downloading.
         query_prefix: Instruction prepended to questions, never to passages.
+        sparse_model_name: FastEmbed sparse model for keyword search; its
+            term weights get their IDF from the vector store.
     """
 
     model_name: str = "BAAI/bge-small-en-v1.5"
@@ -118,6 +120,7 @@ class EmbeddingSettings(pydantic.BaseModel):
     query_prefix: str = (
         "Represent this sentence for searching relevant passages: "
     )
+    sparse_model_name: str = "Qdrant/bm25"
 
 
 class QdrantSettings(pydantic.BaseModel):
@@ -134,6 +137,11 @@ class QdrantSettings(pydantic.BaseModel):
         backoff_max_s: Longest wait between two attempts.
         deadline_s: Total time one operation may take, retries included.
         top_k: Chunks retrieved per question.
+        prefetch_limit: Candidates each of the dense and keyword searches
+            passes to rank fusion.
+        rrf_k: Reciprocal-rank-fusion constant; Qdrant's default is 2.
+        corpus_idf: Compute keyword IDF over the points stored now; without
+            it Qdrant also counts deleted points.
     """
 
     url: str = "http://localhost:6333"
@@ -145,6 +153,9 @@ class QdrantSettings(pydantic.BaseModel):
     backoff_max_s: float = pydantic.Field(default=2.0, ge=0)
     deadline_s: float = pydantic.Field(default=15.0, gt=0)
     top_k: int = pydantic.Field(default=5, ge=1)
+    prefetch_limit: int = pydantic.Field(default=100, ge=1)
+    rrf_k: int = pydantic.Field(default=60, ge=1)
+    corpus_idf: bool = True
 
 
 class LlmSettings(pydantic.BaseModel):

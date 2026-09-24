@@ -15,6 +15,7 @@ from tests.fakes import cpu_runner
 from tests.fakes import embedding
 from tests.fakes import ocr as ocr_fake
 from tests.fakes import page_renderer as page_renderer_fake
+from tests.fakes import sparse_embedding
 
 BUDGET = "The board approved the laboratory budget for next year after a vote."
 HIRING = "Anna Berg will lead hiring for the data team starting in March."
@@ -59,6 +60,7 @@ async def ingest_page(
         ocr=ocr_fake.ScriptedOcr([builders.page_words(blocks)]),
         chunker=sentence.SentenceTextChunker(chunk_size=80, chunk_overlap=10),
         embedder=embedding.HashingEmbedding(),
+        sparse_embedder=sparse_embedding.WordCountSparseEmbedding(),
         store=store,
         cpu=cpu_runner.InlineCpuRunner(),
     )
@@ -80,8 +82,12 @@ async def test_second_document_with_identical_content_keeps_the_first() -> None:
         "copy.pdf": first.chunks_stored,
     }
     assert first.chunks_stored > 1
-    hits = await store.search(
-        embedding.HashingEmbedding().embed_query(HIRING), 4
+    hits = await store.hybrid_search(
+        rag.SearchQuery(
+            embedding.HashingEmbedding().embed_query(HIRING),
+            sparse_embedding.WordCountSparseEmbedding().embed_query(HIRING),
+        ),
+        4,
     )
     assert {hit.chunk.document_key for hit in hits[:2]} == {
         "memo.pdf",

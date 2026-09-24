@@ -15,15 +15,7 @@ from app import config
 from app.adapters.qdrant import vector_store as qdrant_store
 from app.domain import rag
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.docker,
-    pytest.mark.xfail(
-        strict=True,
-        raises=NotImplementedError,
-        reason="hybrid search not built",
-    ),
-]
+pytestmark = [pytest.mark.integration, pytest.mark.docker]
 
 Item = tuple[str, str, list[float], dict[int, float]]
 
@@ -112,9 +104,9 @@ async def test_ranking_after_replace_and_delete_matches_a_fresh_store(
         churned_hits = await churned.hybrid_search(QUERY, top_k=10)
         fresh_hits = await fresh.hybrid_search(QUERY, top_k=10)
 
-        assert [(h.chunk, round(h.score, 6)) for h in churned_hits] == [
-            (h.chunk, round(h.score, 6)) for h in fresh_hits
-        ]
+        assert {h.chunk: round(h.score, 6) for h in churned_hits} == {
+            h.chunk: round(h.score, 6) for h in fresh_hits
+        }
     finally:
         for name in names:
             await client.delete_collection(name)

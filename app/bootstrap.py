@@ -8,6 +8,7 @@ import qdrant_client
 from app import config
 from app.adapters.cpu_runner import thread_runner
 from app.adapters.fastembed_embedding import embedding
+from app.adapters.fastembed_sparse import sparse_embedding
 from app.adapters.fuzzy import name_matcher
 from app.adapters.pymupdf import page_renderer
 from app.adapters.qdrant import vector_store as qdrant_store
@@ -34,18 +35,21 @@ class Container:
     vector_store: vector_store.VectorStore
 
 
-def collection_name(prefix: str, model_name: str) -> str:
-    """Names the collection after the embedding model it holds vectors of.
+def collection_name(prefix: str, *model_names: str) -> str:
+    """Names the collection after the models it holds vectors of.
 
     Args:
         prefix: Configured collection prefix.
-        model_name: Embedding model identifier.
+        *model_names: Dense and sparse model identifiers.
 
     Returns:
-        E.g. ``chunks_baai_bge_small_en_v1_5``.
+        E.g. ``chunks_baai_bge_small_en_v1_5_qdrant_bm25``.
     """
-    slug = re.sub(r"[^a-z0-9]+", "_", model_name.lower()).strip("_")
-    return f"{prefix}_{slug}"
+    slugs = (
+        re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+        for name in model_names
+    )
+    return "_".join((prefix, *slugs))
 
 
 def build_container(settings: config.Settings) -> Container:
@@ -61,6 +65,9 @@ def build_container(settings: config.Settings) -> Container:
     renderer = page_renderer.PyMuPdfRenderer(settings.render.dpi)
     reader = ocr.TesseractOcr(settings.ocr.languages, settings.ocr.timeout_s)
     embedder = embedding.FastEmbedEmbedding.load(settings.embeddings)
+    sparse_embedder = sparse_embedding.FastEmbedSparseEmbedding.load(
+        settings.embeddings
+    )
     api_key = settings.qdrant.api_key
     store = qdrant_store.QdrantVectorStore(
         qdrant_client.AsyncQdrantClient(
@@ -72,7 +79,9 @@ def build_container(settings: config.Settings) -> Container:
         ),
         settings.qdrant,
         collection=collection_name(
-            settings.qdrant.collection_prefix, embedder.model_name
+            settings.qdrant.collection_prefix,
+            embedder.model_name,
+            sparse_embedder.model_name,
         ),
         dimension=embedder.dimension,
     )
@@ -92,6 +101,7 @@ def build_container(settings: config.Settings) -> Container:
                 settings.chunking.chunk_size, settings.chunking.chunk_overlap
             ),
             embedder=embedder,
+            sparse_embedder=sparse_embedder,
             store=store,
             cpu=cpu,
         ),

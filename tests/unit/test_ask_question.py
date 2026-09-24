@@ -10,6 +10,7 @@ from app.service_layer import ask
 from tests.fakes import cpu_runner
 from tests.fakes import embedding
 from tests.fakes import llm as llm_fake
+from tests.fakes import sparse_embedding
 
 HIRING = "Anna Berg will lead hiring for the data team starting in March."
 BUDGET = "The board approved the laboratory budget for next year."
@@ -37,6 +38,7 @@ async def store_with(*texts: str) -> qdrant_store.QdrantVectorStore:
             rag.EmbeddedChunk(
                 rag.Chunk("memo.pdf", "h", 0, i, 0, len(t), t, "sentence"),
                 embedder.embed_query(t),
+                sparse_embedding.WordCountSparseEmbedding().embed_query(t),
             )
             for i, t in enumerate(texts)
         ]
@@ -58,6 +60,7 @@ def asker(
     """
     return ask.AskQuestion(
         embedder=embedding.HashingEmbedding(),
+        sparse_embedder=sparse_embedding.WordCountSparseEmbedding(),
         store=store,
         prompts=prompts.LangChainPrompts(config.PromptSettings().directory),
         llm=model,
