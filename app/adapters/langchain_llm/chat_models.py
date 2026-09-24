@@ -43,7 +43,7 @@ def build_chat_model(
             openai_proxy="",
             request_timeout=settings.timeout_s,
             max_retries=settings.max_retries,
-            temperature=settings.temperature,
+            temperature=settings.openai_temperature,
             max_tokens=settings.max_tokens,
             reasoning_effort=settings.reasoning_effort,
         )

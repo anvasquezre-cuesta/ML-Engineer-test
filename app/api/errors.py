@@ -58,6 +58,7 @@ def problem(
     title: str,
     detail: str,
     retryable: bool,
+    invalid_fields: list[dict[str, str]] | None = None,
 ) -> responses.JSONResponse:
     """Builds a problem+json response and logs it.
 
@@ -67,6 +68,8 @@ def problem(
         title: Constant summary of the error kind.
         detail: Message for this occurrence; never names or OCR text.
         retryable: Whether retrying the same request may succeed.
+        invalid_fields: Location and error type of each rejected field,
+            returned as ``errors``; never the submitted values.
 
     Returns:
         The response, carrying the request id in body and header.
@@ -96,6 +99,7 @@ def problem(
             "code": code,
             "request_id": request_id,
             "retryable": retryable,
+            **({"errors": invalid_fields} if invalid_fields else {}),
         },
     )
 
@@ -128,8 +132,16 @@ async def _invalid_request(
     Returns:
         The problem response.
     """
+    assert isinstance(exc, exceptions.RequestValidationError)
     title = "The request is invalid."
-    return problem(request, REQUEST_INVALID, title, title, retryable=False)
+    fields = [
+        {
+            "field": ".".join(str(part) for part in error["loc"]),
+            "type": error["type"],
+        }
+        for error in exc.errors()
+    ]
+    return problem(request, REQUEST_INVALID, title, title, False, fields)
 
 
 async def _http_error(

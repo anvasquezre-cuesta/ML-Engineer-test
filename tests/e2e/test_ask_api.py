@@ -45,7 +45,6 @@ def test_answer_rests_on_the_ingested_chunk_it_cites() -> None:
     assert "Dr. Anna Berg met Lucas Moreau" in model.prompts[0].user
 
 
-@pytest.mark.xfail(strict=True, reason="invalid fields not reported")
 def test_invalid_question_names_the_field_without_echoing_it() -> None:
     question = "Anna Berg " * 300
 

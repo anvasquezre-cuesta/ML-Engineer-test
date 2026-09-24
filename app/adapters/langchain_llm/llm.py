@@ -6,6 +6,7 @@ import botocore.exceptions
 from langchain_core import messages
 from langchain_core.language_models import chat_models
 import openai
+import structlog
 
 from app.domain import errors
 from app.domain import rag
@@ -30,6 +31,8 @@ _BEDROCK_NOT_CONFIGURED = frozenset(
         "ExpiredTokenException",
     }
 )
+
+log = structlog.stdlib.get_logger(__name__)
 
 
 class LangChainLlm(llm.Llm):
@@ -82,8 +85,10 @@ class LangChainLlm(llm.Llm):
                     sent, config={"callbacks": self._observability.callbacks()}
                 )
         except TimeoutError as exc:
+            _log_failure(exc)
             raise errors.LlmTimeoutError() from exc
         except Exception as exc:
+            _log_failure(exc)
             translated = _translate(exc)
             if translated is None:
                 raise
@@ -115,6 +120,10 @@ def _translate(exc: Exception) -> errors.AppError | None:
             return errors.LlmUnavailableError()
         case openai.APIStatusError(status_code=401 | 403):
             return errors.LlmNotConfiguredError()
+        case openai.RateLimitError(
+            code="insufficient_quota" | "credit_balance_exhausted"
+        ):
+            return errors.LlmNotConfiguredError("The account has no credit.")
         case openai.APIStatusError(status_code=code) if (
             code == 429 or code >= 500
         ):
@@ -128,6 +137,25 @@ def _translate(exc: Exception) -> errors.AppError | None:
             if aws_code == "ModelTimeoutException":
                 return errors.LlmTimeoutError()
     return None
+
+
+def _log_failure(exc: BaseException) -> None:
+    """Logs what the provider reported; never the prompt or the message.
+
+    Args:
+        exc: The failure raised by the chat model or the deadline.
+    """
+    code: object = None
+    if isinstance(exc, openai.APIError):
+        code = exc.code or exc.type
+    elif isinstance(exc, botocore.exceptions.ClientError):
+        code = exc.response.get("Error", {}).get("Code")
+    log.warning(
+        "llm.call_failed",
+        provider_error=type(exc).__name__,
+        status=getattr(exc, "status_code", None),
+        provider_code=code,
+    )
 
 
 def _text(content: str | list[str | dict[str, object]]) -> str:

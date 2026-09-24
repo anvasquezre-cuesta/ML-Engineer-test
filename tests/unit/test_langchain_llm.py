@@ -114,7 +114,6 @@ BOTO = botocore.exceptions
                 "q", response=status(429), body={"code": "insufficient_quota"}
             ),
             NOT_CONFIGURED,
-            marks=pytest.mark.xfail(strict=True, reason="quota not mapped"),
             id="openai-quota",
         ),
         (BOTO.EndpointConnectionError(endpoint_url="b"), UNAVAILABLE),
@@ -188,7 +187,6 @@ def test_bedrock_client_uses_only_the_configured_credentials() -> None:
     assert chat.config.read_timeout == 7
 
 
-@pytest.mark.xfail(strict=True, reason="temperature always sent")
 def test_openai_sends_no_temperature_unless_configured() -> None:
     # Reasoning models reject any temperature but their default.
     settings = config.LlmSettings(

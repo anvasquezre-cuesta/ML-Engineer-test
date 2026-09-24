@@ -178,7 +178,10 @@ class LlmSettings(pydantic.BaseModel):
         max_retries: Retries after the first attempt, done by the provider
             SDK, which honours the provider's Retry-After.
         deadline_s: Total time one call may take, SDK retries included.
-        temperature: Sampling temperature; 0 keeps answers reproducible.
+        temperature: Bedrock sampling temperature; 0 keeps answers
+            reproducible.
+        openai_temperature: OpenAI sampling temperature; empty leaves the
+            model's default, the only value reasoning models accept.
         max_tokens: Longest completion.
         reasoning_effort: Reasoning effort for OpenAI reasoning models;
             empty leaves the model's default.
@@ -197,6 +200,7 @@ class LlmSettings(pydantic.BaseModel):
     max_retries: int = pydantic.Field(default=2, ge=0)
     deadline_s: float = pydantic.Field(default=60.0, gt=0)
     temperature: float = pydantic.Field(default=0.0, ge=0)
+    openai_temperature: float | None = pydantic.Field(default=None, ge=0)
     max_tokens: int = pydantic.Field(default=2048, ge=1)
     reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
 
