@@ -15,7 +15,6 @@ dependencies = [
     "httpx",
     "langchain-aws>=1.7.9",
     "langchain-core>=1.6.4",
-    "langchain-experimental>=0.4.2",
     "langchain-openai>=1.6.5",
     "langchain-text-splitters>=1.1.2",
     "langfuse>=4.15.4",

@@ -75,22 +75,16 @@ class MatcherSettings(pydantic.BaseModel):
 
 
 class ChunkingSettings(pydantic.BaseModel):
-    """Splitting page text into chunks.
+    """Splitting page text into chunks at paragraph, line and sentence breaks.
 
     Attributes:
-        strategy: ``sentence`` or ``semantic``.
-        chunk_size: Maximum chunk length in characters.
+        chunk_size: Maximum chunk length in characters; a single word longer
+            than this becomes its own oversized chunk rather than being cut.
         chunk_overlap: Characters shared by consecutive chunks.
-        semantic_breakpoint_percentile: Distance percentile at which the
-            semantic strategy starts a new chunk.
     """
 
-    strategy: Literal["sentence", "semantic"] = "sentence"
     chunk_size: int = pydantic.Field(default=800, ge=1)
     chunk_overlap: int = pydantic.Field(default=120, ge=0)
-    semantic_breakpoint_percentile: float = pydantic.Field(
-        default=95.0, gt=0, le=100
-    )
 
     @pydantic.model_validator(mode="after")
     def _overlap_fits_in_chunk(self) -> Self:
