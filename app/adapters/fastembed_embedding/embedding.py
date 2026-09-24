@@ -6,6 +6,7 @@ from typing import Self
 import fastembed
 
 from app import config
+from app.domain import errors
 from app.domain import rag
 from app.ports import embedding
 
@@ -34,7 +35,7 @@ class FastEmbedEmbedding(embedding.Embedding):
         self._query_prefix = query_prefix
 
     @classmethod
-    def load(cls, settings: config.EmbeddingSettings) -> Self:  # noqa: DOC501, DOC503
+    def load(cls, settings: config.EmbeddingSettings) -> Self:
         """Loads the model from the configured cache directory.
 
         Args:
@@ -42,8 +43,28 @@ class FastEmbedEmbedding(embedding.Embedding):
 
         Returns:
             The adapter.
+
+        Raises:
+            errors.EmbeddingError: If the model cannot be loaded, e.g. it is
+                missing and downloads are forbidden.
         """
-        raise NotImplementedError
+        try:
+            model = fastembed.TextEmbedding(
+                settings.model_name,
+                cache_dir=str(settings.cache_dir),
+                local_files_only=settings.local_files_only,
+            )
+        except ValueError as exc:
+            raise errors.EmbeddingError(
+                f"Embedding model {settings.model_name!r} is not available in "
+                "DOCINTEL_EMBEDDINGS__CACHE_DIR."
+            ) from exc
+        return cls(
+            model,
+            settings.model_name,
+            fastembed.TextEmbedding.get_embedding_size(settings.model_name),
+            settings.query_prefix,
+        )
 
     @property
     def model_name(self) -> str:
@@ -63,7 +84,7 @@ class FastEmbedEmbedding(embedding.Embedding):
         """
         return self._dimension
 
-    def embed_documents(self, texts: Sequence[str]) -> list[rag.Vector]:  # noqa: DOC501, DOC503
+    def embed_documents(self, texts: Sequence[str]) -> list[rag.Vector]:
         """Embeds passages to be stored.
 
         Args:
@@ -72,9 +93,12 @@ class FastEmbedEmbedding(embedding.Embedding):
         Returns:
             One vector per passage, in order.
         """
-        raise NotImplementedError
+        return [
+            tuple(float(value) for value in vector)
+            for vector in self._model.passage_embed(list(texts))
+        ]
 
-    def embed_query(self, text: str) -> rag.Vector:  # noqa: DOC501, DOC503
+    def embed_query(self, text: str) -> rag.Vector:
         """Embeds a question, prefixed with the retrieval instruction.
 
         Args:
@@ -83,4 +107,5 @@ class FastEmbedEmbedding(embedding.Embedding):
         Returns:
             The question's vector.
         """
-        raise NotImplementedError
+        vector = next(iter(self._model.query_embed(self._query_prefix + text)))
+        return tuple(float(value) for value in vector)
