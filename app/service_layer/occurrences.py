@@ -6,6 +6,7 @@ import uuid
 
 import structlog
 
+from app.domain import errors
 from app.domain import extraction
 from app.domain import ids
 from app.domain import normalize
@@ -121,7 +122,7 @@ class QueryOccurrences:
         """
         self._reader = reader
 
-    def __call__(
+    async def __call__(
         self, document_key: str | None = None, name: str | None = None
     ) -> AsyncIterator[occurrences.StoredOccurrence]:
         """Streams every current occurrence matching the filters.
@@ -133,10 +134,25 @@ class QueryOccurrences:
             document_key: Only this document, if given.
             name: Only names containing it, ignoring case and accents.
 
-        Returns:
+        Yields:
             The occurrences, document by document, in ordinal order.
 
         Raises:
-            NotImplementedError: Always; not built yet.
+            errors.OccurrenceIntegrityError: If a version returns a different
+                number of occurrences than its seal recorded.
         """
-        raise NotImplementedError
+        wanted = normalize.normalize_name(name) if name else None
+        async for head in self._reader.documents():
+            manifest = head.manifest
+            skipped = document_key not in (None, head.document_key)
+            if manifest is None or skipped:
+                continue
+            rows = [row async for row in self._reader.current(head)]
+            if len(rows) != manifest.occurrence_count:
+                raise errors.OccurrenceIntegrityError(
+                    f"Generation {manifest.generation} returned {len(rows)} "
+                    f"of {manifest.occurrence_count} occurrences."
+                )
+            for row in rows:
+                if wanted is None or wanted in row.normalized_name:
+                    yield row

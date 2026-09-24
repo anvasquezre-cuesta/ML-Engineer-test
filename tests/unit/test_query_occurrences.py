@@ -7,10 +7,6 @@ from app.domain import extraction
 from app.service_layer import occurrences as occurrence_service
 from tests.fakes import occurrence_store
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="query not built"
-)
-
 
 async def stored(
     documents: dict[str, list[str]],
