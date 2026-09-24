@@ -49,16 +49,47 @@ class Chunk:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class SparseVector:
+    """Term weights of a text, e.g. BM25 term frequencies.
+
+    Attributes:
+        indices: Term ids, one per non-zero weight.
+        values: The weights, aligned with ``indices``.
+    """
+
+    indices: tuple[int, ...]
+    values: tuple[float, ...]
+
+
+NO_TERMS = SparseVector(indices=(), values=())
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class EmbeddedChunk:
-    """A chunk together with its embedding.
+    """A chunk together with its dense and sparse embeddings.
 
     Attributes:
         chunk: The chunk.
-        vector: Its embedding.
+        vector: Its dense embedding.
+        sparse: Its term weights for keyword search.
     """
 
     chunk: Chunk
     vector: Vector
+    sparse: SparseVector = NO_TERMS
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SearchQuery:
+    """A question embedded for hybrid search.
+
+    Attributes:
+        dense: The question's dense embedding.
+        sparse: The question's term weights.
+    """
+
+    dense: Vector
+    sparse: SparseVector
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

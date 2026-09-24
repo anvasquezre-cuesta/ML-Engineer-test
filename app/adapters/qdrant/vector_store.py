@@ -267,3 +267,20 @@ class QdrantVectorStore(vector_store.VectorStore):
             )
             for point in response.points
         ]
+
+    async def hybrid_search(  # noqa: DOC501, DOC503
+        self, query: rag.SearchQuery, top_k: int
+    ) -> list[rag.ScoredChunk]:
+        """Finds the best chunks by fusing dense and keyword rankings.
+
+        Keyword statistics count only the chunks currently stored, so the
+        ranking does not depend on what was replaced or deleted before.
+
+        Args:
+            query: The question's dense and sparse embeddings.
+            top_k: Maximum number of chunks to return.
+
+        Returns:
+            The best chunks, best first.
+        """
+        raise NotImplementedError
