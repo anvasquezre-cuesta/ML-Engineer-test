@@ -7,8 +7,15 @@ conditional write, so concurrent deliveries of the same job run it once.
 from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Sequence
+import dataclasses
 import datetime
+import hashlib
+import json
+import uuid
 
+import structlog
+
+from app.domain import errors
 from app.domain import extraction
 from app.domain import jobs
 from app.domain import rag
@@ -24,6 +31,9 @@ Extract = Callable[
 ]
 Ingest = Callable[[bytes, str], Awaitable[rag.IngestResult]]
 Clock = Callable[[], datetime.datetime]
+TERMINAL = frozenset({jobs.JobStatus.SUCCEEDED, jobs.JobStatus.DEAD_LETTERED})
+
+log = structlog.stdlib.get_logger(__name__)
 
 
 class SubmitJob:
@@ -78,11 +88,33 @@ class SubmitJob:
 
         Returns:
             The queued job.
-
-        Raises:
-            NotImplementedError: Always; not built yet.
         """
-        raise NotImplementedError
+        content_hash = hashlib.sha256(pdf).hexdigest()
+        key = document_key or filename or f"sha256:{content_hash}"
+        job_id = str(uuid.uuid4())
+        input_key = f"inputs/{job_id}.pdf"
+        await self._blobs.put(input_key, pdf)
+        order = None
+        if kind is jobs.JobKind.EXTRACT:
+            order = await self._writer.allocate_order(key)
+        now = self._clock()
+        job = jobs.Job(
+            job_id=job_id,
+            kind=kind,
+            status=jobs.JobStatus.QUEUED,
+            input_key=input_key,
+            attempts=0,
+            max_attempts=self._max_attempts,
+            created_at=now,
+            updated_at=now,
+            document_key=key,
+            content_hash=content_hash,
+            order=order,
+            names=tuple(names),
+        )
+        await self._repository.create(job)
+        await self._queue.publish(jobs.JobMessage(job_id, kind))
+        return job
 
 
 class ProcessJob:
@@ -131,8 +163,101 @@ class ProcessJob:
 
         Args:
             delivery: The received message.
+        """
+        job_id = delivery.message.job_id
+        job = await self._repository.get(job_id)
+        lease = self._clock() + datetime.timedelta(seconds=self._lease_s)
+        claimed = None
+        if job is not None and job.status not in TERMINAL:
+            claimed = await self._repository.claim(job_id, lease)
+        if claimed is None:
+            await delivery.ack()
+            return
+        try:
+            result_key = await self._run(claimed)
+        except errors.AppError as exc:
+            await self._fail(claimed, delivery, exc.code, exc.detail, exc)
+            return
+        except Exception as exc:
+            log.exception("job.unexpected_error", job_id=job_id)
+            unexpected = errors.UnexpectedError()
+            await self._fail(
+                claimed, delivery, unexpected.code, unexpected.detail, exc
+            )
+            return
+        await self._repository.mark_succeeded(job_id, result_key)
+        await delivery.ack()
+        log.info("job.succeeded", job_id=job_id, attempts=claimed.attempts)
+
+    async def _run(self, job: jobs.Job) -> str:
+        """Runs the job's work and stores its result.
+
+        Args:
+            job: The claimed job.
+
+        Returns:
+            Blob key of the result.
 
         Raises:
-            NotImplementedError: Always; not built yet.
+            errors.JobInputMissingError: If the staged PDF is gone.
         """
-        raise NotImplementedError
+        pdf = await self._blobs.get(job.input_key)
+        if pdf is None or job.document_key is None:
+            raise errors.JobInputMissingError()
+        if job.kind is jobs.JobKind.EXTRACT:
+            if job.content_hash is None or job.order is None:
+                raise errors.JobInputMissingError()
+            extracted = await self._extract(pdf, job.names)
+            await self._record(
+                job.document_key,
+                job.content_hash,
+                job.order,
+                extracted.occurrences,
+                "job",
+                job.job_id,
+            )
+            result: object = extracted
+        else:
+            result = await self._ingest(pdf, job.document_key)
+        key = f"results/{job.job_id}.json"
+        payload = json.dumps(dataclasses.asdict(result))  # type: ignore[call-overload]
+        await self._blobs.put(key, payload.encode())
+        return key
+
+    async def _fail(
+        self,
+        job: jobs.Job,
+        delivery: job_queue.Delivery,
+        code: str,
+        message: str,
+        exc: Exception,
+    ) -> None:
+        """Retries a transient failure or dead-letters the job.
+
+        The store is updated before the delivery is settled, so a job is
+        never in the dead-letter queue while its record says otherwise.
+
+        Args:
+            job: The claimed job, with this attempt counted.
+            delivery: The received message.
+            code: Error code to record.
+            message: Safe error message to record.
+            exc: The failure.
+        """
+        retryable = isinstance(exc, errors.AppError) and exc.retryable
+        if retryable and job.attempts < job.max_attempts:
+            await self._repository.mark_retrying(job.job_id, code, message)
+            delay = self._retry_delay_s * 2 ** (job.attempts - 1)
+            await delivery.retry(delay)
+            log.warning(
+                "job.retrying", job_id=job.job_id, code=code, delay_s=delay
+            )
+            return
+        await self._repository.mark_dead_lettered(job.job_id, code, message)
+        await delivery.dead_letter()
+        log.warning(
+            "job.dead_lettered",
+            job_id=job.job_id,
+            code=code,
+            attempts=job.attempts,
+        )

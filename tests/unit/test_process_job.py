@@ -5,8 +5,6 @@ from collections.abc import Sequence
 import dataclasses
 import datetime
 
-import pytest
-
 from app.domain import errors
 from app.domain import extraction
 from app.domain import jobs
@@ -15,10 +13,6 @@ from app.service_layer import jobs as job_service
 from app.service_layer import occurrences
 from tests.fakes import jobs as job_fakes
 from tests.fakes import occurrence_store
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="jobs not built"
-)
 
 NOW = datetime.datetime(2026, 9, 24, 12, tzinfo=datetime.UTC)
 EXTRACT = jobs.JobKind.EXTRACT

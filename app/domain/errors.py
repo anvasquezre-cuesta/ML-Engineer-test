@@ -192,6 +192,14 @@ class JobNotFoundError(AppError):
         super().__init__(f"Job {job_id} does not exist.")
 
 
+class JobInputMissingError(AppError):
+    """The staged PDF of a job is gone, so the job can never run."""
+
+    code = "job.input_missing"
+    retryable = False
+    title = "The job's staged document is missing."
+
+
 class DocumentNotFoundError(AppError):
     """No chunks are stored for the requested document.
 
