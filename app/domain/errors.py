@@ -184,6 +184,22 @@ class BlobStoreUnavailableError(AppError):
     title = "The blob store is unavailable."
 
 
+class JobStoreUnavailableError(AppError):
+    """The job store failed to read or write a job."""
+
+    code = "job_store.unavailable"
+    retryable = True
+    title = "The job store is unavailable."
+
+
+class JobQueueUnavailableError(AppError):
+    """The job queue failed to publish or deliver a message."""
+
+    code = "job_queue.unavailable"
+    retryable = True
+    title = "The job queue is unavailable."
+
+
 class UnexpectedError(AppError):
     """An exception that no adapter translated into a domain error."""
 

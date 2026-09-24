@@ -28,6 +28,8 @@ ERROR_STATUS = MappingProxyType(
         "llm.not_configured": 503,
         "job.not_found": 404,
         "blob_store.unavailable": 503,
+        "job_store.unavailable": 503,
+        "job_queue.unavailable": 503,
         HTTP_NOT_FOUND: 404,
         HTTP_METHOD_NOT_ALLOWED: 405,
         "internal.unexpected": 500,
