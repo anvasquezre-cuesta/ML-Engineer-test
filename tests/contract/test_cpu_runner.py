@@ -13,10 +13,6 @@ from app.adapters.cpu_runner.thread_runner import ThreadCpuRunner
 from app.ports.cpu_runner import CpuRunner
 from tests.fakes.cpu_runner import InlineCpuRunner
 
-NOT_BUILT = pytest.mark.xfail(
-    reason="ThreadCpuRunner is not implemented yet.", strict=True
-)
-
 
 def _thread_runner() -> CpuRunner:
     """Builds the real adapter with room for two concurrent calls.
@@ -30,7 +26,7 @@ def _thread_runner() -> CpuRunner:
 @pytest.fixture(
     params=[
         pytest.param(InlineCpuRunner, id="fake"),
-        pytest.param(_thread_runner, id="thread", marks=NOT_BUILT),
+        pytest.param(_thread_runner, id="thread"),
     ]
 )
 def runner(request: pytest.FixtureRequest) -> CpuRunner:
@@ -83,7 +79,6 @@ async def test_concurrent_calls_keep_their_own_log_context(
     assert list(results) == ids
 
 
-@NOT_BUILT
 async def test_thread_runner_runs_in_parallel_up_to_the_cap() -> None:
     lock = threading.Lock()
     state = {"running": 0, "peak": 0}
