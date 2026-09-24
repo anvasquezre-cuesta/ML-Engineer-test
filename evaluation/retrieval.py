@@ -106,20 +106,46 @@ def score(
     )
 
 
-async def evaluate_samples(
-    settings: config.Settings,
-) -> RetrievalMetrics:
-    """Measures hybrid retrieval on the frozen sample OCR text.
+@dataclasses.dataclass(frozen=True, slots=True)
+class SampleIndex:
+    """The frozen sample text indexed with the service's own adapters.
 
-    The pages are chunked, embedded and searched with the service's own
-    chunker, FastEmbed models and Qdrant adapter (in memory), at the
-    configured ``top_k``.
+    Attributes:
+        store: In-memory Qdrant holding every sample chunk.
+        dense: The dense embedding model.
+        sparse: The BM25 model.
+        chunks: Every sample chunk.
+    """
+
+    store: qdrant_store.QdrantVectorStore
+    dense: embedding.FastEmbedEmbedding
+    sparse: sparse_embedding.FastEmbedSparseEmbedding
+    chunks: list[rag.Chunk]
+
+    async def search(self, question: str, k: int) -> list[rag.Chunk]:
+        """Runs the service's hybrid search for ``question``.
+
+        Args:
+            question: The question.
+            k: Chunks to return.
+
+        Returns:
+            The best chunks, best first.
+        """
+        query = rag.SearchQuery(
+            self.dense.embed_query(question), self.sparse.embed_query(question)
+        )
+        return [hit.chunk for hit in await self.store.hybrid_search(query, k)]
+
+
+async def index_samples(settings: config.Settings) -> SampleIndex:
+    """Chunks, embeds and stores the frozen sample OCR text.
 
     Args:
         settings: The service configuration.
 
     Returns:
-        The metrics over the answerable sample questions.
+        The index.
     """
     dense = embedding.FastEmbedEmbedding.load(settings.embeddings)
     sparse = sparse_embedding.FastEmbedSparseEmbedding.load(settings.embeddings)
@@ -153,17 +179,37 @@ async def evaluate_samples(
             )
         ]
     )
+    return SampleIndex(store, dense, sparse, chunks)
+
+
+async def evaluate_samples(
+    settings: config.Settings,
+) -> RetrievalMetrics:
+    """Measures hybrid retrieval on the frozen sample OCR text.
+
+    The pages are chunked, embedded and searched with the service's own
+    chunker, FastEmbed models and Qdrant adapter (in memory), at the
+    configured ``top_k``.
+
+    Args:
+        settings: The service configuration.
+
+    Returns:
+        The metrics over the answerable sample questions.
+    """
+    index = await index_samples(settings)
     top_k = settings.qdrant.top_k
     answerable = [q for q in dataset.questions() if q.evidence]
-    rankings = {}
-    for question in answerable:
-        query = rag.SearchQuery(
-            dense.embed_query(question.question),
-            sparse.embed_query(question.question),
-        )
-        hits = await store.hybrid_search(query, max(RANK_DEPTH, top_k))
-        rankings[question.id] = [chunk_id(hit.chunk) for hit in hits]
-    relevant = {q.id: relevant_chunks(q, chunks) for q in answerable}
+    rankings = {
+        question.id: [
+            chunk_id(chunk)
+            for chunk in await index.search(
+                question.question, max(RANK_DEPTH, top_k)
+            )
+        ]
+        for question in answerable
+    }
+    relevant = {q.id: relevant_chunks(q, index.chunks) for q in answerable}
     return score(rankings, relevant, top_k)
 
 

@@ -1,14 +1,8 @@
 """Answer scoring: markers never reach the judge; fallbacks cite nothing."""
 
-import pytest
-
 from app.domain import answering
 from app.domain import rag
 from evaluation import answers
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="answer scoring not built"
-)
 
 SHOWN = [
     rag.Chunk("memo.pdf", "h", 0, 0, 0, 10, "Robert Chen", "t"),

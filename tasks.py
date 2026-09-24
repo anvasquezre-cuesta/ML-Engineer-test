@@ -133,6 +133,31 @@ def test_docker(c: context.Context) -> None:
     c.run('pytest -m "docker"', pty=True)
 
 
+# DeepEval reads its own switches only from the environment; the eval
+# subprocess gets them as fixed values and nothing reads the environment.
+DEEPEVAL_OPT_OUTS = {
+    "DEEPEVAL_DISABLE_DOTENV": "1",
+    "DEEPEVAL_TELEMETRY_OPT_OUT": "1",
+}
+
+
+@tasks.task(name="eval")
+def evaluate(c: context.Context) -> None:
+    """Answers the sample questions with the live model and gates the report.
+
+    Grading uses the configured Bedrock judge within its call budget; the
+    Markdown report goes to ``DOCINTEL_EVAL__REPORT_DIR``.
+
+    Args:
+        c: Invoke context.
+    """
+    c.run(
+        "uv run --extra eval python -m evaluation",
+        env=DEEPEVAL_OPT_OUTS,
+        pty=True,
+    )
+
+
 @tasks.task
 def commit_size(c: context.Context, limit: int = COMMIT_SIZE_LIMIT) -> None:
     """Fails when the staged Python change exceeds the line limit.
@@ -185,6 +210,7 @@ namespace = collection.Collection(
     typecheck,
     test,
     test_docker,
+    evaluate,
     commit_size,
     git_status,
     prepare,

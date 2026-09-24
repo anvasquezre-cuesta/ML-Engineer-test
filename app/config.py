@@ -292,6 +292,26 @@ class PromptSettings(pydantic.BaseModel):
     directory: pathlib.Path = pathlib.Path(__file__).parent / "prompts"
 
 
+class EvalSettings(pydantic.BaseModel):
+    """Offline answer evaluation (``invoke eval``).
+
+    Attributes:
+        judge_model: Bedrock model that grades answers; must not share a
+            family with the generator.
+        runs: Repeats of the whole question set, to expose run-to-run noise.
+        concurrency: Questions evaluated at the same time.
+        max_judge_calls: Judge calls allowed per evaluation; the run stops
+            when it is spent.
+        report_dir: Where the reports are written.
+    """
+
+    judge_model: str = "us.anthropic.claude-sonnet-4-6"
+    runs: int = pydantic.Field(default=3, ge=1)
+    concurrency: int = pydantic.Field(default=4, ge=1)
+    max_judge_calls: int = pydantic.Field(default=1500, ge=1)
+    report_dir: pathlib.Path = pathlib.Path(".cache/eval/reports")
+
+
 class LoggingSettings(pydantic.BaseModel):
     """Structured logging.
 
@@ -325,6 +345,7 @@ class Settings(pydantic_settings.BaseSettings):
         jobs: Job tracking.
         cpu: CPU-bound work.
         logging: Structured logging.
+        eval: Offline answer evaluation.
     """
 
     model_config = pydantic_settings.SettingsConfigDict(
@@ -353,3 +374,4 @@ class Settings(pydantic_settings.BaseSettings):
     jobs: JobSettings = JobSettings()
     cpu: CpuSettings = CpuSettings()
     logging: LoggingSettings = LoggingSettings()
+    eval: EvalSettings = EvalSettings()

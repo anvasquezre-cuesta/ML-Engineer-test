@@ -115,6 +115,8 @@ module = [
     "scripts.*",
     "app.adapters.pymupdf.*",
     "tests.unit.test_pymupdf_renderer",
+    # DeepEval's base model class has an unannotated __init_subclass__.
+    "evaluation.judge",
 ]
 disallow_untyped_calls = false
 

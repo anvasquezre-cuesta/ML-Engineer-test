@@ -2,12 +2,16 @@
 
 from collections.abc import Sequence
 from collections.abc import Set
+import re
 
 from app.domain import answering
 from app.domain import rag
+from evaluation import retrieval
+
+_MARKERS = re.compile(r"\s*\[\d+(?:\s*,\s*\d+)*\]")
 
 
-def strip_markers(text: str) -> str:  # noqa: DOC501, DOC503
+def strip_markers(text: str) -> str:
     """Removes ``[n]`` and ``[n, m]`` citation markers from an answer.
 
     Judges of answer relevancy count markers as irrelevant text, so answers
@@ -19,10 +23,10 @@ def strip_markers(text: str) -> str:  # noqa: DOC501, DOC503
     Returns:
         The answer text without markers or the spaces left before them.
     """
-    raise NotImplementedError
+    return _MARKERS.sub("", text)
 
 
-def cites_evidence(  # noqa: DOC501, DOC503
+def cites_evidence(
     answer: answering.Answer,
     shown: Sequence[rag.Chunk],
     relevant: Set[str],
@@ -34,10 +38,17 @@ def cites_evidence(  # noqa: DOC501, DOC503
 
     Args:
         answer: The answer read from the completion.
-        shown: The chunks in the order they were numbered in the prompt.
+        shown: The chunks the answer could cite.
         relevant: Ids (``document#page#index``) of the evidence chunks.
 
     Returns:
         Whether a cited source is an evidence chunk.
     """
-    raise NotImplementedError
+    if not answer.cited:
+        return False
+    cited = set(answer.sources)
+    return any(
+        retrieval.chunk_id(chunk) in relevant
+        for chunk in shown
+        if answering.source_reference(chunk) in cited
+    )
