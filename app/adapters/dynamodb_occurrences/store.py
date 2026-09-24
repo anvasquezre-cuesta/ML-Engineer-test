@@ -10,16 +10,10 @@ import asyncio
 from collections.abc import AsyncIterator
 from collections.abc import Callable
 from collections.abc import Sequence
-import decimal
-import functools
 from typing import Any
 
-import boto3
-from boto3.dynamodb import types
-from botocore import config as botocore_config
-from botocore import exceptions
-
 from app import config
+from app.adapters.dynamodb_common import client as dynamodb
 from app.domain import errors
 from app.domain import extraction
 from app.domain import ids
@@ -30,41 +24,6 @@ BATCH_SIZE = 25
 DOCUMENTS_INDEX = "documents"
 DOCUMENTS_PARTITION = "DOCS"
 _CONDITION_FAILED = "ConditionalCheckFailedException"
-_serializer = types.TypeSerializer()
-_deserializer = types.TypeDeserializer()
-
-
-def build_client(settings: config.DynamoDbSettings) -> Any:
-    """Builds a DynamoDB client with explicit credentials and timeouts.
-
-    Without keys the client uses the default chain, i.e. the task role.
-
-    Args:
-        settings: Endpoint, region, credentials and limits.
-
-    Returns:
-        The boto3 DynamoDB client.
-    """
-    key_id: str | None = None
-    secret: str | None = None
-    if settings.access_key_id and settings.secret_access_key:
-        key_id = settings.access_key_id.get_secret_value()
-        secret = settings.secret_access_key.get_secret_value()
-    return boto3.client(
-        "dynamodb",
-        region_name=settings.region,
-        endpoint_url=settings.endpoint_url or None,
-        config=botocore_config.Config(
-            connect_timeout=settings.timeout_s,
-            read_timeout=settings.timeout_s,
-            retries={
-                "total_max_attempts": settings.max_retries + 1,
-                "mode": "standard",
-            },
-        ),
-        aws_access_key_id=key_id,
-        aws_secret_access_key=secret,
-    )
 
 
 class DynamoDbOccurrenceStore(
@@ -101,7 +60,9 @@ class DynamoDbOccurrenceStore(
             await self._call(self._client.describe_table, TableName=self._table)
             return
         except errors.OccurrenceStoreUnavailableError as exc:
-            if not _is(exc.__cause__, "ResourceNotFoundException"):
+            if not dynamodb.has_code(
+                exc.__cause__, "ResourceNotFoundException"
+            ):
                 raise
         strings = [
             {"AttributeName": name, "AttributeType": "S"}
@@ -147,7 +108,7 @@ class DynamoDbOccurrenceStore(
                 "SET document_key = if_not_exists(document_key, :k), "
                 "gsi1pk = :p, gsi1sk = :s ADD next_order :one"
             ),
-            ExpressionAttributeValues=_encode(
+            ExpressionAttributeValues=dynamodb.encode(
                 {
                     ":k": document_key,
                     ":p": DOCUMENTS_PARTITION,
@@ -157,7 +118,7 @@ class DynamoDbOccurrenceStore(
             ),
             ReturnValues="UPDATED_NEW",
         )
-        return int(_decode(response["Attributes"])["next_order"])
+        return int(dynamodb.decode(response["Attributes"])["next_order"])
 
     async def head(self, document_key: str) -> occurrences.DocumentHead:
         """Reads the document's current generation, consistently.
@@ -174,7 +135,7 @@ class DynamoDbOccurrenceStore(
             Key=_key(document_key, "HEAD"),
             ConsistentRead=True,
         )
-        current = _decode(response.get("Item", {})).get("current")
+        current = dynamodb.decode(response.get("Item", {})).get("current")
         manifest = _manifest(current) if current else None
         return occurrences.DocumentHead(document_key, manifest)
 
@@ -197,7 +158,7 @@ class DynamoDbOccurrenceStore(
                 unprocessed after the batch budget.
         """
         requests = [
-            {"PutRequest": {"Item": _encode(_occurrence_item(item))}}
+            {"PutRequest": {"Item": dynamodb.encode(_occurrence_item(item))}}
             for item in items
         ]
         for start in range(0, len(requests), BATCH_SIZE):
@@ -221,7 +182,7 @@ class DynamoDbOccurrenceStore(
                 )
         seal = {
             **_key(manifest.document_key, f"META#{manifest.generation}"),
-            **_encode(_manifest_fields(manifest)),
+            **dynamodb.encode(_manifest_fields(manifest)),
         }
         await self._call(
             self._client.put_item,
@@ -258,7 +219,7 @@ class DynamoDbOccurrenceStore(
                     "attribute_not_exists(current_order) OR current_order < :o"
                 ),
                 ExpressionAttributeNames={"#current": "current"},
-                ExpressionAttributeValues=_encode(
+                ExpressionAttributeValues=dynamodb.encode(
                     {
                         ":k": manifest.document_key,
                         ":p": DOCUMENTS_PARTITION,
@@ -269,7 +230,7 @@ class DynamoDbOccurrenceStore(
                 ),
             )
         except errors.OccurrenceStoreUnavailableError as exc:
-            if _is(exc.__cause__, _CONDITION_FAILED):
+            if dynamodb.has_code(exc.__cause__, _CONDITION_FAILED):
                 return occurrences.PromoteOutcome.SUPERSEDED
             raise
         return occurrences.PromoteOutcome.CURRENT
@@ -287,16 +248,18 @@ class DynamoDbOccurrenceStore(
             "TableName": self._table,
             "IndexName": DOCUMENTS_INDEX,
             "KeyConditionExpression": "gsi1pk = :p",
-            "ExpressionAttributeValues": _encode({":p": DOCUMENTS_PARTITION}),
+            "ExpressionAttributeValues": dynamodb.encode(
+                {":p": DOCUMENTS_PARTITION}
+            ),
         }
         async for row in self._pages(query):
             response = await self._call(
                 self._client.get_item,
                 TableName=self._table,
-                Key=_encode({"PK": row["PK"], "SK": "HEAD"}),
+                Key=dynamodb.encode({"PK": row["PK"], "SK": "HEAD"}),
                 ConsistentRead=True,
             )
-            header = _decode(response.get("Item", {}))
+            header = dynamodb.decode(response.get("Item", {}))
             if header.get("current"):
                 yield occurrences.DocumentHead(
                     str(header["document_key"]), _manifest(header["current"])
@@ -348,7 +311,7 @@ class DynamoDbOccurrenceStore(
         return {
             "TableName": self._table,
             "KeyConditionExpression": "PK = :pk AND begins_with(SK, :prefix)",
-            "ExpressionAttributeValues": _encode(
+            "ExpressionAttributeValues": dynamodb.encode(
                 {":pk": _partition(document_key), ":prefix": prefix}
             ),
             "ConsistentRead": True,
@@ -371,7 +334,7 @@ class DynamoDbOccurrenceStore(
                 self._client.query, **query, **self._page, **start
             )
             for item in response.get("Items", []):
-                yield _decode(item)
+                yield dynamodb.decode(item)
             if "LastEvaluatedKey" not in response:
                 return
             start = {"ExclusiveStartKey": response["LastEvaluatedKey"]}
@@ -385,31 +348,10 @@ class DynamoDbOccurrenceStore(
 
         Returns:
             The response.
-
-        Raises:
-            errors.OccurrenceStoreUnavailableError: If the call fails; the
-                botocore error is kept as its cause.
         """
-        try:
-            return await asyncio.to_thread(functools.partial(method, **kwargs))
-        except (exceptions.BotoCoreError, exceptions.ClientError) as exc:
-            raise errors.OccurrenceStoreUnavailableError() from exc
-
-
-def _is(error: BaseException | None, code: str) -> bool:
-    """Tells whether a botocore error carries the given error code.
-
-    Args:
-        error: The error, if any.
-        code: The AWS error code.
-
-    Returns:
-        Whether it matches.
-    """
-    return (
-        isinstance(error, exceptions.ClientError)
-        and error.response.get("Error", {}).get("Code") == code
-    )
+        return await dynamodb.call(
+            method, errors.OccurrenceStoreUnavailableError, **kwargs
+        )
 
 
 def _partition(document_key: str) -> str:
@@ -434,7 +376,7 @@ def _key(document_key: str, sort_key: str) -> dict[str, Any]:
     Returns:
         The encoded key.
     """
-    return _encode({"PK": _partition(document_key), "SK": sort_key})
+    return dynamodb.encode({"PK": _partition(document_key), "SK": sort_key})
 
 
 def _occurrence_item(item: occurrences.StoredOccurrence) -> dict[str, Any]:
@@ -534,45 +476,3 @@ def _manifest(row: dict[str, Any]) -> occurrences.GenerationManifest:
         source=source,
         job_id=None if row.get("job_id") is None else str(row["job_id"]),
     )
-
-
-def _encode_value(value: Any) -> Any:
-    """Encodes one value as a DynamoDB attribute value.
-
-    Floats become decimals, which DynamoDB numbers require.
-
-    Args:
-        value: A plain value.
-
-    Returns:
-        The attribute value.
-    """
-    if isinstance(value, float):
-        value = decimal.Decimal(repr(value))
-    elif isinstance(value, dict):
-        return {"M": {k: _encode_value(v) for k, v in value.items()}}
-    return _serializer.serialize(value)
-
-
-def _encode(values: dict[str, Any]) -> dict[str, Any]:
-    """Encodes plain values as DynamoDB attribute values.
-
-    Args:
-        values: Plain values by name.
-
-    Returns:
-        The attribute values by name.
-    """
-    return {name: _encode_value(value) for name, value in values.items()}
-
-
-def _decode(item: dict[str, Any]) -> dict[str, Any]:
-    """Decodes DynamoDB attribute values into plain values.
-
-    Args:
-        item: Attribute values by name.
-
-    Returns:
-        Plain values by name; numbers stay decimals.
-    """
-    return {name: _deserializer.deserialize(v) for name, v in item.items()}

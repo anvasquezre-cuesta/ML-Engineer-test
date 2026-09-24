@@ -10,8 +10,8 @@ import pydantic
 import pytest
 
 from app import config
+from app.adapters.dynamodb_common import client as dynamodb
 from app.adapters.dynamodb_jobs import repository as dynamodb_jobs
-from app.adapters.dynamodb_occurrences import store as dynamodb_store
 from app.domain import extraction
 from app.domain import jobs
 from tests.fakes import jobs as job_fakes
@@ -47,7 +47,7 @@ async def repository_of(kind: str) -> AsyncIterator[Repository]:
     if kind == "fake":
         yield job_fakes.InMemoryJobRepository()
         return
-    client = dynamodb_store.build_client(
+    client = dynamodb.build_client(
         config.DynamoDbSettings(
             endpoint_url="http://localhost:8000",
             access_key_id=pydantic.SecretStr("local"),

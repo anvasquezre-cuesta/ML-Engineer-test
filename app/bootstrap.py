@@ -10,6 +10,7 @@ import structlog
 
 from app import config
 from app.adapters.cpu_runner import thread_runner
+from app.adapters.dynamodb_common import client as dynamodb
 from app.adapters.dynamodb_occurrences import store as occurrence_store
 from app.adapters.fastembed_embedding import embedding
 from app.adapters.fastembed_sparse import sparse_embedding
@@ -189,7 +190,7 @@ def build_container(settings: config.Settings) -> Container:
         threshold=settings.matcher.threshold,
     )
     recorded = occurrence_store.DynamoDbOccurrenceStore(
-        occurrence_store.build_client(settings.dynamodb), settings.occurrences
+        dynamodb.build_client(settings.dynamodb), settings.occurrences
     )
     return Container(
         extract_names=extract_names,
