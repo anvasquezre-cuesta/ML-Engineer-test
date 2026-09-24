@@ -542,6 +542,7 @@ dependencies = [
     { name = "spacy" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
+    { name = "tenacity" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -595,6 +596,7 @@ requires-dist = [
     { name = "spacy" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.54" },
     { name = "structlog", specifier = ">=26.1.0" },
+    { name = "tenacity", specifier = ">=9.1.4" },
     { name = "types-boto3", marker = "extra == 'dev'", specifier = ">=1.43.101" },
     { name = "uvicorn", extras = ["standard"] },
 ]

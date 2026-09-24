@@ -124,16 +124,23 @@ class QdrantSettings(pydantic.BaseModel):
         url: Qdrant HTTP endpoint.
         api_key: API key, if the server requires one.
         collection_prefix: Collection name prefix; the model slug is appended.
-        timeout_s: Per-request timeout.
-        max_retries: Retries on transient failures.
+        timeout_s: Per-attempt timeout in whole seconds, as the client takes.
+        max_retries: Retries after the first attempt on transient failures.
+        backoff_initial_s: First wait before a retry; waits grow
+            exponentially with jitter.
+        backoff_max_s: Longest wait between two attempts.
+        deadline_s: Total time one operation may take, retries included.
         top_k: Chunks retrieved per question.
     """
 
     url: str = "http://localhost:6333"
     api_key: pydantic.SecretStr | None = None
     collection_prefix: str = "chunks"
-    timeout_s: float = pydantic.Field(default=10.0, gt=0)
-    max_retries: int = pydantic.Field(default=3, ge=0)
+    timeout_s: int = pydantic.Field(default=5, ge=1)
+    max_retries: int = pydantic.Field(default=2, ge=0)
+    backoff_initial_s: float = pydantic.Field(default=0.2, ge=0)
+    backoff_max_s: float = pydantic.Field(default=2.0, ge=0)
+    deadline_s: float = pydantic.Field(default=15.0, gt=0)
     top_k: int = pydantic.Field(default=5, ge=1)
 
 
@@ -148,8 +155,10 @@ class LlmSettings(pydantic.BaseModel):
         openai_api_key: Key for the OpenAI-compatible endpoint.
         aws_region: AWS region for Bedrock.
         aws_profile: Named AWS profile for Bedrock; empty uses the task role.
-        timeout_s: Per-request timeout.
-        max_retries: Retries on transient failures.
+        timeout_s: Per-attempt timeout.
+        max_retries: Retries after the first attempt, done by the provider
+            SDK, which honours the provider's Retry-After.
+        deadline_s: Total time one call may take, SDK retries included.
     """
 
     provider: Literal["bedrock", "openai"] = "bedrock"
@@ -160,6 +169,7 @@ class LlmSettings(pydantic.BaseModel):
     aws_profile: str = ""
     timeout_s: float = pydantic.Field(default=30.0, gt=0)
     max_retries: int = pydantic.Field(default=2, ge=0)
+    deadline_s: float = pydantic.Field(default=60.0, gt=0)
 
 
 class LlmObservabilitySettings(pydantic.BaseModel):
