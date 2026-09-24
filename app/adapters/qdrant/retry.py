@@ -124,8 +124,14 @@ async def call_with_retries[T](
         wait=_RetryAfterWait(settings),
         before_sleep=log_retry,
     )
+
+    async def attempt() -> T:
+        # tenacity runs a plain callable (e.g. a lambda) without awaiting
+        # the coroutine it returns, so every attempt is wrapped here.
+        return await operation()
+
     try:
-        return await retrying(operation)
+        return await retrying(attempt)
     except tenacity.RetryError as exhausted:
         last = exhausted.last_attempt.exception()
         if last is not None and _is_timeout(last):

@@ -1,6 +1,7 @@
 """Value objects of ingestion and retrieval-augmented answering."""
 
 import dataclasses
+import enum
 
 type Vector = tuple[float, ...]
 
@@ -99,3 +100,32 @@ class LlmPrompt:
 
     system: str
     user: str
+
+
+class IngestStatus(enum.StrEnum):
+    """What an ingest did with a document.
+
+    Attributes:
+        INGESTED: The document was new and its chunks were stored.
+        UNCHANGED: The same content was already stored; nothing was written.
+        REPLACED: Older content under the same key was deleted first.
+    """
+
+    INGESTED = "ingested"
+    UNCHANGED = "unchanged"
+    REPLACED = "replaced"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class IngestResult:
+    """Outcome of ingesting one document.
+
+    Attributes:
+        document_key: Identity of the document.
+        status: What the ingest did.
+        chunks_stored: Chunks stored for the document afterwards.
+    """
+
+    document_key: str
+    status: IngestStatus
+    chunks_stored: int
