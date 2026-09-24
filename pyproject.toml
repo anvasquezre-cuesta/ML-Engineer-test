@@ -89,6 +89,10 @@ arg-type-hints-in-docstring = false
 check-return-types = false
 check-yield-types = false
 skip-checking-short-docstrings = false
+# Google style documents constructor Args in __init__ and instance attributes
+# under the class "Attributes:"; pydoclint only sees class-level variables.
+allow-init-docstring = true
+check-class-attributes = false
 
 [tool.mypy]
 python_version = "3.12"
