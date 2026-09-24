@@ -4,14 +4,9 @@ import re
 
 import hypothesis
 from hypothesis import strategies as st
-import pytest
 
 from app.adapters.text_chunker import sentence
 from app.domain import rag
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="chunker not built yet"
-)
 
 CHUNK_SIZE = 60
 CHUNK_OVERLAP = 12
