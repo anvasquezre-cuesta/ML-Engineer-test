@@ -1,0 +1,420 @@
+{
+  "description": "Reworded and summary questions that must be answered, and near-miss questions whose answer is absent and must be refused. Frozen before any prompt candidate; dev guides diagnosis, heldout decides adoption.",
+  "questions": [
+    {
+      "id": "rw-report-main-findings",
+      "split": "dev",
+      "question": "What were the main findings of the research report?",
+      "answer": "Groundbreaking work on protein folding, a novel transformer architecture and a breakthrough in optimization algorithms; 23 peer-reviewed publications.",
+      "evidence": [
+        {
+          "document": "research_report.pdf",
+          "page": 0,
+          "quote": "Notable: Published groundbreaking work on protein folding"
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 0,
+          "quote": "Notable: Developed novel transformer architecture"
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 0,
+          "quote": "Notable: Breakthrough in optimization algorithms"
+        }
+      ]
+    },
+    {
+      "id": "rw-memo-key-takeaways",
+      "split": "dev",
+      "question": "What are the key takeaways of the CEO's memo?",
+      "answer": "Robert Chen becomes VP of Engineering, Dr. Sarah Williams joins as Chief Data Scientist, Maria Garcia is Head of Product Design, and David Nakamura manages project Atlas.",
+      "evidence": [
+        {
+          "document": "company_memo.pdf",
+          "page": 0,
+          "quote": "Robert Chen has been promoted to Vice President of Engineering."
+        },
+        {
+          "document": "company_memo.pdf",
+          "page": 0,
+          "quote": "Dr. Sarah Williams will join as Chief Data Scientist,"
+        },
+        {
+          "document": "company_memo.pdf",
+          "page": 0,
+          "quote": "Maria Garcia has been appointed as Head of Product Design."
+        },
+        {
+          "document": "company_memo.pdf",
+          "page": 0,
+          "quote": "The new project codenamed 'Atlas' will be managed by David Nakamura"
+        }
+      ]
+    },
+    {
+      "id": "rw-minutes-financial-highlights",
+      "split": "dev",
+      "question": "What stood out in the board meeting's financial discussion?",
+      "answer": "Revenue grew 12% year-over-year; concerns about rising APAC operational costs; regulatory implications of expanding into Southeast Asia.",
+      "evidence": [
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 0,
+          "quote": "Revenue increased 12% year-over-year."
+        },
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 0,
+          "quote": "raised concerns about rising operational costs in the APAC region."
+        },
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 0,
+          "quote": "noted potential regulatory implications of the proposed expansion into Southeast Asia."
+        }
+      ]
+    },
+    {
+      "id": "rw-report-headline-numbers",
+      "split": "dev",
+      "question": "Give me the headline numbers of the research department.",
+      "answer": "45 researchers in three divisions, 23 peer-reviewed publications, a $4.2M budget and $1.8M in external grants.",
+      "evidence": [
+        {
+          "document": "research_report.pdf",
+          "page": 0,
+          "quote": "Our team of 45 researchers across three divisions has produced 23 peer-reviewed publications."
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "Total research budget: $4.2M"
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "External grants secured: $1.8M"
+        }
+      ]
+    },
+    {
+      "id": "rw-minutes-agreed-actions",
+      "split": "dev",
+      "question": "What did the board agree to do?",
+      "answer": "Approve the previous minutes, do due diligence on the NovaTech partnership with Kevin O'Brien coordinating the legal review, and meet next on March 18, 2024.",
+      "evidence": [
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 0,
+          "quote": "Motion carried unanimously."
+        },
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 1,
+          "quote": "Kevin O'Brien agreed to coordinate the legal review with external counsel."
+        },
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 1,
+          "quote": "The next meeting is scheduled for March 18, 2024."
+        }
+      ]
+    },
+    {
+      "id": "rw-report-honours",
+      "split": "heldout",
+      "question": "Which honours did members of the research department earn?",
+      "answer": "Benjamin Foster: NSF Young Investigator Award; Anna Kowalski: Forbes 30 Under 30; Christopher Wong: ICML best paper award.",
+      "evidence": [
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "Dr. Benjamin Foster received the Young Investigator Award from the National Science Foundation."
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "Anna Kowalski was named to the Forbes 30 Under 30 list in the Science category."
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "Christopher Wong received a best paper award at ICML."
+        }
+      ]
+    },
+    {
+      "id": "rw-report-outside-money",
+      "split": "heldout",
+      "question": "Where did the department's outside money come from?",
+      "answer": "NIH ($600K), NSF ($450K) and a DARPA contract ($750K), $1.8M in external grants.",
+      "evidence": [
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "NIH Grant (Pl: Dr. Benjamin Foster): $600K"
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "NSF Grant (PI: Dr. Fatima Al-Rashidi): $450K"
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "DARPA Contract (PI: Prof. Michael O'Sullivan): $750K"
+        }
+      ]
+    },
+    {
+      "id": "rw-report-next-year",
+      "split": "heldout",
+      "question": "What does the department intend to do next year?",
+      "answer": "Expand the ML division under Dr. Fatima Al-Rashidi, hiring two postdoctoral researchers and a visiting scholar.",
+      "evidence": [
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "For 2025, we plan to expand the ML division under Dr. Fatima Al-Rashidi."
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "New hires will include two postdoctoral researchers and a visiting scholar."
+        }
+      ]
+    },
+    {
+      "id": "rw-memo-technical-lead",
+      "split": "heldout",
+      "question": "Who takes charge of technical operations after the restructuring?",
+      "answer": "Robert Chen, promoted to Vice President of Engineering.",
+      "evidence": [
+        {
+          "document": "company_memo.pdf",
+          "page": 0,
+          "quote": "Robert Chen has been promoted to Vice President of Engineering."
+        },
+        {
+          "document": "company_memo.pdf",
+          "page": 0,
+          "quote": "He will oversee all technical operations moving forward."
+        }
+      ]
+    },
+    {
+      "id": "rw-minutes-tech-progress",
+      "split": "heldout",
+      "question": "How is the company progressing on its technology agenda?",
+      "answer": "Dr. Yuki Tanaka's machine learning team reached significant NLP milestones, and the full AWS migration is expected by Q3 2024.",
+      "evidence": [
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 1,
+          "quote": "has achieved significant milestones in the natural language processing project."
+        },
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 1,
+          "quote": "is expected to be completed by Q3 2024."
+        }
+      ]
+    },
+    {
+      "id": "rw-minutes-risks",
+      "split": "heldout",
+      "question": "What risks did board members raise?",
+      "answer": "Rising APAC operational costs (Dr. Aisha Patel), regulatory implications of the Southeast Asia expansion (Kevin O'Brien), and the need for due diligence on NovaTech (Dr. Aisha Patel).",
+      "evidence": [
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 0,
+          "quote": "raised concerns about rising operational costs in the APAC region."
+        },
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 0,
+          "quote": "noted potential regulatory implications of the proposed expansion into Southeast Asia."
+        },
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 1,
+          "quote": "Dr. Aisha Patel recommended conducting due diligence before proceeding."
+        }
+      ]
+    },
+    {
+      "id": "rw-report-ml-division",
+      "split": "heldout",
+      "question": "Summarize what the Machine Learning Division accomplished.",
+      "answer": "Led by Dr. Fatima Al-Rashidi, it developed a novel transformer architecture and presented at NeurIPS; Christopher Wong won an ICML best paper award and Anna Kowalski made Forbes 30 Under 30.",
+      "evidence": [
+        {
+          "document": "research_report.pdf",
+          "page": 0,
+          "quote": "Notable: Developed novel transformer architecture"
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "Dr. Fatima Al-Rashidi presented at NeurIPS"
+        }
+      ]
+    },
+    {
+      "id": "rw-memo-purpose",
+      "split": "heldout",
+      "question": "What is the memo about?",
+      "answer": "The Q1 performance review and a team restructuring with several new appointments.",
+      "evidence": [
+        {
+          "document": "company_memo.pdf",
+          "page": 0,
+          "quote": "Subject: Q1 Performance Review and Team Restructuring"
+        }
+      ]
+    },
+    {
+      "id": "rw-minutes-new-deal",
+      "split": "heldout",
+      "question": "What new deal was put to the board?",
+      "answer": "A strategic partnership with NovaTech Solutions, to be managed by Catherine Dubois.",
+      "evidence": [
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 1,
+          "quote": "a strategic partnership with NovaTech Solutions."
+        },
+        {
+          "document": "meeting_minutes.pdf",
+          "page": 1,
+          "quote": "be managed by Catherine Dubois from Business Development."
+        }
+      ]
+    },
+    {
+      "id": "rw-report-authorship",
+      "split": "heldout",
+      "question": "Who wrote the annual research report and who signed off on it?",
+      "answer": "Prepared by Dr. Olivia Chambers; reviewed by Margaret Thompson, CEO.",
+      "evidence": [
+        {
+          "document": "research_report.pdf",
+          "page": 0,
+          "quote": "Prepared by: Dr. Olivia Chambers, Research Director"
+        },
+        {
+          "document": "research_report.pdf",
+          "page": 1,
+          "quote": "Reviewed by: Margaret Thompson, CEO"
+        }
+      ]
+    },
+    {
+      "id": "nm-report-findings-2023",
+      "split": "dev",
+      "question": "What were the main findings of the research department's 2023 report?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-memo-q2-takeaways",
+      "split": "dev",
+      "question": "What were the key takeaways of the Q2 performance review?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-minutes-march-decisions",
+      "split": "dev",
+      "question": "What was decided at the March 18, 2024 board meeting?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-report-physics-division",
+      "split": "dev",
+      "question": "What did the Physics Division achieve?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-minutes-q3-revenue",
+      "split": "dev",
+      "question": "By how much did revenue grow in Q3?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-report-nih-2025",
+      "split": "heldout",
+      "question": "How much NIH funding is planned for 2025?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-memo-atlas-deadline",
+      "split": "heldout",
+      "question": "When is project Atlas due to be delivered?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-minutes-novatech-cost",
+      "split": "heldout",
+      "question": "How much will the NovaTech partnership cost?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-report-chambers-awards",
+      "split": "heldout",
+      "question": "Which awards did Dr. Olivia Chambers receive?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-minutes-mendoza-report",
+      "split": "heldout",
+      "question": "What did Carlos Mendoza report at the meeting?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-memo-london-ux-lead",
+      "split": "heldout",
+      "question": "Who leads the London UX team now?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-report-stanford-paper",
+      "split": "heldout",
+      "question": "What is the title of the paper Dr. James Chen published with the department?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-minutes-aws-budget",
+      "split": "heldout",
+      "question": "What is the budget for the AWS migration?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-report-postdoc-names",
+      "split": "heldout",
+      "question": "Who are the two postdoctoral researchers being hired?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "nm-memo-chen-salary",
+      "split": "heldout",
+      "question": "What salary comes with Robert Chen's promotion?",
+      "answer": null,
+      "evidence": []
+    }
+  ]
+}
