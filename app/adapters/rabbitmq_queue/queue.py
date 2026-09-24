@@ -8,7 +8,6 @@ into the work queue.
 
 import asyncio
 from collections.abc import AsyncIterator
-import json
 from typing import Any
 
 import aio_pika
@@ -98,7 +97,7 @@ class RabbitMqJobQueue(job_queue.JobQueue):
         Args:
             message: The job message.
         """
-        await self._send(self._queue, _encode(message))
+        await self._send(self._queue, jobs.encode_message(message).encode())
 
     async def consume(self) -> AsyncIterator[job_queue.Delivery]:
         """Yields deliveries from the work queue until closed.
@@ -222,7 +221,7 @@ class RabbitMqDelivery(job_queue.Delivery):
         """
         self._queue = queue
         self._incoming = incoming
-        self.message = _decode(incoming.body)
+        self.message = jobs.decode_message(incoming.body)
 
     async def ack(self) -> None:
         """Removes the message from the work queue."""
@@ -255,30 +254,3 @@ class RabbitMqDelivery(job_queue.Delivery):
             await settle()
         except _FAILURES as exc:
             raise errors.JobQueueUnavailableError() from exc
-
-
-def _encode(message: jobs.JobMessage) -> bytes:
-    """Serializes a job message.
-
-    Args:
-        message: The job message.
-
-    Returns:
-        JSON bytes.
-    """
-    payload = {"job_id": message.job_id, "kind": str(message.kind)}
-    return json.dumps(payload).encode()
-
-
-def _decode(body: bytes) -> jobs.JobMessage:
-    """Reads a job message.
-
-    Args:
-        body: JSON bytes.
-
-    Returns:
-        The job message.
-    """
-    payload = json.loads(body)
-    kind = jobs.JobKind(payload["kind"])
-    return jobs.JobMessage(str(payload["job_id"]), kind)

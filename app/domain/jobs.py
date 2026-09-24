@@ -3,6 +3,7 @@
 import dataclasses
 import datetime
 import enum
+import json
 
 from app.domain import extraction
 
@@ -90,3 +91,28 @@ class JobMessage:
 
     job_id: str
     kind: JobKind
+
+
+def encode_message(message: JobMessage) -> str:
+    """Serializes a job message for any queue.
+
+    Args:
+        message: The job message.
+
+    Returns:
+        JSON text.
+    """
+    return json.dumps({"job_id": message.job_id, "kind": str(message.kind)})
+
+
+def decode_message(body: str | bytes) -> JobMessage:
+    """Reads a job message written by ``encode_message``.
+
+    Args:
+        body: JSON text.
+
+    Returns:
+        The job message.
+    """
+    payload = json.loads(body)
+    return JobMessage(str(payload["job_id"]), JobKind(payload["kind"]))

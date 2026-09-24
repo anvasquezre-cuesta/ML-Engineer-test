@@ -2,14 +2,9 @@
 
 import boto3
 from botocore import stub
-import pytest
 
 from app.adapters.sqs_queue import queue as sqs_queue
 from app.domain import jobs
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="not built"
-)
 
 WORK = "https://sqs.us-east-1.amazonaws.com/1/jobs"
 DEAD = "https://sqs.us-east-1.amazonaws.com/1/jobs-dead"
