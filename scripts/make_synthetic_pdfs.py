@@ -152,7 +152,21 @@ def build(case: str, pages: tuple[SyntheticPage, ...], out_dir: Path) -> None:
     (out_dir / f"{case}.json").write_text(
         json.dumps(truth, indent=2, ensure_ascii=False) + "\n"
     )
-    print(f"{case}: {len(entries)} occurrences")
+
+
+def build_all(out_dir: Path) -> None:
+    """Writes every synthetic case into ``out_dir``.
+
+    Args:
+        out_dir: Existing output directory.
+    """
+    # Box height equals the font size, close to the tight boxes OCR returns.
+    pymupdf.TOOLS.set_small_glyph_heights(True)
+    try:
+        for case, pages in CASES.items():
+            build(case, pages, out_dir)
+    finally:
+        pymupdf.TOOLS.set_small_glyph_heights(False)
 
 
 def main() -> None:
@@ -161,10 +175,7 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    # Box height equals the font size, close to the tight boxes OCR returns.
-    pymupdf.TOOLS.set_small_glyph_heights(True)
-    for case, pages in CASES.items():
-        build(case, pages, args.out_dir)
+    build_all(args.out_dir)
 
 
 if __name__ == "__main__":
