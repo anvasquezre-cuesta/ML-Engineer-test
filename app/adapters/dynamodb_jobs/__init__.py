@@ -1,0 +1,1 @@
+"""Job repository on DynamoDB."""
