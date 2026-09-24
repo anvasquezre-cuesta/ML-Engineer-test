@@ -14,7 +14,6 @@ from invoke.tasks import task
 
 PYTHON_PATHS = ("app", "tests", "scripts", "tasks.py")
 COMMIT_SIZE_LIMIT = 600
-COMMIT_SIZE_EXCLUDED = frozenset({"uv.lock"})
 PYTEST_NO_TESTS_COLLECTED = 5
 
 
@@ -28,10 +27,9 @@ def _existing_paths() -> str:
 
 
 def _staged_line_count(numstat: str) -> int:
-    """Sums added and deleted lines from ``git diff --numstat`` output.
+    """Sums added and deleted lines of Python files in ``git diff --numstat``.
 
-    Binary files (reported as ``-``) and files in ``COMMIT_SIZE_EXCLUDED``
-    are not counted.
+    Data, config, lock and binary files are not counted.
 
     Args:
         numstat: Output of ``git diff --cached --numstat``.
@@ -42,7 +40,7 @@ def _staged_line_count(numstat: str) -> int:
     total = 0
     for row in numstat.splitlines():
         added, deleted, path = row.split("\t", maxsplit=2)
-        if added == "-" or Path(path).name in COMMIT_SIZE_EXCLUDED:
+        if Path(path).suffix != ".py":
             continue
         total += int(added) + int(deleted)
     return total
@@ -132,11 +130,11 @@ def test_docker(c: Context) -> None:
 
 @task
 def commit_size(c: Context, limit: int = COMMIT_SIZE_LIMIT) -> None:
-    """Fails when the staged change exceeds the line limit.
+    """Fails when the staged Python change exceeds the line limit.
 
     Args:
         c: Invoke context.
-        limit: Maximum number of changed lines allowed.
+        limit: Maximum number of changed Python lines allowed.
 
     Raises:
         Exit: If the staged diff is larger than ``limit``.

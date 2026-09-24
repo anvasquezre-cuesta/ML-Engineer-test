@@ -1,0 +1,70 @@
+{
+  "document": "company_memo.pdf",
+  "page_count": 1,
+  "names": [
+    {
+      "name": "Margaret Thompson",
+      "page_number": 0,
+      "x": 76.8,
+      "y": 98.88,
+      "width": 88.32,
+      "height": 9.12
+    },
+    {
+      "name": "Margaret Thompson",
+      "page_number": 0,
+      "x": 48.48,
+      "y": 535.68,
+      "width": 85.92,
+      "height": 9.12
+    },
+    {
+      "name": "Robert Chen",
+      "page_number": 0,
+      "x": 59.76,
+      "y": 266.88,
+      "width": 53.04,
+      "height": 7.2
+    },
+    {
+      "name": "Sarah Williams",
+      "page_number": 0,
+      "x": 75.36,
+      "y": 317.28,
+      "width": 62.64,
+      "height": 7.2
+    },
+    {
+      "name": "James Anderson",
+      "page_number": 0,
+      "x": 183.84,
+      "y": 334.08,
+      "width": 73.92,
+      "height": 7.2
+    },
+    {
+      "name": "Maria Garcia",
+      "page_number": 0,
+      "x": 59.52,
+      "y": 367.68,
+      "width": 54.72,
+      "height": 7.2
+    },
+    {
+      "name": "David Nakamura",
+      "page_number": 0,
+      "x": 57.36,
+      "y": 434.88,
+      "width": 70.32,
+      "height": 7.2
+    },
+    {
+      "name": "Patricia Okonkwo",
+      "page_number": 0,
+      "x": 179.76,
+      "y": 468.48,
+      "width": 73.44,
+      "height": 7.2
+    }
+  ]
+}
