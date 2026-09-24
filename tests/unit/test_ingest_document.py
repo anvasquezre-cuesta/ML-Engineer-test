@@ -3,7 +3,6 @@
 from collections.abc import Sequence
 import hashlib
 
-import pytest
 import qdrant_client
 
 from app import config
@@ -16,10 +15,6 @@ from tests.fakes import cpu_runner
 from tests.fakes import embedding
 from tests.fakes import ocr as ocr_fake
 from tests.fakes import page_renderer as page_renderer_fake
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="ingest not built yet"
-)
 
 BUDGET = "The board approved the laboratory budget for next year after a vote."
 HIRING = "Anna Berg will lead hiring for the data team starting in March."

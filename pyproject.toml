@@ -128,6 +128,10 @@ testpaths = ["tests"]
 xfail_strict = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    # Tests use the in-process Qdrant, which has no payload indexes.
+    "ignore:Payload indexes have no effect in the local Qdrant:UserWarning",
+]
 markers = [
     "integration: uses a real model, binary or local service",
     "docker: needs services from docker compose",
