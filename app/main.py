@@ -42,6 +42,7 @@ def create_app(
         container = container_factory(resolved)
         app.state.extract_names = container.extract_names
         app.state.ingest_document = container.ingest_document
+        app.state.ask_question = container.ask_question
         app.state.vector_store = container.vector_store
         yield
 

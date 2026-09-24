@@ -8,6 +8,7 @@ import fastapi
 from app import config
 from app.domain import pdf_validation
 from app.models import schemas
+from app.service_layer import ask as ask_service
 from app.service_layer import ingest as ingest_service
 
 router = fastapi.APIRouter()
@@ -25,6 +26,18 @@ def ingest_use_case(request: fastapi.Request) -> ingest_service.IngestDocument:
     return cast(
         ingest_service.IngestDocument, request.app.state.ingest_document
     )
+
+
+def ask_use_case(request: fastapi.Request) -> ask_service.AskQuestion:
+    """Returns the ask use case built at startup.
+
+    Args:
+        request: The current request.
+
+    Returns:
+        The ask use case.
+    """
+    return cast(ask_service.AskQuestion, request.app.state.ask_question)
 
 
 def upload_settings(request: fastapi.Request) -> config.UploadSettings:
@@ -66,3 +79,25 @@ async def ingest(
     return schemas.IngestResponse(
         status=result.status, chunks_stored=result.chunks_stored
     )
+
+
+@router.post("/ask")
+async def ask(
+    request: schemas.RAGRequest,
+    ask_question: Annotated[
+        ask_service.AskQuestion, fastapi.Depends(ask_use_case)
+    ],
+) -> schemas.RAGResponse:
+    """Answers a question from the ingested documents, citing its sources.
+
+    Args:
+        request: The question.
+        ask_question: The ask use case.
+
+    Returns:
+        The answer and the references of the chunks it rests on.
+
+    Raises:
+        NotImplementedError: Always; not built yet.
+    """
+    raise NotImplementedError

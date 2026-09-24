@@ -11,6 +11,9 @@ from app.adapters.cpu_runner import thread_runner
 from app.adapters.fastembed_embedding import embedding
 from app.adapters.fastembed_sparse import sparse_embedding
 from app.adapters.fuzzy import name_matcher
+from app.adapters.langchain_llm import chat_models
+from app.adapters.langchain_llm import llm as langchain_llm
+from app.adapters.langchain_prompts import prompts
 from app.adapters.langfuse_observability import observability as langfuse
 from app.adapters.noop_observability import observability as noop
 from app.adapters.pymupdf import page_renderer
@@ -18,8 +21,10 @@ from app.adapters.qdrant import vector_store as qdrant_store
 from app.adapters.spacy_ner import ner
 from app.adapters.tesseract import ocr
 from app.adapters.text_chunker import sentence
+from app.ports import llm
 from app.ports import llm_observability
 from app.ports import vector_store
+from app.service_layer import ask
 from app.service_layer import extract
 from app.service_layer import ingest
 
@@ -31,11 +36,13 @@ class Container:
     Attributes:
         extract_names: Finds and matches person names in a PDF.
         ingest_document: Indexes a PDF for question answering.
+        ask_question: Answers a question from the indexed chunks.
         vector_store: The indexed chunks, read by the documents endpoints.
     """
 
     extract_names: extract.ExtractNames
     ingest_document: ingest.IngestDocument
+    ask_question: ask.AskQuestion
     vector_store: vector_store.VectorStore
 
 
@@ -82,6 +89,25 @@ def build_observability(
     if public or secret:
         log.warning("llm_observability.partial_keys", tracing="off")
     return noop.NoopObservability()
+
+
+def build_llm(
+    settings: config.LlmSettings,
+    observability: llm_observability.LlmObservability,
+) -> llm.Llm:
+    """Builds the configured language model.
+
+    Args:
+        settings: Provider, model, credentials and limits.
+        observability: Supplies the tracing callbacks.
+
+    Returns:
+        The language model.
+
+    Raises:
+        NotImplementedError: Always; not built yet.
+    """
+    raise NotImplementedError
 
 
 def build_container(settings: config.Settings) -> Container:
@@ -136,6 +162,19 @@ def build_container(settings: config.Settings) -> Container:
             sparse_embedder=sparse_embedder,
             store=store,
             cpu=cpu,
+        ),
+        ask_question=ask.AskQuestion(
+            embedder=embedder,
+            sparse_embedder=sparse_embedder,
+            store=store,
+            prompts=prompts.LangChainPrompts(settings.prompts.directory),
+            llm=langchain_llm.LangChainLlm(
+                chat_models.build_chat_model(settings.llm),
+                build_observability(settings.llm_observability),
+                settings.llm.deadline_s,
+            ),
+            cpu=cpu,
+            top_k=settings.qdrant.top_k,
         ),
         vector_store=store,
     )
