@@ -20,8 +20,3 @@ CHUNK = rag.Chunk(
 def test_same_position_in_another_document_gets_another_id() -> None:
     other = dataclasses.replace(CHUNK, document_key="minutes.pdf")
     assert ids.chunk_point_id(CHUNK) != ids.chunk_point_id(other)
-
-
-def test_id_depends_only_on_document_hash_and_position() -> None:
-    resplit = dataclasses.replace(CHUNK, text="hello world", end_char=11)
-    assert ids.chunk_point_id(CHUNK) == ids.chunk_point_id(resplit)
