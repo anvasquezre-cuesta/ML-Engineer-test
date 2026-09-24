@@ -38,17 +38,18 @@ def status(code: int) -> httpx2.Response:
     return httpx2.Response(code, request=REQUEST)
 
 
-def aws_error(code: str) -> botocore.exceptions.ClientError:
+def aws_error(code: str, message: str = "m") -> botocore.exceptions.ClientError:
     """Builds a Bedrock client error with ``code``.
 
     Args:
         code: The AWS error code.
+        message: The AWS error message.
 
     Returns:
         The error.
     """
     return botocore.exceptions.ClientError(
-        {"Error": {"Code": code, "Message": "m"}}, "Converse"
+        {"Error": {"Code": code, "Message": message}}, "Converse"
     )
 
 
@@ -125,6 +126,23 @@ BOTO = botocore.exceptions
         ),
         (aws_error("AccessDeniedException"), NOT_CONFIGURED),
         (aws_error("ValidationException"), BOTO.ClientError),
+        pytest.param(
+            aws_error(
+                "ValidationException",
+                "The provided model identifier is invalid.",
+            ),
+            NOT_CONFIGURED,
+            id="bedrock-unknown-model",
+            marks=pytest.mark.xfail(strict=True, raises=BOTO.ClientError),
+        ),
+        pytest.param(
+            openai.NotFoundError(
+                "n", response=status(404), body={"code": "model_not_found"}
+            ),
+            NOT_CONFIGURED,
+            id="openai-unknown-model",
+            marks=pytest.mark.xfail(strict=True, raises=openai.NotFoundError),
+        ),
         (ValueError("bug"), ValueError),
     ],
 )

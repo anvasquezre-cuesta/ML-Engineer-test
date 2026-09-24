@@ -9,6 +9,7 @@ import aio_pika
 import pytest
 
 from app.adapters.rabbitmq_queue import queue as rabbitmq_queue
+from app.domain import errors
 from app.domain import jobs
 from app.ports import job_queue
 
@@ -138,3 +139,13 @@ async def test_unsettled_job_is_redelivered_after_a_worker_crash() -> None:
         redelivered = await next_delivery(survivor, 5)
 
     assert redelivered is not None and redelivered.message == MESSAGE
+
+
+@pytest.mark.xfail(strict=True, raises=RuntimeError)
+async def test_publishing_after_the_connection_is_lost_is_an_outage() -> None:
+    queue = rabbitmq_queue.RabbitMqJobQueue(URL, unique(), 5, 1)
+    await queue.connect()
+    await queue.close()
+
+    with pytest.raises(errors.JobQueueUnavailableError):
+        await queue.publish(MESSAGE)

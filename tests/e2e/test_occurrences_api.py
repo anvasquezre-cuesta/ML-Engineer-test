@@ -84,3 +84,20 @@ def test_store_outage_fails_extract_without_returning_names() -> None:
         "occurrence_store.unavailable",
     )
     assert "Anna" not in response.text
+
+
+@pytest.mark.xfail(strict=True, raises=AssertionError)
+@pytest.mark.parametrize("export_format", ["json", "csv"])
+def test_export_that_cannot_be_read_fails_instead_of_looking_empty(
+    export_format: str,
+) -> None:
+    recorded = occurrence_store.InMemoryOccurrenceStore()
+    with wiring.fake_client(recorded=recorded) as client:
+        extract(client)
+        recorded.lose_on_read = 1
+        response = client.get(
+            "/api/occurrences/export", params={"format": export_format}
+        )
+
+    assert response.status_code == 500
+    assert response.json()["code"] == "occurrence_store.integrity"
