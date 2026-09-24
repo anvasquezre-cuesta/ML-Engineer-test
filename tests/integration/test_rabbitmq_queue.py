@@ -12,13 +12,7 @@ from app.adapters.rabbitmq_queue import queue as rabbitmq_queue
 from app.domain import jobs
 from app.ports import job_queue
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.docker,
-    pytest.mark.xfail(
-        strict=True, raises=NotImplementedError, reason="not built"
-    ),
-]
+pytestmark = [pytest.mark.integration, pytest.mark.docker]
 
 URL = "amqp://guest:guest@localhost:5672/"
 MESSAGE = jobs.JobMessage("job-1", jobs.JobKind.EXTRACT)
