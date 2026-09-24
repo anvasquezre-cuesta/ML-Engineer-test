@@ -192,6 +192,14 @@ class JobNotFoundError(AppError):
         super().__init__(f"Job {job_id} does not exist.")
 
 
+class JobLeaseExpiredError(AppError):
+    """A running job's worker stopped renewing it, presumably crashed."""
+
+    code = "job.lease_expired"
+    retryable = True
+    title = "The job's worker stopped before finishing."
+
+
 class JobInputMissingError(AppError):
     """The staged PDF of a job is gone, so the job can never run."""
 

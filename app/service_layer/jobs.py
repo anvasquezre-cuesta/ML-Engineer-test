@@ -261,3 +261,61 @@ class ProcessJob:
             code=code,
             attempts=job.attempts,
         )
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class ReapReport:
+    """What one reaper pass did.
+
+    Attributes:
+        requeued: Jobs with a lapsed lease sent back to a worker.
+        dead_lettered: Jobs with a lapsed lease and no attempts left.
+        republished: Jobs stuck in ``queued`` published again.
+    """
+
+    requeued: int
+    dead_lettered: int
+    republished: int
+
+
+class ReapJobs:
+    """Recovers jobs whose worker died or whose message was lost."""
+
+    def __init__(
+        self,
+        repository: job_repository.JobRepository,
+        queue: job_queue.JobQueue,
+        clock: Clock,
+        queued_stale_s: float,
+        limit: int,
+    ) -> None:
+        """Initializes the use case.
+
+        Args:
+            repository: The job store.
+            queue: Delivers recovered jobs again.
+            clock: Returns the current time (UTC).
+            queued_stale_s: Age after which a queued job is republished.
+            limit: Most queued jobs inspected per pass.
+        """
+        self._repository = repository
+        self._queue = queue
+        self._clock = clock
+        self._queued_stale_s = queued_stale_s
+        self._limit = limit
+
+    async def __call__(self) -> ReapReport:
+        """Runs one pass over lapsed leases and stale queued jobs.
+
+        A running job whose lease lapsed goes back to ``retrying`` and is
+        published again, or is dead-lettered when its attempts are used up.
+        A job still ``queued`` after ``queued_stale_s`` is published again;
+        a duplicate message is harmless because claims are conditional.
+
+        Returns:
+            What the pass did.
+
+        Raises:
+            NotImplementedError: Always; not built yet.
+        """
+        raise NotImplementedError

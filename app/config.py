@@ -300,11 +300,16 @@ class JobSettings(pydantic.BaseModel):
     Attributes:
         max_attempts: Attempts before a job is dead-lettered.
         lease_s: Seconds a worker owns a running job.
+        queued_stale_s: Seconds a job may wait in ``queued`` before the
+            reaper publishes it again.
+        reap_limit: Most jobs of each kind handled per reaper pass.
         dynamodb_table: DynamoDB table name.
     """
 
     max_attempts: int = pydantic.Field(default=3, ge=1)
     lease_s: float = pydantic.Field(default=300.0, gt=0)
+    queued_stale_s: float = pydantic.Field(default=120.0, gt=0)
+    reap_limit: int = pydantic.Field(default=100, ge=1)
     dynamodb_table: str = "docintel-jobs"
 
 

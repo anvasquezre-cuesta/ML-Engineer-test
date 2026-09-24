@@ -39,6 +39,7 @@ ERROR_STATUS = types.MappingProxyType(
         "occurrence_store.integrity": 500,
         "job.not_found": 404,
         "job.input_missing": 500,
+        "job.lease_expired": 500,
         "document.not_found": 404,
         "blob_store.unavailable": 503,
         "job_store.unavailable": 503,
