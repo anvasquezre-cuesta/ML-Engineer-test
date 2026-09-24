@@ -78,6 +78,39 @@ class PageWords:
 
 
 @dataclass(frozen=True, slots=True)
+class TextWord:
+    """An OCR word located inside the text of its page.
+
+    Attributes:
+        word: The recognized word.
+        start: Offset of the word's first character in the page text.
+        end: Offset one past the word's last character.
+    """
+
+    word: OcrWord
+    start: int
+    end: int
+
+
+@dataclass(frozen=True, slots=True)
+class PageText:
+    r"""The text of a page, with every word's position in it.
+
+    Words on a line are separated by a space, lines by ``\n`` and blocks by
+    ``\n\n``, so NER sees the page layout.
+
+    Attributes:
+        page_number: 0-based page index.
+        text: The page text.
+        words: The words in reading order, with their offsets in ``text``.
+    """
+
+    page_number: int
+    text: str
+    words: tuple[TextWord, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class EntitySpan:
     """A PERSON entity found in a text, as character offsets.
 

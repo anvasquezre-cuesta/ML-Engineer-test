@@ -1,0 +1,23 @@
+"""Name normalization: case, accents and OCR noise must not matter."""
+
+import pytest
+
+from app.domain.normalize import normalize_name
+
+pytestmark = pytest.mark.xfail(
+    strict=True, raises=NotImplementedError, reason="normalization not built"
+)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("María González", "maria gonzalez"),
+        ("  JOSÉ \n Núñez ", "jose nunez"),
+        ("Łukasz Østergaard", "lukasz ostergaard"),
+        ("Kevin O’Brien", "kevin o'brien"),
+        ("Olivia Chambers,", "olivia chambers"),
+    ],
+)
+def test_normalized_forms_compare_equal(raw: str, expected: str) -> None:
+    assert normalize_name(raw) == expected
