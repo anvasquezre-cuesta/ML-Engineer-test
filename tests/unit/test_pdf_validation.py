@@ -2,11 +2,8 @@
 
 import pytest
 
-from app.domain.errors import AppError
-from app.domain.errors import UploadEmptyError
-from app.domain.errors import UploadNotPdfError
-from app.domain.errors import UploadTooLargeError
-from app.domain.pdf_validation import validate_pdf
+from app.domain import errors
+from app.domain import pdf_validation
 
 LIMIT = 64
 
@@ -14,10 +11,10 @@ LIMIT = 64
 @pytest.mark.parametrize(
     ("content", "error"),
     [
-        (b"", UploadEmptyError),
-        (b"\x89PNG" + b"x" * LIMIT, UploadTooLargeError),
-        (b"\x89PNG\r\n\x1a\n", UploadNotPdfError),
-        (b"%PDF", UploadNotPdfError),
+        (b"", errors.UploadEmptyError),
+        (b"\x89PNG" + b"x" * LIMIT, errors.UploadTooLargeError),
+        (b"\x89PNG\r\n\x1a\n", errors.UploadNotPdfError),
+        (b"%PDF", errors.UploadNotPdfError),
     ],
     ids=[
         "empty",
@@ -26,12 +23,14 @@ LIMIT = 64
         "truncated-magic",
     ],
 )
-def test_rejects_invalid_uploads(content: bytes, error: type[AppError]) -> None:
+def test_rejects_invalid_uploads(
+    content: bytes, error: type[errors.AppError]
+) -> None:
     with pytest.raises(error):
-        validate_pdf(content, LIMIT)
+        pdf_validation.validate_pdf(content, LIMIT)
 
 
 def test_accepts_a_pdf_exactly_at_the_limit() -> None:
     header = b"%PDF-1.7\n"
 
-    validate_pdf(header + b"x" * (LIMIT - len(header)), LIMIT)
+    pdf_validation.validate_pdf(header + b"x" * (LIMIT - len(header)), LIMIT)

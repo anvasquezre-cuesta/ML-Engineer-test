@@ -1,10 +1,10 @@
 """Page text assembly: NER offsets must map back to the exact OCR words."""
 
-from hypothesis import given
+import hypothesis
 from hypothesis import strategies as st
 
-from app.domain.page_text import build_page_text
-from tests.builders import page_words
+from app.domain import page_text
+from tests import builders
 
 tokens = st.text(
     alphabet=st.characters(categories=["L", "N", "P"]), min_size=1, max_size=8
@@ -15,13 +15,13 @@ blocks = st.lists(
 )
 
 
-@given(blocks)
+@hypothesis.given(blocks)
 def test_offsets_slice_back_to_words_and_gaps_mark_the_layout(
     layout: list[list[str]],
 ) -> None:
-    page = page_words(layout)
+    page = builders.page_words(layout)
 
-    text = build_page_text(page)
+    text = page_text.build_page_text(page)
 
     assert [text.text[w.start : w.end] for w in text.words] == [
         w.text for w in page.words

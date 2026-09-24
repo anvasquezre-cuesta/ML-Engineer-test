@@ -1,6 +1,6 @@
 """HTTP status for every error code the API can return."""
 
-from types import MappingProxyType
+import types
 
 REQUEST_INVALID = "request.invalid"
 HTTP_NOT_FOUND = "http.not_found"
@@ -10,7 +10,7 @@ FRAMEWORK_CODES = frozenset(
     {REQUEST_INVALID, HTTP_NOT_FOUND, HTTP_METHOD_NOT_ALLOWED}
 )
 
-ERROR_STATUS = MappingProxyType(
+ERROR_STATUS = types.MappingProxyType(
     {
         "upload.not_pdf": 415,
         "upload.empty": 422,

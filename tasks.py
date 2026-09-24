@@ -5,12 +5,12 @@ docstrings, imports, type checks, tests, the staged-diff size limit and a
 final ``git status``.
 """
 
-from pathlib import Path
+import pathlib
 
-from invoke.collection import Collection
-from invoke.context import Context
-from invoke.exceptions import Exit
-from invoke.tasks import task
+from invoke import collection
+from invoke import context
+from invoke import exceptions
+from invoke import tasks
 
 PYTHON_PATHS = ("app", "tests", "scripts", "tasks.py")
 COMMIT_SIZE_LIMIT = 600
@@ -23,7 +23,9 @@ def _existing_paths() -> str:
     Returns:
         The existing entries of ``PYTHON_PATHS`` joined by spaces.
     """
-    return " ".join(path for path in PYTHON_PATHS if Path(path).exists())
+    return " ".join(
+        path for path in PYTHON_PATHS if pathlib.Path(path).exists()
+    )
 
 
 def _staged_line_count(numstat: str) -> int:
@@ -40,14 +42,14 @@ def _staged_line_count(numstat: str) -> int:
     total = 0
     for row in numstat.splitlines():
         added, deleted, path = row.split("\t", maxsplit=2)
-        if Path(path).suffix != ".py":
+        if pathlib.Path(path).suffix != ".py":
             continue
         total += int(added) + int(deleted)
     return total
 
 
-@task
-def lint(c: Context) -> None:
+@tasks.task
+def lint(c: context.Context) -> None:
     """Runs ruff lint and format checks.
 
     Args:
@@ -57,8 +59,8 @@ def lint(c: Context) -> None:
     c.run("ruff format --check .", pty=True)
 
 
-@task
-def fmt(c: Context) -> None:
+@tasks.task
+def fmt(c: context.Context) -> None:
     """Applies ruff autofixes and formatting.
 
     Args:
@@ -68,8 +70,8 @@ def fmt(c: Context) -> None:
     c.run("ruff format .", pty=True)
 
 
-@task
-def docstrings(c: Context) -> None:
+@tasks.task
+def docstrings(c: context.Context) -> None:
     """Checks Google docstrings with ruff and pydoclint.
 
     Args:
@@ -82,19 +84,22 @@ def docstrings(c: Context) -> None:
     c.run(f"pydoclint {source}", pty=True)
 
 
-@task
-def imports(c: Context) -> None:
-    """Checks import style and the architecture contracts.
+@tasks.task
+def imports(c: context.Context) -> None:
+    """Checks import style, module-only imports and the layer contracts.
 
     Args:
         c: Invoke context.
     """
     c.run("ruff check --select I,TID .", pty=True)
+    c.run(
+        f"python -m scripts.check_module_imports {_existing_paths()}", pty=True
+    )
     c.run("lint-imports", pty=True)
 
 
-@task
-def typecheck(c: Context) -> None:
+@tasks.task
+def typecheck(c: context.Context) -> None:
     """Runs mypy in strict mode.
 
     Args:
@@ -103,23 +108,23 @@ def typecheck(c: Context) -> None:
     c.run(f"mypy {_existing_paths()}", pty=True)
 
 
-@task
-def test(c: Context) -> None:
+@tasks.task
+def test(c: context.Context) -> None:
     """Runs every test that does not need docker compose services.
 
     Args:
         c: Invoke context.
 
     Raises:
-        Exit: If pytest fails.
+        exceptions.Exit: If pytest fails.
     """
     result = c.run('pytest -m "not docker"', pty=True, warn=True)
     if result is None or result.exited not in (0, PYTEST_NO_TESTS_COLLECTED):
-        raise Exit("pytest failed.", code=1)
+        raise exceptions.Exit("pytest failed.", code=1)
 
 
-@task
-def test_docker(c: Context) -> None:
+@tasks.task
+def test_docker(c: context.Context) -> None:
     """Runs the tests that need docker compose services.
 
     Args:
@@ -128,8 +133,8 @@ def test_docker(c: Context) -> None:
     c.run('pytest -m "docker"', pty=True)
 
 
-@task
-def commit_size(c: Context, limit: int = COMMIT_SIZE_LIMIT) -> None:
+@tasks.task
+def commit_size(c: context.Context, limit: int = COMMIT_SIZE_LIMIT) -> None:
     """Fails when the staged Python change exceeds the line limit.
 
     Args:
@@ -137,17 +142,19 @@ def commit_size(c: Context, limit: int = COMMIT_SIZE_LIMIT) -> None:
         limit: Maximum number of changed Python lines allowed.
 
     Raises:
-        Exit: If the staged diff is larger than ``limit``.
+        exceptions.Exit: If the staged diff is larger than ``limit``.
     """
     result = c.run("git diff --cached --numstat", hide=True)
     count = _staged_line_count(result.stdout if result else "")
     if count > limit:
-        raise Exit(f"Staged change is {count} lines; limit is {limit}.")
+        raise exceptions.Exit(
+            f"Staged change is {count} lines; limit is {limit}."
+        )
     print(f"Staged change: {count}/{limit} lines.")
 
 
-@task
-def git_status(c: Context) -> None:
+@tasks.task
+def git_status(c: context.Context) -> None:
     """Shows the working tree status.
 
     Args:
@@ -156,17 +163,21 @@ def git_status(c: Context) -> None:
     c.run("git status", pty=True)
 
 
-@task(pre=[lint, docstrings, imports, typecheck, test, commit_size, git_status])
-def prepare(c: Context) -> None:
+@tasks.task(pre=[lint, docstrings, imports, typecheck, test])
+def prepare(c: context.Context, commit_limit: int = COMMIT_SIZE_LIMIT) -> None:
     """Runs every check required before a change is staged.
 
     Args:
         c: Invoke context.
+        commit_limit: Staged Python lines allowed; raise it only for an
+            agreed mechanical refactor.
     """
+    commit_size(c, limit=commit_limit)
+    git_status(c)
     print("All checks passed.")
 
 
-namespace = Collection(
+namespace = collection.Collection(
     lint,
     fmt,
     docstrings,

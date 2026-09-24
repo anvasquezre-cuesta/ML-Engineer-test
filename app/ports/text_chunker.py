@@ -2,15 +2,14 @@
 
 import abc
 
-from app.domain.rag import Chunk
-from app.domain.rag import SourcePage
+from app.domain import rag
 
 
 class TextChunker(abc.ABC):
     """Splits text into chunks without cutting words in half."""
 
     @abc.abstractmethod
-    def split(self, page: SourcePage) -> list[Chunk]:
+    def split(self, page: rag.SourcePage) -> list[rag.Chunk]:
         """Splits ``page`` into chunks.
 
         Args:

@@ -3,10 +3,7 @@
 import abc
 from collections.abc import Sequence
 
-from app.domain.rag import DocumentRecord
-from app.domain.rag import EmbeddedChunk
-from app.domain.rag import ScoredChunk
-from app.domain.rag import Vector
+from app.domain import rag
 
 
 class VectorStore(abc.ABC):
@@ -21,7 +18,7 @@ class VectorStore(abc.ABC):
         """Creates the collection and payload indexes if they are missing."""
 
     @abc.abstractmethod
-    async def upsert(self, chunks: Sequence[EmbeddedChunk]) -> None:
+    async def upsert(self, chunks: Sequence[rag.EmbeddedChunk]) -> None:
         """Stores chunks; writing the same chunk twice leaves one copy.
 
         Args:
@@ -29,7 +26,9 @@ class VectorStore(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def get_document(self, document_key: str) -> DocumentRecord | None:
+    async def get_document(
+        self, document_key: str
+    ) -> rag.DocumentRecord | None:
         """Reads what is stored for one document.
 
         Args:
@@ -40,7 +39,7 @@ class VectorStore(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def list_documents(self) -> list[DocumentRecord]:
+    async def list_documents(self) -> list[rag.DocumentRecord]:
         """Lists every stored document.
 
         Returns:
@@ -59,7 +58,9 @@ class VectorStore(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def search(self, vector: Vector, top_k: int) -> list[ScoredChunk]:
+    async def search(
+        self, vector: rag.Vector, top_k: int
+    ) -> list[rag.ScoredChunk]:
         """Finds the chunks closest to ``vector``.
 
         Args:

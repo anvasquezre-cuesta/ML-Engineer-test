@@ -1,11 +1,11 @@
 """Value objects of ingestion and retrieval-augmented answering."""
 
-from dataclasses import dataclass
+import dataclasses
 
 type Vector = tuple[float, ...]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class SourcePage:
     """OCR text of one page of an ingested document.
 
@@ -22,7 +22,7 @@ class SourcePage:
     text: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class Chunk:
     """A contiguous slice of one page's text that never splits a word.
 
@@ -47,7 +47,7 @@ class Chunk:
     strategy: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class EmbeddedChunk:
     """A chunk together with its embedding.
 
@@ -60,7 +60,7 @@ class EmbeddedChunk:
     vector: Vector
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class ScoredChunk:
     """A chunk returned by similarity search.
 
@@ -73,7 +73,7 @@ class ScoredChunk:
     score: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class DocumentRecord:
     """What the vector store holds for one ingested document.
 
@@ -88,7 +88,7 @@ class DocumentRecord:
     chunk_count: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class LlmPrompt:
     """Instructions and user message sent to the language model.
 

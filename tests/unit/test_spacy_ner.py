@@ -3,15 +3,15 @@
 from typing import cast
 
 import spacy
-from spacy.pipeline import EntityRuler
+from spacy import pipeline
 
-from app.adapters.spacy_ner.ner import SpacyNer
-from app.domain.extraction import EntitySpan
+from app.adapters.spacy_ner import ner
+from app.domain import extraction
 
 
 def test_only_person_entities_are_returned() -> None:
     nlp = spacy.blank("en")
-    ruler = cast(EntityRuler, nlp.add_pipe("entity_ruler"))
+    ruler = cast(pipeline.EntityRuler, nlp.add_pipe("entity_ruler"))
     ruler.add_patterns(
         [
             {"label": "PERSON", "pattern": "Anna Berg"},
@@ -23,9 +23,9 @@ def test_only_person_entities_are_returned() -> None:
 
     text = "Anna Berg of Acme Corp met Lucas in Paris."
 
-    spans = SpacyNer(nlp).find_persons(text)
+    spans = ner.SpacyNer(nlp).find_persons(text)
 
     assert spans == [
-        EntitySpan(start=0, end=9, text="Anna Berg"),
-        EntitySpan(start=27, end=32, text="Lucas"),
+        extraction.EntitySpan(start=0, end=9, text="Anna Berg"),
+        extraction.EntitySpan(start=27, end=32, text="Lucas"),
     ]

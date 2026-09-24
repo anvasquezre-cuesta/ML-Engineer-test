@@ -1,10 +1,9 @@
 """Port for the durable record of every job."""
 
 import abc
-from datetime import datetime
+import datetime
 
-from app.domain.jobs import Job
-from app.domain.jobs import JobStatus
+from app.domain import jobs
 
 
 class JobRepository(abc.ABC):
@@ -16,7 +15,7 @@ class JobRepository(abc.ABC):
     """
 
     @abc.abstractmethod
-    async def create(self, job: Job) -> None:
+    async def create(self, job: jobs.Job) -> None:
         """Stores a new job.
 
         Args:
@@ -24,7 +23,7 @@ class JobRepository(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def get(self, job_id: str) -> Job | None:
+    async def get(self, job_id: str) -> jobs.Job | None:
         """Reads one job.
 
         Args:
@@ -35,7 +34,9 @@ class JobRepository(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def list_by_status(self, status: JobStatus, limit: int) -> list[Job]:
+    async def list_by_status(
+        self, status: jobs.JobStatus, limit: int
+    ) -> list[jobs.Job]:
         """Lists jobs in one state, most recently updated first.
 
         Args:
@@ -48,8 +49,8 @@ class JobRepository(abc.ABC):
 
     @abc.abstractmethod
     async def claim(
-        self, job_id: str, lease_expires_at: datetime
-    ) -> Job | None:
+        self, job_id: str, lease_expires_at: datetime.datetime
+    ) -> jobs.Job | None:
         """Moves a ``queued`` or ``retrying`` job to ``running``.
 
         Increments ``attempts`` and sets the lease.
@@ -63,7 +64,9 @@ class JobRepository(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def mark_succeeded(self, job_id: str, result_key: str) -> Job | None:
+    async def mark_succeeded(
+        self, job_id: str, result_key: str
+    ) -> jobs.Job | None:
         """Moves a ``running`` job to ``succeeded``.
 
         Args:
@@ -77,7 +80,7 @@ class JobRepository(abc.ABC):
     @abc.abstractmethod
     async def mark_retrying(
         self, job_id: str, error_code: str, error_message: str
-    ) -> Job | None:
+    ) -> jobs.Job | None:
         """Moves a ``running`` job to ``retrying`` after a transient error.
 
         Args:
@@ -92,7 +95,7 @@ class JobRepository(abc.ABC):
     @abc.abstractmethod
     async def mark_dead_lettered(
         self, job_id: str, error_code: str, error_message: str
-    ) -> Job | None:
+    ) -> jobs.Job | None:
         """Moves a job that is not yet terminal to ``dead_lettered``.
 
         Args:
@@ -105,7 +108,9 @@ class JobRepository(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def list_expired_leases(self, now: datetime) -> list[Job]:
+    async def list_expired_leases(
+        self, now: datetime.datetime
+    ) -> list[jobs.Job]:
         """Lists ``running`` jobs whose lease lapsed before ``now``.
 
         Args:

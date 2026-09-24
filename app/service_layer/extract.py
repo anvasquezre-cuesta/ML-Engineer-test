@@ -3,21 +3,15 @@
 import asyncio
 from collections.abc import Sequence
 
-from app.domain.extraction import EntitySpan
-from app.domain.extraction import ExtractionResult
-from app.domain.extraction import NameMatch
-from app.domain.extraction import NameOccurrence
-from app.domain.extraction import PageImage
-from app.domain.extraction import PageText
-from app.domain.extraction import QueryName
-from app.domain.page_text import build_page_text
-from app.domain.propagation import propagate
-from app.domain.span_boxes import locate_span
-from app.ports.cpu_runner import CpuRunner
-from app.ports.name_matcher import NameMatcher
-from app.ports.ner import Ner
-from app.ports.ocr import Ocr
-from app.ports.page_renderer import PageRenderer
+from app.domain import extraction
+from app.domain import page_text
+from app.domain import propagation
+from app.domain import span_boxes
+from app.ports import cpu_runner
+from app.ports import name_matcher
+from app.ports import ner as ner_port
+from app.ports import ocr as ocr_port
+from app.ports import page_renderer
 
 
 class ExtractNames:
@@ -25,11 +19,11 @@ class ExtractNames:
 
     def __init__(
         self,
-        renderer: PageRenderer,
-        ocr: Ocr,
-        ner: Ner,
-        matcher: NameMatcher,
-        cpu: CpuRunner,
+        renderer: page_renderer.PageRenderer,
+        ocr: ocr_port.Ocr,
+        ner: ner_port.Ner,
+        matcher: name_matcher.NameMatcher,
+        cpu: cpu_runner.CpuRunner,
         threshold: float,
     ) -> None:
         """Initializes the use case.
@@ -50,8 +44,8 @@ class ExtractNames:
         self._threshold = threshold
 
     async def __call__(
-        self, pdf: bytes, queries: Sequence[QueryName]
-    ) -> ExtractionResult:
+        self, pdf: bytes, queries: Sequence[extraction.QueryName]
+    ) -> extraction.ExtractionResult:
         """Extracts the names in ``pdf`` and matches them to ``queries``.
 
         Names tagged anywhere in the document, without titles, are also
@@ -72,19 +66,21 @@ class ExtractNames:
             occurrence.name
             for text, spans in tagged
             for span in spans
-            for occurrence in locate_span(text, span)
+            for occurrence in span_boxes.locate_span(text, span)
         }
-        occurrences: list[NameOccurrence] = []
+        occurrences: list[extraction.NameOccurrence] = []
         for text, spans in tagged:
-            found = [*spans, *propagate(text, accepted, spans)]
+            found = [*spans, *propagation.propagate(text, accepted, spans)]
             for span in sorted(found, key=lambda span: span.start):
-                occurrences.extend(locate_span(text, span))
-        return ExtractionResult(
+                occurrences.extend(span_boxes.locate_span(text, span))
+        return extraction.ExtractionResult(
             occurrences=tuple(occurrences),
             matches=tuple(self._match(occurrences, queries)),
         )
 
-    async def _tag(self, page: PageImage) -> tuple[PageText, list[EntitySpan]]:
+    async def _tag(
+        self, page: extraction.PageImage
+    ) -> tuple[extraction.PageText, list[extraction.EntitySpan]]:
         """Reads one page and finds its PERSON spans.
 
         Args:
@@ -94,15 +90,15 @@ class ExtractNames:
             The page text and the spans NER tagged in it.
         """
         words = await self._cpu.run(self._ocr.read, page)
-        text = build_page_text(words)
+        text = page_text.build_page_text(words)
         spans = await self._cpu.run(self._ner.find_persons, text.text)
         return text, spans
 
     def _match(
         self,
-        occurrences: Sequence[NameOccurrence],
-        queries: Sequence[QueryName],
-    ) -> list[NameMatch]:
+        occurrences: Sequence[extraction.NameOccurrence],
+        queries: Sequence[extraction.QueryName],
+    ) -> list[extraction.NameMatch]:
         """Scores each distinct extracted name against every queried name.
 
         Args:
@@ -118,5 +114,7 @@ class ExtractNames:
             for query in queries:
                 score = self._matcher.similarity(name, query.full_name)
                 if score >= self._threshold:
-                    matches.append(NameMatch(name, query.full_name, score))
+                    matches.append(
+                        extraction.NameMatch(name, query.full_name, score)
+                    )
         return matches

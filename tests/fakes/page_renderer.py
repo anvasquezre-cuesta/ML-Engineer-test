@@ -1,10 +1,10 @@
 """Fake PageRenderer that produces blank pages."""
 
-from app.domain.extraction import PageImage
-from app.ports.page_renderer import PageRenderer
+from app.domain import extraction
+from app.ports import page_renderer
 
 
-class BlankPageRenderer(PageRenderer):
+class BlankPageRenderer(page_renderer.PageRenderer):
     """Renders any PDF as a fixed number of blank US Letter pages."""
 
     def __init__(self, page_count: int) -> None:
@@ -15,7 +15,7 @@ class BlankPageRenderer(PageRenderer):
         """
         self._page_count = page_count
 
-    def render(self, pdf: bytes) -> list[PageImage]:
+    def render(self, pdf: bytes) -> list[extraction.PageImage]:
         """Returns ``page_count`` blank page images.
 
         Args:
@@ -25,7 +25,7 @@ class BlankPageRenderer(PageRenderer):
             One image per page, ordered by page number.
         """
         return [
-            PageImage(
+            extraction.PageImage(
                 page_number=number,
                 pixels=b"",
                 width_px=0,

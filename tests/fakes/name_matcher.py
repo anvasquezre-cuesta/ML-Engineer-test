@@ -2,10 +2,10 @@
 
 from collections.abc import Mapping
 
-from app.ports.name_matcher import NameMatcher
+from app.ports import name_matcher
 
 
-class ScriptedNameMatcher(NameMatcher):
+class ScriptedNameMatcher(name_matcher.NameMatcher):
     """Returns scripted scores; unscripted pairs score 0."""
 
     def __init__(self, scores: Mapping[tuple[str, str], float]) -> None:

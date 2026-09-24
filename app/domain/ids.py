@@ -3,12 +3,12 @@
 import json
 import uuid
 
-from app.domain.rag import Chunk
+from app.domain import rag
 
 ID_PREFIX = "docintel:chunk"
 
 
-def chunk_point_id(chunk: Chunk) -> str:
+def chunk_point_id(chunk: rag.Chunk) -> str:
     """Returns the vector-store id of ``chunk``.
 
     The id is a UUIDv5 of the document key, content hash, page and chunk

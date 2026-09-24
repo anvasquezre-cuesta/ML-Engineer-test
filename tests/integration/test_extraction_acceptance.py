@@ -7,34 +7,25 @@ synthetic PDFs whose boxes come from their layout.
 
 import functools
 import json
-from pathlib import Path
-from typing import Any
+import pathlib
 
 import pytest
 
-from app.adapters.cpu_runner.thread_runner import ThreadCpuRunner
-from app.adapters.pymupdf.page_renderer import PyMuPdfRenderer
-from app.adapters.spacy_ner.ner import SpacyNer
-from app.adapters.tesseract.ocr import TesseractOcr
-from app.config import Settings
-from app.domain.extraction import Box
-from app.domain.extraction import NameOccurrence
-from app.domain.normalize import normalize_name
-from app.service_layer.extract import ExtractNames
-from scripts.make_synthetic_pdfs import CASES
-from scripts.make_synthetic_pdfs import build_all
-from tests.fakes.name_matcher import ScriptedNameMatcher
+from app import config
+from app.adapters.cpu_runner import thread_runner
+from app.adapters.pymupdf import page_renderer
+from app.adapters.spacy_ner import ner as spacy_ner
+from app.adapters.tesseract import ocr as tesseract_ocr
+from app.service_layer import extract
+from scripts import make_synthetic_pdfs
+from tests import ground_truth
+from tests.fakes import name_matcher
 
 pytestmark = pytest.mark.integration
 
-REPO = Path(__file__).parents[2]
-GROUND_TRUTH = REPO / "tests" / "data" / "ground_truth"
-SAMPLES = REPO / "sample_pdfs"
-MIN_IOU = 0.5
-
 
 @pytest.fixture(scope="session")
-def synthetic_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def synthetic_dir(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
     """Generates the synthetic PDFs and their ground truth once per session.
 
     Args:
@@ -44,92 +35,43 @@ def synthetic_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
         The directory holding ``<case>.pdf`` and ``<case>.json``.
     """
     out_dir = tmp_path_factory.mktemp("synthetic")
-    build_all(out_dir)
+    make_synthetic_pdfs.build_all(out_dir)
     return out_dir
 
 
 @functools.cache
-def extract_names() -> ExtractNames:
+def extract_names() -> extract.ExtractNames:
     """Builds the use case from the real adapters and default settings.
 
     Returns:
         The use case, built once per test session.
     """
-    settings = Settings(_env_file=None)
-    return ExtractNames(
-        renderer=PyMuPdfRenderer(dpi=settings.render.dpi),
-        ocr=TesseractOcr(settings.ocr.languages, settings.ocr.timeout_s),
-        ner=SpacyNer.load(settings.ner.model),
-        matcher=ScriptedNameMatcher({}),
-        cpu=ThreadCpuRunner(settings.cpu.max_concurrency),
+    settings = config.Settings(_env_file=None)
+    return extract.ExtractNames(
+        renderer=page_renderer.PyMuPdfRenderer(dpi=settings.render.dpi),
+        ocr=tesseract_ocr.TesseractOcr(
+            settings.ocr.languages, settings.ocr.timeout_s
+        ),
+        ner=spacy_ner.SpacyNer.load(settings.ner.model),
+        matcher=name_matcher.ScriptedNameMatcher({}),
+        cpu=thread_runner.ThreadCpuRunner(settings.cpu.max_concurrency),
         threshold=settings.matcher.threshold,
     )
-
-
-def iou(box: Box, truth: dict[str, Any]) -> float:
-    """Returns the intersection over union of a box and a truth entry.
-
-    Args:
-        box: A predicted box.
-        truth: A ground-truth entry with ``x``, ``y``, ``width``, ``height``.
-
-    Returns:
-        The IoU in 0..1.
-    """
-    x0, y0 = max(box.x, truth["x"]), max(box.y, truth["y"])
-    x1 = min(box.x + box.width, truth["x"] + truth["width"])
-    y1 = min(box.y + box.height, truth["y"] + truth["height"])
-    overlap = max(0.0, x1 - x0) * max(0.0, y1 - y0)
-    union = box.width * box.height + truth["width"] * truth["height"] - overlap
-    return float(overlap / union)
-
-
-def unmatched(
-    found: tuple[NameOccurrence, ...], truth: list[dict[str, Any]]
-) -> tuple[list[str], list[str]]:
-    """Pairs occurrences with truth entries one to one.
-
-    A pair needs the same normalized name, the same page and ``MIN_IOU``.
-
-    Args:
-        found: The occurrences the pipeline returned.
-        truth: The expected entries.
-
-    Returns:
-        The truth entries left unmatched and the extra occurrences.
-    """
-    extra = list(found)
-    missed = []
-    for entry in truth:
-        pair = next(
-            (
-                occurrence
-                for occurrence in extra
-                if occurrence.page_number == entry["page_number"]
-                and normalize_name(occurrence.name)
-                == normalize_name(entry["name"])
-                and iou(occurrence.box, entry) >= MIN_IOU
-            ),
-            None,
-        )
-        if pair is None:
-            missed.append(f"p{entry['page_number']} {entry['name']}")
-        else:
-            extra.remove(pair)
-    return missed, [f"p{o.page_number} {o.name}" for o in extra]
 
 
 @pytest.mark.parametrize(
     "case",
     ["sample/company_memo", "sample/meeting_minutes", "sample/research_report"]
-    + [f"synthetic/{name}" for name in CASES],
+    + [f"synthetic/{name}" for name in make_synthetic_pdfs.CASES],
 )
 async def test_every_verified_name_box_is_found_and_nothing_else(
-    case: str, synthetic_dir: Path
+    case: str, synthetic_dir: pathlib.Path
 ) -> None:
     kind, stem = case.split("/")
     truth_dir, pdf_dir = (
-        (GROUND_TRUTH, SAMPLES) if kind == "sample" else (synthetic_dir,) * 2
+        (ground_truth.GROUND_TRUTH, ground_truth.SAMPLES)
+        if kind == "sample"
+        else (synthetic_dir,) * 2
     )
     truth = json.loads((truth_dir / f"{stem}.json").read_text())
 
@@ -137,4 +79,7 @@ async def test_every_verified_name_box_is_found_and_nothing_else(
 
     result = await extract_names()(pdf, [])
 
-    assert unmatched(result.occurrences, truth["names"]) == ([], [])
+    assert ground_truth.unmatched(result.occurrences, truth["names"]) == (
+        [],
+        [],
+    )

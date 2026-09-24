@@ -6,16 +6,12 @@ else reads the environment.
 """
 
 import enum
-from pathlib import Path
+import pathlib
 from typing import Literal
 from typing import Self
 
-from pydantic import BaseModel
-from pydantic import Field
-from pydantic import SecretStr
-from pydantic import model_validator
-from pydantic_settings import BaseSettings
-from pydantic_settings import SettingsConfigDict
+import pydantic
+import pydantic_settings
 
 
 class CloudEnv(enum.StrEnum):
@@ -25,27 +21,27 @@ class CloudEnv(enum.StrEnum):
     AWS = "aws"
 
 
-class UploadSettings(BaseModel):
+class UploadSettings(pydantic.BaseModel):
     """Limits on uploaded PDFs.
 
     Attributes:
         max_bytes: Largest accepted upload.
     """
 
-    max_bytes: int = Field(default=20 * 1024 * 1024, ge=1)
+    max_bytes: int = pydantic.Field(default=20 * 1024 * 1024, ge=1)
 
 
-class RenderSettings(BaseModel):
+class RenderSettings(pydantic.BaseModel):
     """PDF page rendering.
 
     Attributes:
         dpi: Resolution pages are rendered at before OCR.
     """
 
-    dpi: int = Field(default=300, ge=72, le=600)
+    dpi: int = pydantic.Field(default=300, ge=72, le=600)
 
 
-class OcrSettings(BaseModel):
+class OcrSettings(pydantic.BaseModel):
     """Tesseract OCR.
 
     Attributes:
@@ -54,10 +50,10 @@ class OcrSettings(BaseModel):
     """
 
     languages: str = "eng"
-    timeout_s: float = Field(default=60.0, gt=0)
+    timeout_s: float = pydantic.Field(default=60.0, gt=0)
 
 
-class NerSettings(BaseModel):
+class NerSettings(pydantic.BaseModel):
     """spaCy named-entity recognition.
 
     Attributes:
@@ -68,17 +64,17 @@ class NerSettings(BaseModel):
     model: str = "en_core_web_lg"
 
 
-class MatcherSettings(BaseModel):
+class MatcherSettings(pydantic.BaseModel):
     """Fuzzy name matching.
 
     Attributes:
         threshold: Minimum similarity, in 0..1, to report a match.
     """
 
-    threshold: float = Field(default=0.9, ge=0.0, le=1.0)
+    threshold: float = pydantic.Field(default=0.9, ge=0.0, le=1.0)
 
 
-class ChunkingSettings(BaseModel):
+class ChunkingSettings(pydantic.BaseModel):
     """Splitting page text into chunks.
 
     Attributes:
@@ -90,11 +86,13 @@ class ChunkingSettings(BaseModel):
     """
 
     strategy: Literal["sentence", "semantic"] = "sentence"
-    chunk_size: int = Field(default=800, ge=1)
-    chunk_overlap: int = Field(default=120, ge=0)
-    semantic_breakpoint_percentile: float = Field(default=95.0, gt=0, le=100)
+    chunk_size: int = pydantic.Field(default=800, ge=1)
+    chunk_overlap: int = pydantic.Field(default=120, ge=0)
+    semantic_breakpoint_percentile: float = pydantic.Field(
+        default=95.0, gt=0, le=100
+    )
 
-    @model_validator(mode="after")
+    @pydantic.model_validator(mode="after")
     def _overlap_fits_in_chunk(self) -> Self:
         """Rejects an overlap that is not smaller than the chunk size.
 
@@ -109,7 +107,7 @@ class ChunkingSettings(BaseModel):
         return self
 
 
-class EmbeddingSettings(BaseModel):
+class EmbeddingSettings(pydantic.BaseModel):
     """FastEmbed text embeddings.
 
     Attributes:
@@ -119,13 +117,13 @@ class EmbeddingSettings(BaseModel):
     """
 
     model_name: str = "BAAI/bge-small-en-v1.5"
-    cache_dir: Path = Path(".cache/fastembed")
+    cache_dir: pathlib.Path = pathlib.Path(".cache/fastembed")
     query_prefix: str = (
         "Represent this sentence for searching relevant passages: "
     )
 
 
-class QdrantSettings(BaseModel):
+class QdrantSettings(pydantic.BaseModel):
     """Qdrant vector store.
 
     Attributes:
@@ -138,14 +136,14 @@ class QdrantSettings(BaseModel):
     """
 
     url: str = "http://localhost:6333"
-    api_key: SecretStr | None = None
+    api_key: pydantic.SecretStr | None = None
     collection_prefix: str = "chunks"
-    timeout_s: float = Field(default=10.0, gt=0)
-    max_retries: int = Field(default=3, ge=0)
-    top_k: int = Field(default=5, ge=1)
+    timeout_s: float = pydantic.Field(default=10.0, gt=0)
+    max_retries: int = pydantic.Field(default=3, ge=0)
+    top_k: int = pydantic.Field(default=5, ge=1)
 
 
-class LlmSettings(BaseModel):
+class LlmSettings(pydantic.BaseModel):
     """Chat model used to answer questions.
 
     Attributes:
@@ -163,14 +161,14 @@ class LlmSettings(BaseModel):
     provider: Literal["bedrock", "openai"] = "bedrock"
     model: str = ""
     openai_base_url: str = ""
-    openai_api_key: SecretStr | None = None
+    openai_api_key: pydantic.SecretStr | None = None
     aws_region: str = "us-east-1"
     aws_profile: str = ""
-    timeout_s: float = Field(default=30.0, gt=0)
-    max_retries: int = Field(default=2, ge=0)
+    timeout_s: float = pydantic.Field(default=30.0, gt=0)
+    max_retries: int = pydantic.Field(default=2, ge=0)
 
 
-class LlmObservabilitySettings(BaseModel):
+class LlmObservabilitySettings(pydantic.BaseModel):
     """Langfuse tracing of LLM calls; disabled while keys are empty.
 
     Attributes:
@@ -180,11 +178,11 @@ class LlmObservabilitySettings(BaseModel):
     """
 
     langfuse_host: str = "https://cloud.langfuse.com"
-    langfuse_public_key: SecretStr | None = None
-    langfuse_secret_key: SecretStr | None = None
+    langfuse_public_key: pydantic.SecretStr | None = None
+    langfuse_secret_key: pydantic.SecretStr | None = None
 
 
-class BlobSettings(BaseModel):
+class BlobSettings(pydantic.BaseModel):
     """S3-compatible storage for staged uploads and job results.
 
     Attributes:
@@ -197,12 +195,12 @@ class BlobSettings(BaseModel):
 
     bucket: str = "docintel"
     endpoint_url: str = ""
-    access_key_id: SecretStr | None = None
-    secret_access_key: SecretStr | None = None
+    access_key_id: pydantic.SecretStr | None = None
+    secret_access_key: pydantic.SecretStr | None = None
     region: str = "us-east-1"
 
 
-class QueueSettings(BaseModel):
+class QueueSettings(pydantic.BaseModel):
     """Job queue: RabbitMQ locally, SQS on AWS.
 
     Attributes:
@@ -212,13 +210,15 @@ class QueueSettings(BaseModel):
         retry_delay_s: Backoff before a transient failure is retried.
     """
 
-    rabbitmq_url: SecretStr = SecretStr("amqp://guest:guest@localhost:5672/")
+    rabbitmq_url: pydantic.SecretStr = pydantic.SecretStr(
+        "amqp://guest:guest@localhost:5672/"
+    )
     sqs_queue_url: str = ""
     sqs_dead_letter_url: str = ""
-    retry_delay_s: float = Field(default=30.0, ge=0)
+    retry_delay_s: float = pydantic.Field(default=30.0, ge=0)
 
 
-class JobSettings(BaseModel):
+class JobSettings(pydantic.BaseModel):
     """Asynchronous job tracking.
 
     Attributes:
@@ -231,24 +231,24 @@ class JobSettings(BaseModel):
     """
 
     repository: Literal["dynamodb", "postgres"] = "dynamodb"
-    max_attempts: int = Field(default=3, ge=1)
-    lease_s: float = Field(default=300.0, gt=0)
+    max_attempts: int = pydantic.Field(default=3, ge=1)
+    lease_s: float = pydantic.Field(default=300.0, gt=0)
     dynamodb_table: str = "docintel-jobs"
     dynamodb_endpoint_url: str = ""
-    postgres_dsn: SecretStr | None = None
+    postgres_dsn: pydantic.SecretStr | None = None
 
 
-class CpuSettings(BaseModel):
+class CpuSettings(pydantic.BaseModel):
     """CPU-bound work (rendering, OCR, NER, embeddings).
 
     Attributes:
         max_concurrency: Calls allowed to run at the same time per process.
     """
 
-    max_concurrency: int = Field(default=2, ge=1)
+    max_concurrency: int = pydantic.Field(default=2, ge=1)
 
 
-class LoggingSettings(BaseModel):
+class LoggingSettings(pydantic.BaseModel):
     """Structured logging.
 
     Attributes:
@@ -260,7 +260,7 @@ class LoggingSettings(BaseModel):
     json_output: bool = True
 
 
-class Settings(BaseSettings):
+class Settings(pydantic_settings.BaseSettings):
     """Every setting of the service, grouped by concern.
 
     Attributes:
@@ -282,7 +282,7 @@ class Settings(BaseSettings):
         logging: Structured logging.
     """
 
-    model_config = SettingsConfigDict(
+    model_config = pydantic_settings.SettingsConfigDict(
         env_prefix="DOCINTEL_",
         env_nested_delimiter="__",
         env_file=".env",

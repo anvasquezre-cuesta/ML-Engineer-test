@@ -4,15 +4,15 @@ import threading
 
 import pymupdf
 
-from app.domain.errors import OcrUnreadableError
-from app.domain.extraction import PageImage
-from app.ports.page_renderer import PageRenderer
+from app.domain import errors
+from app.domain import extraction
+from app.ports import page_renderer
 
 # PyMuPDF is not thread-safe; CpuRunner may call render from several threads.
 _PYMUPDF_LOCK = threading.Lock()
 
 
-class PyMuPdfRenderer(PageRenderer):
+class PyMuPdfRenderer(page_renderer.PageRenderer):
     """Renders PDF pages to grayscale images at a fixed resolution."""
 
     def __init__(self, dpi: int) -> None:
@@ -23,7 +23,7 @@ class PyMuPdfRenderer(PageRenderer):
         """
         self._dpi = dpi
 
-    def render(self, pdf: bytes) -> list[PageImage]:
+    def render(self, pdf: bytes) -> list[extraction.PageImage]:
         """Renders each page of ``pdf`` as displayed, rotation applied.
 
         Page sizes are the displayed page rectangle in points, so boxes
@@ -36,19 +36,19 @@ class PyMuPdfRenderer(PageRenderer):
             One image per page, ordered by 0-based page number.
 
         Raises:
-            OcrUnreadableError: If the document cannot be opened or
+            errors.OcrUnreadableError: If the document cannot be opened or
                 rendered, or has no pages.
         """
         try:
             with _PYMUPDF_LOCK, pymupdf.open(stream=pdf, filetype="pdf") as doc:
                 pages = [self._render_page(page) for page in doc]
         except (RuntimeError, pymupdf.mupdf.FzErrorBase) as exc:
-            raise OcrUnreadableError() from exc
+            raise errors.OcrUnreadableError() from exc
         if not pages:
-            raise OcrUnreadableError("The document has no pages.")
+            raise errors.OcrUnreadableError("The document has no pages.")
         return pages
 
-    def _render_page(self, page: pymupdf.Page) -> PageImage:
+    def _render_page(self, page: pymupdf.Page) -> extraction.PageImage:
         """Renders one page to 8-bit grayscale.
 
         Args:
@@ -58,7 +58,7 @@ class PyMuPdfRenderer(PageRenderer):
             The page image with its displayed size in points.
         """
         pixmap = page.get_pixmap(dpi=self._dpi, colorspace=pymupdf.csGRAY)
-        return PageImage(
+        return extraction.PageImage(
             page_number=page.number,
             pixels=bytes(pixmap.samples),
             width_px=pixmap.width,

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domain.normalize import normalize_name
+from app.domain import normalize
 
 
 @pytest.mark.parametrize(
@@ -16,4 +16,4 @@ from app.domain.normalize import normalize_name
     ],
 )
 def test_normalized_forms_compare_equal(raw: str, expected: str) -> None:
-    assert normalize_name(raw) == expected
+    assert normalize.normalize_name(raw) == expected

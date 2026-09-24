@@ -1,5 +1,5 @@
 """Router for ``POST /api/extract``."""
 
-from fastapi import APIRouter
+import fastapi
 
-router = APIRouter()
+router = fastapi.APIRouter()

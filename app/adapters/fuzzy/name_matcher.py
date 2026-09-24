@@ -4,8 +4,8 @@ import re
 
 from rapidfuzz import fuzz
 
-from app.domain.normalize import normalize_name
-from app.ports.name_matcher import NameMatcher
+from app.domain import normalize
+from app.ports import name_matcher
 
 # Only for names: in IDs or dates these characters are real data.
 _OCR_CONFUSIONS = str.maketrans({"1": "l", "0": "o", "5": "s", "|": "l"})
@@ -28,7 +28,7 @@ def _fold_ocr_confusions(name: str) -> str:
     )
 
 
-class RapidFuzzNameMatcher(NameMatcher):
+class RapidFuzzNameMatcher(name_matcher.NameMatcher):
     """Whole-name similarity, order-insensitive, robust to OCR digit noise."""
 
     def similarity(self, candidate: str, reference: str) -> float:
@@ -49,8 +49,8 @@ class RapidFuzzNameMatcher(NameMatcher):
         """
         return (
             fuzz.token_sort_ratio(
-                _fold_ocr_confusions(normalize_name(candidate)),
-                _fold_ocr_confusions(normalize_name(reference)),
+                _fold_ocr_confusions(normalize.normalize_name(candidate)),
+                _fold_ocr_confusions(normalize.normalize_name(reference)),
             )
             / 100
         )

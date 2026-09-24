@@ -1,10 +1,10 @@
 """Value objects of asynchronous extraction and ingestion jobs."""
 
-from dataclasses import dataclass
-from datetime import datetime
+import dataclasses
+import datetime
 import enum
 
-from app.domain.extraction import QueryName
+from app.domain import extraction
 
 
 class JobKind(enum.StrEnum):
@@ -28,7 +28,7 @@ class JobStatus(enum.StrEnum):
     DEAD_LETTERED = "dead_lettered"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class Job:
     """The durable record of one job, owned by the worker.
 
@@ -55,11 +55,11 @@ class Job:
     input_key: str
     attempts: int
     max_attempts: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
     document_key: str | None = None
-    names: tuple[QueryName, ...] = ()
-    lease_expires_at: datetime | None = None
+    names: tuple[extraction.QueryName, ...] = ()
+    lease_expires_at: datetime.datetime | None = None
     last_error_code: str | None = None
     last_error_message: str | None = None
     result_key: str | None = None
@@ -74,7 +74,7 @@ class Job:
         return self.status is JobStatus.DEAD_LETTERED
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class JobMessage:
     """The message that tells a worker to run a job.
 

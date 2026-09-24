@@ -3,7 +3,7 @@
 import abc
 from collections.abc import Sequence
 
-from app.domain.rag import Vector
+from app.domain import rag
 
 
 class Embedding(abc.ABC):
@@ -28,7 +28,7 @@ class Embedding(abc.ABC):
         """
 
     @abc.abstractmethod
-    def embed_documents(self, texts: Sequence[str]) -> list[Vector]:  # noqa: DOC502
+    def embed_documents(self, texts: Sequence[str]) -> list[rag.Vector]:  # noqa: DOC502
         """Embeds passages to be stored.
 
         Args:
@@ -42,7 +42,7 @@ class Embedding(abc.ABC):
         """
 
     @abc.abstractmethod
-    def embed_query(self, text: str) -> Vector:  # noqa: DOC502
+    def embed_query(self, text: str) -> rag.Vector:  # noqa: DOC502
         """Embeds a question used to search the stored passages.
 
         Args:

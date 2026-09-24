@@ -3,18 +3,17 @@
 from collections.abc import Collection
 from collections.abc import Sequence
 
-from app.domain.extraction import EntitySpan
-from app.domain.extraction import PageText
-from app.domain.extraction import TextWord
-from app.domain.normalize import EDGE_PUNCTUATION
-from app.domain.normalize import normalize_name
+from app.domain import extraction
+from app.domain import normalize
 
 MIN_TOKENS = 2
 
 
 def _trimmed_span(
-    page: PageText, first: TextWord, last: TextWord
-) -> EntitySpan:
+    page: extraction.PageText,
+    first: extraction.TextWord,
+    last: extraction.TextWord,
+) -> extraction.EntitySpan:
     """Returns the span from ``first`` to ``last`` without edge punctuation.
 
     Args:
@@ -25,13 +24,19 @@ def _trimmed_span(
     Returns:
         The span of the matched name.
     """
-    lead = len(first.word.text) - len(first.word.text.lstrip(EDGE_PUNCTUATION))
-    tail = len(last.word.text) - len(last.word.text.rstrip(EDGE_PUNCTUATION))
+    lead = len(first.word.text) - len(
+        first.word.text.lstrip(normalize.EDGE_PUNCTUATION)
+    )
+    tail = len(last.word.text) - len(
+        last.word.text.rstrip(normalize.EDGE_PUNCTUATION)
+    )
     start, end = first.start + lead, last.end - tail
-    return EntitySpan(start=start, end=end, text=page.text[start:end])
+    return extraction.EntitySpan(
+        start=start, end=end, text=page.text[start:end]
+    )
 
 
-def _overlaps(a: EntitySpan, b: EntitySpan) -> bool:
+def _overlaps(a: extraction.EntitySpan, b: extraction.EntitySpan) -> bool:
     """Returns whether two spans share at least one character.
 
     Args:
@@ -45,8 +50,10 @@ def _overlaps(a: EntitySpan, b: EntitySpan) -> bool:
 
 
 def propagate(
-    page: PageText, names: Collection[str], spans: Sequence[EntitySpan]
-) -> list[EntitySpan]:
+    page: extraction.PageText,
+    names: Collection[str],
+    spans: Sequence[extraction.EntitySpan],
+) -> list[extraction.EntitySpan]:
     """Finds untagged occurrences of ``names`` on ``page``.
 
     Only names of at least two tokens are searched, as the exact sequence of
@@ -62,16 +69,18 @@ def propagate(
     Returns:
         The new spans, in page order.
     """
-    tokenized = {tuple(normalize_name(name).split()) for name in names}
+    tokenized = {
+        tuple(normalize.normalize_name(name).split()) for name in names
+    }
     # Longest first, so a longer name wins over a shorter one it contains.
     targets = sorted(
         (target for target in tokenized if len(target) >= MIN_TOKENS),
         key=len,
         reverse=True,
     )
-    keys = [normalize_name(w.word.text) for w in page.words]
+    keys = [normalize.normalize_name(w.word.text) for w in page.words]
     taken = list(spans)
-    found: list[EntitySpan] = []
+    found: list[extraction.EntitySpan] = []
     for index in range(len(page.words)):
         for target in targets:
             if tuple(keys[index : index + len(target)]) != target:

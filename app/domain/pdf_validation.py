@@ -1,8 +1,6 @@
 """Validation of uploaded documents by their content."""
 
-from app.domain.errors import UploadEmptyError
-from app.domain.errors import UploadNotPdfError
-from app.domain.errors import UploadTooLargeError
+from app.domain import errors
 
 PDF_MAGIC = b"%PDF-"
 
@@ -18,13 +16,13 @@ def validate_pdf(content: bytes, max_bytes: int) -> None:
         max_bytes: Largest accepted size.
 
     Raises:
-        UploadEmptyError: If ``content`` is empty.
-        UploadTooLargeError: If ``content`` is longer than ``max_bytes``.
-        UploadNotPdfError: If ``content`` does not start with ``%PDF-``.
+        errors.UploadEmptyError: If ``content`` is empty.
+        errors.UploadTooLargeError: If ``content`` is longer than ``max_bytes``.
+        errors.UploadNotPdfError: If ``content`` does not start with ``%PDF-``.
     """
     if not content:
-        raise UploadEmptyError()
+        raise errors.UploadEmptyError()
     if len(content) > max_bytes:
-        raise UploadTooLargeError(len(content), max_bytes)
+        raise errors.UploadTooLargeError(len(content), max_bytes)
     if not content.startswith(PDF_MAGIC):
-        raise UploadNotPdfError()
+        raise errors.UploadNotPdfError()

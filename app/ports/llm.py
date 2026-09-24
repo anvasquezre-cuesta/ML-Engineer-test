@@ -2,14 +2,14 @@
 
 import abc
 
-from app.domain.rag import LlmPrompt
+from app.domain import rag
 
 
 class Llm(abc.ABC):
     """Chat language model behind a provider-neutral interface."""
 
     @abc.abstractmethod
-    async def complete(self, prompt: LlmPrompt) -> str:  # noqa: DOC502
+    async def complete(self, prompt: rag.LlmPrompt) -> str:  # noqa: DOC502
         """Generates a completion for ``prompt``.
 
         Args:

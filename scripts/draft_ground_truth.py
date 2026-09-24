@@ -7,21 +7,21 @@ of the service pipeline. The output must be checked with
 """
 
 import argparse
-from dataclasses import dataclass
+import dataclasses
 import json
-from pathlib import Path
+import pathlib
 import unicodedata
 
 from PIL import Image
 import pymupdf
 import pytesseract
 
-DATA_DIR = Path(__file__).parents[1] / "tests" / "data" / "ground_truth"
-PDF_DIR = Path(__file__).parents[1] / "sample_pdfs"
+DATA_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "ground_truth"
+PDF_DIR = pathlib.Path(__file__).parents[1] / "sample_pdfs"
 STRIP_CHARS = ".,;:()\"'’‘"
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Word:
     """An OCR word with its box in top-left PDF points.
 
@@ -152,7 +152,7 @@ def main() -> None:
     curated = json.loads((DATA_DIR / "names.json").read_text())
     for pdf_name, names in curated.items():
         truth = draft(pdf_name, names, args.dpi)
-        target = DATA_DIR / f"{Path(pdf_name).stem}.json"
+        target = DATA_DIR / f"{pathlib.Path(pdf_name).stem}.json"
         target.write_text(
             json.dumps(truth, indent=2, ensure_ascii=False) + "\n"
         )

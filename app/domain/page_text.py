@@ -1,12 +1,9 @@
 """Builds the text of a page from its OCR words."""
 
-from app.domain.extraction import OcrWord
-from app.domain.extraction import PageText
-from app.domain.extraction import PageWords
-from app.domain.extraction import TextWord
+from app.domain import extraction
 
 
-def _separator(previous: OcrWord, word: OcrWord) -> str:
+def _separator(previous: extraction.OcrWord, word: extraction.OcrWord) -> str:
     r"""Returns the text placed between two consecutive words.
 
     Args:
@@ -23,7 +20,7 @@ def _separator(previous: OcrWord, word: OcrWord) -> str:
     return " "
 
 
-def build_page_text(page: PageWords) -> PageText:
+def build_page_text(page: extraction.PageWords) -> extraction.PageText:
     """Joins the words of ``page`` into text, recording each word's offsets.
 
     Args:
@@ -33,21 +30,23 @@ def build_page_text(page: PageWords) -> PageText:
         The page text with every word located in it.
     """
     parts: list[str] = []
-    located: list[TextWord] = []
+    located: list[extraction.TextWord] = []
     offset = 0
-    previous: OcrWord | None = None
+    previous: extraction.OcrWord | None = None
     for word in page.words:
         if previous is not None:
             separator = _separator(previous, word)
             parts.append(separator)
             offset += len(separator)
         located.append(
-            TextWord(word=word, start=offset, end=offset + len(word.text))
+            extraction.TextWord(
+                word=word, start=offset, end=offset + len(word.text)
+            )
         )
         parts.append(word.text)
         offset += len(word.text)
         previous = word
-    return PageText(
+    return extraction.PageText(
         page_number=page.page_number,
         text="".join(parts),
         words=tuple(located),

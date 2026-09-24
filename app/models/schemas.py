@@ -5,11 +5,10 @@ assert against exactly these shapes. Optional fields may be added, but nothing
 here may be removed or renamed.
 """
 
-from pydantic import BaseModel
-from pydantic import Field
+import pydantic
 
 
-class BoundingBox(BaseModel):
+class BoundingBox(pydantic.BaseModel):
     """A name's location on a page, in PDF coordinate space.
 
     Attributes:
@@ -20,14 +19,14 @@ class BoundingBox(BaseModel):
         height: Box height in points.
     """
 
-    page_number: int = Field(ge=0, description="0-based page index")
+    page_number: int = pydantic.Field(ge=0, description="0-based page index")
     x: float
     y: float
     width: float
     height: float
 
 
-class ExtractedName(BaseModel):
+class ExtractedName(pydantic.BaseModel):
     """A PERSON name found in the document and where it appears.
 
     Attributes:
@@ -39,7 +38,7 @@ class ExtractedName(BaseModel):
     bounding_box: BoundingBox
 
 
-class FuzzyMatch(BaseModel):
+class FuzzyMatch(pydantic.BaseModel):
     """An extracted name matched against a queried name.
 
     Attributes:
@@ -50,10 +49,10 @@ class FuzzyMatch(BaseModel):
 
     extracted_name: str
     matched_name: str
-    score: float = Field(ge=0.0, le=1.0, description="0..1 similarity")
+    score: float = pydantic.Field(ge=0.0, le=1.0, description="0..1 similarity")
 
 
-class NamePair(BaseModel):
+class NamePair(pydantic.BaseModel):
     """A queried person name.
 
     Attributes:
@@ -61,11 +60,11 @@ class NamePair(BaseModel):
         last_name: Family name.
     """
 
-    first_name: str = Field(min_length=1)
-    last_name: str = Field(min_length=1)
+    first_name: str = pydantic.Field(min_length=1)
+    last_name: str = pydantic.Field(min_length=1)
 
 
-class ExtractionResponse(BaseModel):
+class ExtractionResponse(pydantic.BaseModel):
     """Response of ``POST /api/extract``.
 
     Attributes:
@@ -77,7 +76,7 @@ class ExtractionResponse(BaseModel):
     fuzzy_matches: list[FuzzyMatch] = []
 
 
-class IngestResponse(BaseModel):
+class IngestResponse(pydantic.BaseModel):
     """Response of ``POST /api/ingest``.
 
     Attributes:
@@ -89,17 +88,17 @@ class IngestResponse(BaseModel):
     chunks_stored: int
 
 
-class RAGRequest(BaseModel):
+class RAGRequest(pydantic.BaseModel):
     """Request of ``POST /api/ask``.
 
     Attributes:
         question: Question about the ingested documents.
     """
 
-    question: str = Field(min_length=1, max_length=2000)
+    question: str = pydantic.Field(min_length=1, max_length=2000)
 
 
-class RAGResponse(BaseModel):
+class RAGResponse(pydantic.BaseModel):
     """Response of ``POST /api/ask``.
 
     Attributes:
@@ -111,7 +110,7 @@ class RAGResponse(BaseModel):
     sources: list[str] = []
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(pydantic.BaseModel):
     """Response of ``GET /health``.
 
     Attributes:

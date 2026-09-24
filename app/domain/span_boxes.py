@@ -3,17 +3,13 @@
 from collections.abc import Iterable
 import itertools
 
-from app.domain.extraction import Box
-from app.domain.extraction import EntitySpan
-from app.domain.extraction import NameOccurrence
-from app.domain.extraction import PageText
-from app.domain.extraction import TextWord
-from app.domain.normalize import normalize_name
+from app.domain import extraction
+from app.domain import normalize
 
 TITLES = frozenset({"dr", "prof", "mr", "mrs", "ms", "mx", "sir", "dame"})
 
 
-def _union(boxes: Iterable[Box]) -> Box:
+def _union(boxes: Iterable[extraction.Box]) -> extraction.Box:
     """Returns the smallest box containing every box.
 
     Args:
@@ -27,10 +23,12 @@ def _union(boxes: Iterable[Box]) -> Box:
     y0 = min(edge[1] for edge in edges)
     x1 = max(edge[2] for edge in edges)
     y1 = max(edge[3] for edge in edges)
-    return Box(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
+    return extraction.Box(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
 
-def locate_span(page: PageText, span: EntitySpan) -> list[NameOccurrence]:
+def locate_span(
+    page: extraction.PageText, span: extraction.EntitySpan
+) -> list[extraction.NameOccurrence]:
     """Returns the boxes of ``span`` on ``page``, one per line it covers.
 
     Leading titles such as ``Dr.`` or ``Prof.`` are left out of the name and
@@ -47,17 +45,17 @@ def locate_span(page: PageText, span: EntitySpan) -> list[NameOccurrence]:
         holds only a title.
     """
     words = [w for w in page.words if w.start < span.end and w.end > span.start]
-    while words and normalize_name(words[0].word.text) in TITLES:
+    while words and normalize.normalize_name(words[0].word.text) in TITLES:
         words.pop(0)
     if not words or len({w.word.block for w in words}) > 1:
         return []
     start = max(span.start, words[0].start)
     name = " ".join(page.text[start : span.end].split())
-    lines: Iterable[tuple[int, Iterable[TextWord]]] = itertools.groupby(
-        words, key=lambda w: w.word.line
+    lines: Iterable[tuple[int, Iterable[extraction.TextWord]]] = (
+        itertools.groupby(words, key=lambda w: w.word.line)
     )
     return [
-        NameOccurrence(
+        extraction.NameOccurrence(
             name=name,
             page_number=page.page_number,
             box=_union(w.word.box for w in line_words),

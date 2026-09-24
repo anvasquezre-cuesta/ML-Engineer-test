@@ -7,18 +7,21 @@ confirms the coordinate convention on rotated pages.
 
 import argparse
 import json
-from pathlib import Path
+import pathlib
 
 import pymupdf
 
-DATA_DIR = Path(__file__).parents[1] / "tests" / "data" / "ground_truth"
-PDF_DIR = Path(__file__).parents[1] / "sample_pdfs"
+DATA_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "ground_truth"
+PDF_DIR = pathlib.Path(__file__).parents[1] / "sample_pdfs"
 RED = (1.0, 0.0, 0.0)
 
 
 def render(
-    truth_file: Path, pdf_dir: Path, out_dir: Path, dpi: int
-) -> list[Path]:
+    truth_file: pathlib.Path,
+    pdf_dir: pathlib.Path,
+    out_dir: pathlib.Path,
+    dpi: int,
+) -> list[pathlib.Path]:
     """Draws the boxes of one ground-truth file and saves one PNG per page.
 
     Args:
@@ -60,9 +63,9 @@ def render(
 def main() -> None:
     """Renders every ground-truth file in the truth directory."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("out_dir", type=Path)
-    parser.add_argument("--truth-dir", type=Path, default=DATA_DIR)
-    parser.add_argument("--pdf-dir", type=Path, default=PDF_DIR)
+    parser.add_argument("out_dir", type=pathlib.Path)
+    parser.add_argument("--truth-dir", type=pathlib.Path, default=DATA_DIR)
+    parser.add_argument("--pdf-dir", type=pathlib.Path, default=PDF_DIR)
     parser.add_argument("--dpi", type=int, default=100)
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)

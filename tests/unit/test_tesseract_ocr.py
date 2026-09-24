@@ -5,14 +5,12 @@ from typing import Any
 import pytesseract
 import pytest
 
-from app.adapters.tesseract.ocr import TesseractOcr
-from app.domain.errors import OcrEngineError
-from app.domain.extraction import Box
-from app.domain.extraction import OcrWord
-from app.domain.extraction import PageImage
+from app.adapters.tesseract import ocr
+from app.domain import errors
+from app.domain import extraction
 
 # A page whose x and y scales differ: 0.75 pt/px across, 0.5 pt/px down.
-PAGE = PageImage(
+PAGE = extraction.PageImage(
     page_number=4,
     pixels=bytes(100 * 200),
     width_px=100,
@@ -57,13 +55,19 @@ def test_words_are_scaled_per_axis_and_paragraph_lines_stay_apart(
 
     monkeypatch.setattr(pytesseract, "image_to_data", image_to_data)
 
-    words = TesseractOcr(languages="eng", timeout_s=5.0).read(PAGE)
+    words = ocr.TesseractOcr(languages="eng", timeout_s=5.0).read(PAGE)
 
     assert words.page_number == 4
     assert words.words == (
-        OcrWord("Anna", Box(7.5, 10.0, 22.5, 5.0), 1, 0, 96.0),
-        OcrWord("Berg", Box(7.5, 30.0, 22.5, 5.0), 1, 1, 90.0),
-        OcrWord("Lucas", Box(7.5, 60.0, 37.5, 5.0), 2, 0, 88.0),
+        extraction.OcrWord(
+            "Anna", extraction.Box(7.5, 10.0, 22.5, 5.0), 1, 0, 96.0
+        ),
+        extraction.OcrWord(
+            "Berg", extraction.Box(7.5, 30.0, 22.5, 5.0), 1, 1, 90.0
+        ),
+        extraction.OcrWord(
+            "Lucas", extraction.Box(7.5, 60.0, 37.5, 5.0), 2, 0, 88.0
+        ),
     )
 
 
@@ -75,5 +79,5 @@ def test_timeout_is_reported_as_a_retryable_engine_failure(
 
     monkeypatch.setattr(pytesseract, "image_to_data", image_to_data)
 
-    with pytest.raises(OcrEngineError):
-        TesseractOcr(languages="eng", timeout_s=5.0).read(PAGE)
+    with pytest.raises(errors.OcrEngineError):
+        ocr.TesseractOcr(languages="eng", timeout_s=5.0).read(PAGE)

@@ -4,10 +4,10 @@ import asyncio
 from collections.abc import Callable
 import functools
 
-from app.ports.cpu_runner import CpuRunner
+from app.ports import cpu_runner
 
 
-class ThreadCpuRunner(CpuRunner):
+class ThreadCpuRunner(cpu_runner.CpuRunner):
     """Runs callables in worker threads, at most ``max_concurrency`` at once.
 
     ``asyncio.to_thread`` copies the caller's context, so log context bound

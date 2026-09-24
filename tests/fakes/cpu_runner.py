@@ -2,10 +2,10 @@
 
 from collections.abc import Callable
 
-from app.ports.cpu_runner import CpuRunner
+from app.ports import cpu_runner
 
 
-class InlineCpuRunner(CpuRunner):
+class InlineCpuRunner(cpu_runner.CpuRunner):
     """Runs callables synchronously in the caller's thread and context."""
 
     async def run[**P, R](

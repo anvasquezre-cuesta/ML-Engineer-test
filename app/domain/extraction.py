@@ -4,10 +4,10 @@ Coordinates are PDF points (72 per inch) with the origin at the top-left
 corner of the page and y growing downwards. Page numbers are 0-based.
 """
 
-from dataclasses import dataclass
+import dataclasses
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class Box:
     """Axis-aligned rectangle on a page, in points.
 
@@ -24,7 +24,7 @@ class Box:
     height: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class PageImage:
     """A rendered page as 8-bit grayscale pixels.
 
@@ -45,7 +45,7 @@ class PageImage:
     height_pt: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class OcrWord:
     """A word recognized on a page.
 
@@ -64,7 +64,7 @@ class OcrWord:
     confidence: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class PageWords:
     """Every word recognized on one page, in reading order.
 
@@ -77,7 +77,7 @@ class PageWords:
     words: tuple[OcrWord, ...]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class TextWord:
     """An OCR word located inside the text of its page.
 
@@ -92,7 +92,7 @@ class TextWord:
     end: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class PageText:
     r"""The text of a page, with every word's position in it.
 
@@ -110,7 +110,7 @@ class PageText:
     words: tuple[TextWord, ...]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class EntitySpan:
     """A PERSON entity found in a text, as character offsets.
 
@@ -125,7 +125,7 @@ class EntitySpan:
     text: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class NameOccurrence:
     """One occurrence of a person's name on a page.
 
@@ -140,7 +140,7 @@ class NameOccurrence:
     box: Box
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class QueryName:
     """A person name the caller wants to match against the document.
 
@@ -162,7 +162,7 @@ class QueryName:
         return f"{self.first_name} {self.last_name}"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class NameMatch:
     """An extracted name that matches a queried name.
 
@@ -177,7 +177,7 @@ class NameMatch:
     score: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class ExtractionResult:
     """Every name found in a document and the queried names they match.
 

@@ -5,15 +5,12 @@ from typing import Any
 from PIL import Image
 import pytesseract
 
-from app.domain.errors import OcrEngineError
-from app.domain.extraction import Box
-from app.domain.extraction import OcrWord
-from app.domain.extraction import PageImage
-from app.domain.extraction import PageWords
-from app.ports.ocr import Ocr
+from app.domain import errors
+from app.domain import extraction
+from app.ports import ocr
 
 
-class TesseractOcr(Ocr):
+class TesseractOcr(ocr.Ocr):
     """Reads words and their boxes, converted from pixels to points."""
 
     def __init__(self, languages: str, timeout_s: float) -> None:
@@ -26,7 +23,7 @@ class TesseractOcr(Ocr):
         self._languages = languages
         self._timeout_s = timeout_s
 
-    def read(self, page: PageImage) -> PageWords:
+    def read(self, page: extraction.PageImage) -> extraction.PageWords:
         """Recognizes the words on ``page``.
 
         Rows that are not words (layout levels, empty text) are dropped. A
@@ -40,7 +37,7 @@ class TesseractOcr(Ocr):
             The words in reading order, with boxes in points.
 
         Raises:
-            OcrEngineError: If Tesseract fails or times out.
+            errors.OcrEngineError: If Tesseract fails or times out.
         """
         image = Image.frombytes(
             "L", (page.width_px, page.height_px), page.pixels
@@ -54,13 +51,15 @@ class TesseractOcr(Ocr):
             )
         except (RuntimeError, pytesseract.TesseractError) as exc:
             # pytesseract reports a timeout as a plain RuntimeError.
-            raise OcrEngineError() from exc
-        return PageWords(
+            raise errors.OcrEngineError() from exc
+        return extraction.PageWords(
             page_number=page.page_number, words=tuple(_words(data, page))
         )
 
 
-def _words(data: dict[str, list[Any]], page: PageImage) -> list[OcrWord]:
+def _words(
+    data: dict[str, list[Any]], page: extraction.PageImage
+) -> list[extraction.OcrWord]:
     """Converts ``image_to_data`` rows into words with boxes in points.
 
     Args:
@@ -85,9 +84,9 @@ def _words(data: dict[str, list[Any]], page: PageImage) -> list[OcrWord]:
             line_index[key] = lines_in_block.get(block, 0)
             lines_in_block[block] = line_index[key] + 1
         words.append(
-            OcrWord(
+            extraction.OcrWord(
                 text=text,
-                box=Box(
+                box=extraction.Box(
                     x=data["left"][row] * sx,
                     y=data["top"][row] * sy,
                     width=data["width"][row] * sx,

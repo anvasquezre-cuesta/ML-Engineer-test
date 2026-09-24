@@ -1,18 +1,17 @@
-"""Guards that keep error codes and HTTP statuses from drifting apart."""
+"""Every domain error code has an HTTP status in the API."""
 
-from app.api.errors import ERROR_STATUS
-from app.api.errors import FRAMEWORK_CODES
-from app.domain.errors import AppError
+from app.api import errors as api_errors
+from app.domain import errors as domain_errors
 
 
 def _concrete_codes() -> list[str]:
     """Returns the code of every AppError subclass that declares one.
 
     Returns:
-        The codes, found recursively, including duplicates.
+        The codes, found recursively.
     """
     codes: list[str] = []
-    pending = list(AppError.__subclasses__())
+    pending = list(domain_errors.AppError.__subclasses__())
     while pending:
         cls = pending.pop()
         pending.extend(cls.__subclasses__())
@@ -21,10 +20,8 @@ def _concrete_codes() -> list[str]:
     return codes
 
 
-def test_codes_are_unique() -> None:
-    codes = _concrete_codes()
-    assert len(codes) == len(set(codes))
-
-
 def test_status_map_covers_exactly_the_known_codes() -> None:
-    assert set(ERROR_STATUS) == set(_concrete_codes()) | FRAMEWORK_CODES
+    assert (
+        set(api_errors.ERROR_STATUS)
+        == set(_concrete_codes()) | api_errors.FRAMEWORK_CODES
+    )

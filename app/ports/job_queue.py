@@ -3,7 +3,7 @@
 import abc
 from collections.abc import AsyncIterator
 
-from app.domain.jobs import JobMessage
+from app.domain import jobs
 
 
 class Delivery(abc.ABC):
@@ -13,7 +13,7 @@ class Delivery(abc.ABC):
         message: The job message.
     """
 
-    message: JobMessage
+    message: jobs.JobMessage
 
     @abc.abstractmethod
     async def ack(self) -> None:
@@ -39,7 +39,7 @@ class JobQueue(abc.ABC):
     """
 
     @abc.abstractmethod
-    async def publish(self, message: JobMessage) -> None:
+    async def publish(self, message: jobs.JobMessage) -> None:
         """Enqueues a job for a worker.
 
         Args:

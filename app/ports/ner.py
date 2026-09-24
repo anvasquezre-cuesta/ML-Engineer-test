@@ -2,14 +2,14 @@
 
 import abc
 
-from app.domain.extraction import EntitySpan
+from app.domain import extraction
 
 
 class Ner(abc.ABC):
     """Named-entity recognition restricted to people."""
 
     @abc.abstractmethod
-    def find_persons(self, text: str) -> list[EntitySpan]:  # noqa: DOC502
+    def find_persons(self, text: str) -> list[extraction.EntitySpan]:  # noqa: DOC502
         """Finds the PERSON entities in ``text``.
 
         Args:

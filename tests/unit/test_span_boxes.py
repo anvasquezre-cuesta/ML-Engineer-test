@@ -1,14 +1,11 @@
 """Mapping PERSON spans to boxes: one box per occurrence and line, no titles."""
 
-from app.domain.extraction import NameOccurrence
-from app.domain.page_text import build_page_text
-from app.domain.span_boxes import locate_span
-from tests.builders import box_of
-from tests.builders import page_words
-from tests.builders import span_of
-from tests.builders import union
+from app.domain import extraction
+from app.domain import page_text
+from app.domain import span_boxes
+from tests import builders
 
-PAGE = page_words(
+PAGE = builders.page_words(
     [
         [
             "Dr. Sarah Williams will join",
@@ -23,7 +20,7 @@ PAGE = page_words(
 )
 
 
-def locate(needle: str, nth: int = 0) -> list[NameOccurrence]:
+def locate(needle: str, nth: int = 0) -> list[extraction.NameOccurrence]:
     """Locates the ``nth`` occurrence of ``needle`` in the page text.
 
     Args:
@@ -33,8 +30,10 @@ def locate(needle: str, nth: int = 0) -> list[NameOccurrence]:
     Returns:
         The occurrences found for that span.
     """
-    text = build_page_text(PAGE)
-    return locate_span(text, span_of(text.text, needle, nth))
+    text = page_text.build_page_text(PAGE)
+    return span_boxes.locate_span(
+        text, builders.span_of(text.text, needle, nth)
+    )
 
 
 def test_two_names_on_one_line_get_separate_boxes() -> None:
@@ -42,38 +41,49 @@ def test_two_names_on_one_line_get_separate_boxes() -> None:
     lucas = locate("Lucas Moreau")
 
     assert anna == [
-        NameOccurrence(
+        extraction.NameOccurrence(
             name="Anna Berg",
             page_number=2,
-            box=union(box_of(PAGE, "Anna"), box_of(PAGE, "Berg")),
+            box=builders.union(
+                builders.box_of(PAGE, "Anna"), builders.box_of(PAGE, "Berg")
+            ),
         )
     ]
     assert lucas == [
-        NameOccurrence(
+        extraction.NameOccurrence(
             name="Lucas Moreau",
             page_number=2,
-            box=union(box_of(PAGE, "Lucas"), box_of(PAGE, "Moreau")),
+            box=builders.union(
+                builders.box_of(PAGE, "Lucas"), builders.box_of(PAGE, "Moreau")
+            ),
         )
     ]
 
 
 def test_title_is_left_out_of_the_name_and_the_box() -> None:
     assert locate("Dr. Sarah Williams") == [
-        NameOccurrence(
+        extraction.NameOccurrence(
             name="Sarah Williams",
             page_number=2,
-            box=union(box_of(PAGE, "Sarah"), box_of(PAGE, "Williams")),
+            box=builders.union(
+                builders.box_of(PAGE, "Sarah"),
+                builders.box_of(PAGE, "Williams"),
+            ),
         )
     ]
 
 
 def test_name_wrapped_across_lines_gets_one_box_per_line() -> None:
     assert locate("Anna\nBerg") == [
-        NameOccurrence(
-            name="Anna Berg", page_number=2, box=box_of(PAGE, "Anna", nth=1)
+        extraction.NameOccurrence(
+            name="Anna Berg",
+            page_number=2,
+            box=builders.box_of(PAGE, "Anna", nth=1),
         ),
-        NameOccurrence(
-            name="Anna Berg", page_number=2, box=box_of(PAGE, "Berg", nth=1)
+        extraction.NameOccurrence(
+            name="Anna Berg",
+            page_number=2,
+            box=builders.box_of(PAGE, "Berg", nth=1),
         ),
     ]
 

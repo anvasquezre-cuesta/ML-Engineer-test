@@ -2,11 +2,11 @@
 
 from collections.abc import Collection
 
-from app.domain.extraction import EntitySpan
-from app.ports.ner import Ner
+from app.domain import extraction
+from app.ports import ner
 
 
-class ExactNer(Ner):
+class ExactNer(ner.Ner):
     """Tags every exact, case-sensitive occurrence of known person strings.
 
     Anything not written exactly as listed is missed, like a real model
@@ -21,7 +21,7 @@ class ExactNer(Ner):
         """
         self._persons = persons
 
-    def find_persons(self, text: str) -> list[EntitySpan]:
+    def find_persons(self, text: str) -> list[extraction.EntitySpan]:
         """Returns every occurrence of the known strings in ``text``.
 
         Args:
@@ -35,6 +35,8 @@ class ExactNer(Ner):
             start = text.find(person)
             while start != -1:
                 end = start + len(person)
-                spans.append(EntitySpan(start=start, end=end, text=person))
+                spans.append(
+                    extraction.EntitySpan(start=start, end=end, text=person)
+                )
                 start = text.find(person, end)
         return sorted(spans, key=lambda span: span.start)

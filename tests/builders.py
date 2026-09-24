@@ -2,10 +2,7 @@
 
 from collections.abc import Sequence
 
-from app.domain.extraction import Box
-from app.domain.extraction import EntitySpan
-from app.domain.extraction import OcrWord
-from app.domain.extraction import PageWords
+from app.domain import extraction
 
 CHAR_WIDTH = 6.0
 LINE_HEIGHT = 12.0
@@ -16,7 +13,7 @@ MARGIN = 72.0
 
 def page_words(
     blocks: Sequence[Sequence[str]], page_number: int = 0
-) -> PageWords:
+) -> extraction.PageWords:
     """Lays out words left to right, lines top to bottom, blocks apart.
 
     Args:
@@ -34,9 +31,9 @@ def page_words(
             x = MARGIN
             for token in line.split():
                 width = CHAR_WIDTH * len(token)
-                box = Box(x=x, y=y, width=width, height=LINE_HEIGHT)
+                box = extraction.Box(x=x, y=y, width=width, height=LINE_HEIGHT)
                 words.append(
-                    OcrWord(
+                    extraction.OcrWord(
                         text=token,
                         box=box,
                         block=block_index,
@@ -47,10 +44,12 @@ def page_words(
                 x += width + CHAR_WIDTH
             y += LINE_PITCH
         y += BLOCK_GAP
-    return PageWords(page_number=page_number, words=tuple(words))
+    return extraction.PageWords(page_number=page_number, words=tuple(words))
 
 
-def box_of(page: PageWords, text: str, nth: int = 0) -> Box:
+def box_of(
+    page: extraction.PageWords, text: str, nth: int = 0
+) -> extraction.Box:
     """Returns the box of the ``nth`` word whose text is ``text``.
 
     Args:
@@ -64,7 +63,7 @@ def box_of(page: PageWords, text: str, nth: int = 0) -> Box:
     return [word.box for word in page.words if word.text == text][nth]
 
 
-def union(*boxes: Box) -> Box:
+def union(*boxes: extraction.Box) -> extraction.Box:
     """Returns the smallest box containing every box.
 
     Args:
@@ -77,10 +76,10 @@ def union(*boxes: Box) -> Box:
     y0 = min(box.y for box in boxes)
     x1 = max(box.x + box.width for box in boxes)
     y1 = max(box.y + box.height for box in boxes)
-    return Box(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
+    return extraction.Box(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
 
-def span_of(text: str, needle: str, nth: int = 0) -> EntitySpan:
+def span_of(text: str, needle: str, nth: int = 0) -> extraction.EntitySpan:
     """Returns the span of the ``nth`` occurrence of ``needle`` in ``text``.
 
     Args:
@@ -94,4 +93,6 @@ def span_of(text: str, needle: str, nth: int = 0) -> EntitySpan:
     start = -1
     for _ in range(nth + 1):
         start = text.index(needle, start + 1)
-    return EntitySpan(start=start, end=start + len(needle), text=needle)
+    return extraction.EntitySpan(
+        start=start, end=start + len(needle), text=needle
+    )

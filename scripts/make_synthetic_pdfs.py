@@ -7,19 +7,19 @@ curated ground truth: points, top-left origin of the displayed page.
 """
 
 import argparse
-from dataclasses import dataclass
+import dataclasses
 import json
-from pathlib import Path
+import pathlib
 
 import pymupdf
 
-OUT_DIR = Path(__file__).parents[1] / "tests" / "data" / "synthetic"
+OUT_DIR = pathlib.Path(__file__).parents[1] / "tests" / "data" / "synthetic"
 FONT_SIZE = 12
 LEFT = 72
 LINE_HEIGHT = 24
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class SyntheticPage:
     """One page to lay out.
 
@@ -126,7 +126,9 @@ def name_boxes(page: pymupdf.Page, name: str) -> list[dict[str, float]]:
     return boxes
 
 
-def build(case: str, pages: tuple[SyntheticPage, ...], out_dir: Path) -> None:
+def build(
+    case: str, pages: tuple[SyntheticPage, ...], out_dir: pathlib.Path
+) -> None:
     """Writes ``<case>.pdf`` and its ground truth ``<case>.json``.
 
     Args:
@@ -154,7 +156,7 @@ def build(case: str, pages: tuple[SyntheticPage, ...], out_dir: Path) -> None:
     )
 
 
-def build_all(out_dir: Path) -> None:
+def build_all(out_dir: pathlib.Path) -> None:
     """Writes every synthetic case into ``out_dir``.
 
     Args:
@@ -172,7 +174,7 @@ def build_all(out_dir: Path) -> None:
 def main() -> None:
     """Writes every synthetic case."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
+    parser.add_argument("--out-dir", type=pathlib.Path, default=OUT_DIR)
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
     build_all(args.out_dir)

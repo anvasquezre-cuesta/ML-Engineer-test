@@ -2,15 +2,14 @@
 
 import abc
 
-from app.domain.extraction import PageImage
-from app.domain.extraction import PageWords
+from app.domain import extraction
 
 
 class Ocr(abc.ABC):
     """Optical character recognition over rendered pages."""
 
     @abc.abstractmethod
-    def read(self, page: PageImage) -> PageWords:  # noqa: DOC502
+    def read(self, page: extraction.PageImage) -> extraction.PageWords:  # noqa: DOC502
         """Recognizes the words on ``page``.
 
         Args:

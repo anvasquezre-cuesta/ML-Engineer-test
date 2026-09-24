@@ -2,15 +2,14 @@
 
 from collections.abc import Sequence
 
-from app.domain.extraction import PageImage
-from app.domain.extraction import PageWords
-from app.ports.ocr import Ocr
+from app.domain import extraction
+from app.ports import ocr
 
 
-class ScriptedOcr(Ocr):
+class ScriptedOcr(ocr.Ocr):
     """Returns the words scripted for each page number."""
 
-    def __init__(self, pages: Sequence[PageWords]) -> None:
+    def __init__(self, pages: Sequence[extraction.PageWords]) -> None:
         """Initializes the OCR.
 
         Args:
@@ -18,7 +17,7 @@ class ScriptedOcr(Ocr):
         """
         self._pages = pages
 
-    def read(self, page: PageImage) -> PageWords:
+    def read(self, page: extraction.PageImage) -> extraction.PageWords:
         """Returns the scripted words of ``page``.
 
         Args:
