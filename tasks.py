@@ -133,6 +133,17 @@ def test_docker(c: context.Context) -> None:
     c.run('pytest -m "docker"', pty=True)
 
 
+@tasks.task
+def smoke(c: context.Context, url: str = "http://localhost:8080") -> None:
+    """Runs the smoke test against a running deployment.
+
+    Args:
+        c: Invoke context.
+        url: Base URL of the deployment.
+    """
+    c.run(f"python -m scripts.smoke --base-url {url}", pty=True)
+
+
 # DeepEval reads its own switches only from the environment; the eval
 # subprocess gets them as fixed values and nothing reads the environment.
 DEEPEVAL_OPT_OUTS = {
@@ -228,6 +239,7 @@ namespace = collection.Collection(
     typecheck,
     test,
     test_docker,
+    smoke,
     evaluate,
     eval_compare,
     commit_size,
