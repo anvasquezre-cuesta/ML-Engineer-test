@@ -1,0 +1,106 @@
+"""An app wired to fakes for the heavy models and an in-memory Qdrant."""
+
+from collections.abc import Callable
+from collections.abc import Iterator
+import contextlib
+
+from fastapi import testclient
+import qdrant_client
+
+from app import bootstrap
+from app import config
+from app import main
+from app.adapters.qdrant import vector_store as qdrant_store
+from app.adapters.text_chunker import sentence
+from app.ports import page_renderer
+from app.service_layer import extract as extract_service
+from app.service_layer import ingest as ingest_service
+from tests import builders
+from tests.fakes import cpu_runner
+from tests.fakes import embedding
+from tests.fakes import name_matcher
+from tests.fakes import ner as ner_fake
+from tests.fakes import ocr as ocr_fake
+from tests.fakes import page_renderer as page_renderer_fake
+
+UPLOAD_LIMIT = 1024
+PAGE = builders.page_words([["Dr. Anna Berg met Lucas Moreau"]])
+
+
+def fake_container(
+    renderer: page_renderer.PageRenderer,
+) -> Callable[[config.Settings], bootstrap.Container]:
+    """Returns a factory wiring the use cases to fakes around ``renderer``.
+
+    OCR, NER, the matcher and embeddings are fakes; chunking and the Qdrant
+    adapter are real, over an in-process Qdrant.
+
+    Args:
+        renderer: The renderer the use cases call first.
+
+    Returns:
+        A container factory for ``create_app``.
+    """
+    reader = ocr_fake.ScriptedOcr([PAGE])
+    cpu = cpu_runner.InlineCpuRunner()
+
+    def build(settings: config.Settings) -> bootstrap.Container:
+        store = qdrant_store.QdrantVectorStore(
+            qdrant_client.AsyncQdrantClient(location=":memory:"),
+            settings.qdrant,
+            collection="chunks_test",
+            dimension=embedding.HashingEmbedding.DIMENSION,
+        )
+        return bootstrap.Container(
+            extract_names=extract_service.ExtractNames(
+                renderer=renderer,
+                ocr=reader,
+                ner=ner_fake.ExactNer({"Anna Berg", "Lucas Moreau"}),
+                matcher=name_matcher.ScriptedNameMatcher(
+                    {("Anna Berg", "Anna Berg"): 1.0}
+                ),
+                cpu=cpu,
+                threshold=0.9,
+            ),
+            ingest_document=ingest_service.IngestDocument(
+                renderer=renderer,
+                ocr=reader,
+                chunker=sentence.SentenceTextChunker(80, 10),
+                embedder=embedding.HashingEmbedding(),
+                store=store,
+                cpu=cpu,
+            ),
+            vector_store=store,
+        )
+
+    return build
+
+
+@contextlib.contextmanager
+def fake_client(
+    renderer: page_renderer.PageRenderer | None = None,
+    upload_limit: int = UPLOAD_LIMIT,
+    raise_server_exceptions: bool = False,
+) -> Iterator[testclient.TestClient]:
+    """Runs an app wired to fakes.
+
+    Args:
+        renderer: The renderer to wire; a one-page blank renderer by default.
+        upload_limit: Largest accepted upload in bytes.
+        raise_server_exceptions: Re-raise unhandled server errors in the
+            test instead of returning a 500.
+
+    Yields:
+        The running test client.
+    """
+    settings = config.Settings(
+        _env_file=None, upload=config.UploadSettings(max_bytes=upload_limit)
+    )
+    factory = fake_container(
+        renderer or page_renderer_fake.BlankPageRenderer(1)
+    )
+    with testclient.TestClient(
+        main.create_app(settings, factory),
+        raise_server_exceptions=raise_server_exceptions,
+    ) as client:
+        yield client

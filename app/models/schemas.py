@@ -88,6 +88,32 @@ class IngestResponse(pydantic.BaseModel):
     chunks_stored: int
 
 
+class DocumentResponse(pydantic.BaseModel):
+    """An indexed document.
+
+    Attributes:
+        document_key: Identity of the document, e.g. its filename.
+        content_hash: SHA-256 hex digest of the ingested PDF.
+        chunk_count: Chunks stored for the document.
+    """
+
+    document_key: str
+    content_hash: str
+    chunk_count: int
+
+
+class DeleteDocumentResponse(pydantic.BaseModel):
+    """Response of ``DELETE /api/documents/{document_key}``.
+
+    Attributes:
+        document_key: Identity of the deleted document.
+        chunks_deleted: Chunks removed from the index.
+    """
+
+    document_key: str
+    chunks_deleted: int
+
+
 class RAGRequest(pydantic.BaseModel):
     """Request of ``POST /api/ask``.
 

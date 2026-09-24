@@ -9,6 +9,7 @@ import fastapi
 from app import bootstrap
 from app import config
 from app import logging_config
+from app.api import documents
 from app.api import errors
 from app.api import extract
 from app.api import health
@@ -40,6 +41,8 @@ def create_app(
     async def lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
         container = container_factory(resolved)
         app.state.extract_names = container.extract_names
+        app.state.ingest_document = container.ingest_document
+        app.state.vector_store = container.vector_store
         yield
 
     app = fastapi.FastAPI(title=TITLE, lifespan=lifespan)
@@ -49,6 +52,7 @@ def create_app(
     app.include_router(health.router)
     app.include_router(extract.router, prefix="/api", tags=["extraction"])
     app.include_router(rag.router, prefix="/api", tags=["rag"])
+    app.include_router(documents.router, prefix="/api", tags=["documents"])
     return app
 
 

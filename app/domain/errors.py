@@ -176,6 +176,27 @@ class JobNotFoundError(AppError):
         super().__init__(f"Job {job_id} does not exist.")
 
 
+class DocumentNotFoundError(AppError):
+    """No chunks are stored for the requested document.
+
+    Attributes:
+        document_key: The key that was looked up.
+    """
+
+    code = "document.not_found"
+    retryable = False
+    title = "The document is not indexed."
+
+    def __init__(self, document_key: str) -> None:
+        """Initializes the error.
+
+        Args:
+            document_key: The key that was looked up.
+        """
+        self.document_key = document_key
+        super().__init__("No chunks are stored for this document.")
+
+
 class BlobStoreUnavailableError(AppError):
     """The blob store failed to read or write an object."""
 
