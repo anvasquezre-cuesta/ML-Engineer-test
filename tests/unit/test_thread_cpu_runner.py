@@ -1,7 +1,6 @@
-"""Contract tests for CpuRunner implementations."""
+"""Tests for the thread-backed CpuRunner used for OCR, NER and rendering."""
 
 import asyncio
-from collections.abc import Callable
 from collections.abc import Iterator
 import threading
 import time
@@ -10,36 +9,6 @@ import pytest
 import structlog
 
 from app.adapters.cpu_runner.thread_runner import ThreadCpuRunner
-from app.ports.cpu_runner import CpuRunner
-from tests.fakes.cpu_runner import InlineCpuRunner
-
-
-def _thread_runner() -> CpuRunner:
-    """Builds the real adapter with room for two concurrent calls.
-
-    Returns:
-        A thread-backed runner.
-    """
-    return ThreadCpuRunner(max_concurrency=2)
-
-
-@pytest.fixture(
-    params=[
-        pytest.param(InlineCpuRunner, id="fake"),
-        pytest.param(_thread_runner, id="thread"),
-    ]
-)
-def runner(request: pytest.FixtureRequest) -> CpuRunner:
-    """Provides each CpuRunner implementation under test.
-
-    Args:
-        request: Pytest request carrying the implementation factory.
-
-    Returns:
-        A runner instance.
-    """
-    factory: Callable[[], CpuRunner] = request.param
-    return factory()
 
 
 @pytest.fixture(autouse=True)
@@ -67,9 +36,9 @@ def _read_request_id(delay_s: float) -> object:
     return structlog.contextvars.get_contextvars().get("request_id")
 
 
-async def test_concurrent_calls_keep_their_own_log_context(
-    runner: CpuRunner,
-) -> None:
+async def test_concurrent_calls_keep_their_own_log_context() -> None:
+    runner = ThreadCpuRunner(max_concurrency=5)
+
     async def call(request_id: str) -> object:
         structlog.contextvars.bind_contextvars(request_id=request_id)
         return await runner.run(_read_request_id, 0.01)

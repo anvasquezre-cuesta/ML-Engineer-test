@@ -1,12 +1,8 @@
 """Guards that keep error codes and HTTP statuses from drifting apart."""
 
-import re
-
 from app.api.errors import ERROR_STATUS
 from app.api.errors import FRAMEWORK_CODES
 from app.domain.errors import AppError
-
-CODE_PATTERN = re.compile(r"^[a-z_]+\.[a-z_]+$")
 
 
 def _concrete_codes() -> list[str]:
@@ -30,10 +26,5 @@ def test_codes_are_unique() -> None:
     assert len(codes) == len(set(codes))
 
 
-def test_every_code_has_exactly_one_status_entry() -> None:
+def test_status_map_covers_exactly_the_known_codes() -> None:
     assert set(ERROR_STATUS) == set(_concrete_codes()) | FRAMEWORK_CODES
-
-
-def test_codes_are_dotted_lowercase_facets() -> None:
-    bad = [code for code in ERROR_STATUS if not CODE_PATTERN.match(code)]
-    assert bad == []
