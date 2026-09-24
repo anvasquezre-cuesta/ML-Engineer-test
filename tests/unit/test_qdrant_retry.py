@@ -13,10 +13,6 @@ from app import config
 from app.adapters.qdrant import retry
 from app.domain import errors
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="retries not built yet"
-)
-
 SETTINGS = config.QdrantSettings(
     max_retries=2, backoff_initial_s=0, backoff_max_s=0, deadline_s=5
 )
