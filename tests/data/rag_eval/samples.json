@@ -1,0 +1,134 @@
+{
+  "description": "Questions on the three sample PDFs. Each evidence quote is verbatim OCR text (whitespace-normalized) from the given 0-based page; questions without evidence are not answerable from the documents.",
+  "questions": [
+    {
+      "id": "memo-vp-engineering",
+      "question": "Who was promoted to Vice President of Engineering?",
+      "answer": "Robert Chen",
+      "evidence": [{"document": "company_memo.pdf", "page": 0, "quote": "Robert Chen has been promoted to Vice President of Engineering."}]
+    },
+    {
+      "id": "memo-chief-data-scientist-reports-to",
+      "question": "Who will the new Chief Data Scientist report to?",
+      "answer": "The CTO, James Anderson",
+      "evidence": [{"document": "company_memo.pdf", "page": 0, "quote": "Dr. Sarah Williams will join as Chief Data Scientist, reporting directly to the CTO, James Anderson."}]
+    },
+    {
+      "id": "memo-product-design-previous-role",
+      "question": "Where did the new Head of Product Design previously lead a team?",
+      "answer": "The UX team at the London office",
+      "evidence": [{"document": "company_memo.pdf", "page": 0, "quote": "She previously led the UX team at our London office."}]
+    },
+    {
+      "id": "memo-atlas-manager",
+      "question": "Who will manage project Atlas?",
+      "answer": "David Nakamura and his team of senior architects",
+      "evidence": [{"document": "company_memo.pdf", "page": 0, "quote": "The new project codenamed 'Atlas' will be managed by David Nakamura and his team of senior architects."}]
+    },
+    {
+      "id": "memo-hr-contact",
+      "question": "Who in Human Resources should questions about the restructuring go to?",
+      "answer": "Patricia Okonkwo",
+      "evidence": [{"document": "company_memo.pdf", "page": 0, "quote": "Please direct any questions to Patricia Okonkwo in Human Resources"}]
+    },
+    {
+      "id": "minutes-absent",
+      "question": "Which board member was absent from the January 2024 meeting?",
+      "answer": "Carlos Mendoza, VP of Sales (excused)",
+      "evidence": [{"document": "meeting_minutes.pdf", "page": 0, "quote": "Carlos Mendoza, VP of Sales (excused)"}]
+    },
+    {
+      "id": "minutes-revenue-growth",
+      "question": "By how much did revenue grow year-over-year in the Q4 results?",
+      "answer": "12%",
+      "evidence": [{"document": "meeting_minutes.pdf", "page": 0, "quote": "Revenue increased 12% year-over-year."}]
+    },
+    {
+      "id": "minutes-apac-costs",
+      "question": "Who raised concerns about operational costs in the APAC region?",
+      "answer": "Dr. Aisha Patel",
+      "evidence": [{"document": "meeting_minutes.pdf", "page": 0, "quote": "Dr. Aisha Patel raised concerns about rising operational costs in the APAC region."}]
+    },
+    {
+      "id": "minutes-nlp-lead",
+      "question": "Who leads the machine learning team working on natural language processing?",
+      "answer": "Dr. Yuki Tanaka",
+      "evidence": [{"document": "meeting_minutes.pdf", "page": 1, "quote": "the machine learning team, led by Dr. Yuki Tanaka, has achieved significant milestones in the natural language processing project."}]
+    },
+    {
+      "id": "minutes-aws-migration",
+      "question": "When is the migration to AWS expected to be completed?",
+      "answer": "Q3 2024",
+      "evidence": [{"document": "meeting_minutes.pdf", "page": 1, "quote": "The full migration to AWS is expected to be completed by Q3 2024."}]
+    },
+    {
+      "id": "minutes-novatech-manager",
+      "question": "Who would manage the partnership with NovaTech Solutions?",
+      "answer": "Catherine Dubois from Business Development",
+      "evidence": [{"document": "meeting_minutes.pdf", "page": 1, "quote": "The partnership would be managed by Catherine Dubois from Business Development."}]
+    },
+    {
+      "id": "minutes-next-meeting",
+      "question": "When is the next board meeting scheduled?",
+      "answer": "March 18, 2024",
+      "evidence": [{"document": "meeting_minutes.pdf", "page": 1, "quote": "The next meeting is scheduled for March 18, 2024."}]
+    },
+    {
+      "id": "minutes-cto",
+      "question": "Who is the Chief Technology Officer on the board?",
+      "answer": "Thomas Muller",
+      "evidence": [{"document": "meeting_minutes.pdf", "page": 0, "quote": "Thomas Muller, Chief Technology Officer"}]
+    },
+    {
+      "id": "report-publications",
+      "question": "How many peer-reviewed publications did the research department produce in 2024?",
+      "answer": "23",
+      "evidence": [{"document": "research_report.pdf", "page": 0, "quote": "Our team of 45 researchers across three divisions has produced 23 peer-reviewed publications."}]
+    },
+    {
+      "id": "report-protein-folding",
+      "question": "Which division published groundbreaking work on protein folding, and who leads it?",
+      "answer": "The Computational Biology Division, led by Dr. Benjamin Foster",
+      "evidence": [{"document": "research_report.pdf", "page": 0, "quote": "Computational Biology Division: Lead: Dr. Benjamin Foster"}]
+    },
+    {
+      "id": "report-eth-collaboration",
+      "question": "Who at ETH Zurich co-authored a paper with the department?",
+      "answer": "Prof. Hans Weber, with Dr. Priya Sharma",
+      "evidence": [{"document": "research_report.pdf", "page": 0, "quote": "Dr. Priya Sharma co-authored a paper with Prof. Hans Weber from ETH Zurich."}]
+    },
+    {
+      "id": "report-darpa",
+      "question": "How much is the DARPA contract worth and who is its principal investigator?",
+      "answer": "$750K, Prof. Michael O'Sullivan",
+      "evidence": [{"document": "research_report.pdf", "page": 1, "quote": "DARPA Contract (PI: Prof. Michael O'Sullivan): $750K"}]
+    },
+    {
+      "id": "report-forbes",
+      "question": "Who was named to the Forbes 30 Under 30 list?",
+      "answer": "Anna Kowalski",
+      "evidence": [{"document": "research_report.pdf", "page": 1, "quote": "Anna Kowalski was named to the Forbes 30 Under 30 list in the Science category."}]
+    },
+    {
+      "id": "cross-doc-margaret-thompson",
+      "question": "What is Margaret Thompson's role?",
+      "answer": "CEO (Chief Executive Officer)",
+      "evidence": [
+        {"document": "company_memo.pdf", "page": 0, "quote": "From: Margaret Thompson, CEO"},
+        {"document": "research_report.pdf", "page": 1, "quote": "Reviewed by: Margaret Thompson, CEO"}
+      ]
+    },
+    {
+      "id": "unanswerable-stock-price",
+      "question": "What was the company's share price at the end of 2024?",
+      "answer": null,
+      "evidence": []
+    },
+    {
+      "id": "unanswerable-atlas-budget",
+      "question": "What is the budget of project Atlas?",
+      "answer": null,
+      "evidence": []
+    }
+  ]
+}
