@@ -3,15 +3,9 @@
 import dataclasses
 import datetime
 
-import pytest
-
 from app.domain import jobs
 from app.service_layer import jobs as job_service
 from tests.fakes import jobs as job_fakes
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="reaper not built"
-)
 
 NOW = datetime.datetime(2026, 9, 24, 12, tzinfo=datetime.UTC)
 BASE = jobs.Job(

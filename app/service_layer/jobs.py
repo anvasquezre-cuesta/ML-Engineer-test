@@ -314,8 +314,32 @@ class ReapJobs:
 
         Returns:
             What the pass did.
-
-        Raises:
-            NotImplementedError: Always; not built yet.
         """
-        raise NotImplementedError
+        now = self._clock()
+        lapsed = errors.JobLeaseExpiredError()
+        requeued = dead_lettered = republished = 0
+        for job in await self._repository.list_expired_leases(now):
+            if job.attempts < job.max_attempts:
+                moved = await self._repository.mark_retrying(
+                    job.job_id, lapsed.code, lapsed.detail
+                )
+                if moved is not None:
+                    message = jobs.JobMessage(job.job_id, job.kind)
+                    await self._queue.publish(message)
+                    requeued += 1
+            elif await self._repository.mark_dead_lettered(
+                job.job_id, lapsed.code, lapsed.detail
+            ):
+                dead_lettered += 1
+        stale = now - datetime.timedelta(seconds=self._queued_stale_s)
+        queued = await self._repository.list_by_status(
+            jobs.JobStatus.QUEUED, self._limit
+        )
+        for job in queued:
+            if job.created_at < stale:
+                await self._queue.publish(jobs.JobMessage(job.job_id, job.kind))
+                republished += 1
+        report = ReapReport(requeued, dead_lettered, republished)
+        if requeued or dead_lettered or republished:
+            log.warning("jobs.reaped", **dataclasses.asdict(report))
+        return report
