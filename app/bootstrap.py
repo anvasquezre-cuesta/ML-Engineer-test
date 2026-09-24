@@ -21,6 +21,8 @@ from app.adapters.qdrant import vector_store as qdrant_store
 from app.adapters.spacy_ner import ner
 from app.adapters.tesseract import ocr
 from app.adapters.text_chunker import sentence
+from app.adapters.unconfigured_llm import llm as unconfigured_llm
+from app.domain import errors
 from app.ports import llm
 from app.ports import llm_observability
 from app.ports import vector_store
@@ -97,17 +99,23 @@ def build_llm(
 ) -> llm.Llm:
     """Builds the configured language model.
 
+    A missing configuration never stops the service: extraction and
+    ingestion keep working, and each question fails with
+    ``llm.not_configured``.
+
     Args:
         settings: Provider, model, credentials and limits.
         observability: Supplies the tracing callbacks.
 
     Returns:
-        The language model.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
+        The LangChain model, or a stand-in that reports what is missing.
     """
-    raise NotImplementedError
+    try:
+        chat = chat_models.build_chat_model(settings)
+    except errors.LlmNotConfiguredError as exc:
+        log.warning("llm.not_configured", provider=settings.provider)
+        return unconfigured_llm.UnconfiguredLlm(exc.detail)
+    return langchain_llm.LangChainLlm(chat, observability, settings.deadline_s)
 
 
 def build_container(settings: config.Settings) -> Container:
@@ -168,10 +176,8 @@ def build_container(settings: config.Settings) -> Container:
             sparse_embedder=sparse_embedder,
             store=store,
             prompts=prompts.LangChainPrompts(settings.prompts.directory),
-            llm=langchain_llm.LangChainLlm(
-                chat_models.build_chat_model(settings.llm),
-                build_observability(settings.llm_observability),
-                settings.llm.deadline_s,
+            llm=build_llm(
+                settings.llm, build_observability(settings.llm_observability)
             ),
             cpu=cpu,
             top_k=settings.qdrant.top_k,

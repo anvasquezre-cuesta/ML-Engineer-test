@@ -9,7 +9,6 @@ from app.domain import errors
 from app.domain import rag
 
 
-@pytest.mark.xfail(strict=True, raises=NotImplementedError, reason="stub")
 async def test_openai_without_a_key_starts_and_reports_not_configured() -> None:
     model = bootstrap.build_llm(
         config.LlmSettings(provider="openai"), noop.NoopObservability()

@@ -178,10 +178,3 @@ def test_bedrock_client_uses_only_the_configured_credentials() -> None:
     assert key is not None and key.get_secret_value() == "AKIA-TEST"
     assert chat.config.retries == {"total_max_attempts": 3, "mode": "standard"}
     assert chat.config.read_timeout == 7
-
-
-def test_openai_without_a_key_is_not_configured() -> None:
-    settings = config.LlmSettings(provider="openai", openai_api_key=None)
-
-    with pytest.raises(errors.LlmNotConfiguredError):
-        chat_models.build_chat_model(settings)

@@ -6,12 +6,7 @@ from app.ports import llm
 from tests.e2e import wiring
 from tests.fakes import llm as llm_fake
 
-pytestmark = [
-    pytest.mark.e2e,
-    pytest.mark.xfail(
-        strict=True, raises=NotImplementedError, reason="ask not wired"
-    ),
-]
+pytestmark = pytest.mark.e2e
 
 PDF = b"%PDF-1.7\nminutes"
 

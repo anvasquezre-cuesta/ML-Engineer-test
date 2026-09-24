@@ -96,8 +96,6 @@ async def ask(
 
     Returns:
         The answer and the references of the chunks it rests on.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
     """
-    raise NotImplementedError
+    answer = await ask_question(request.question)
+    return schemas.RAGResponse(answer=answer.text, sources=list(answer.sources))
