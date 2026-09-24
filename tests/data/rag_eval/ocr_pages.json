@@ -1,0 +1,29 @@
+{
+  "pages": [
+    {
+      "document": "company_memo.pdf",
+      "page": 0,
+      "text": "MEMORANDUM\n\nTo: All Department Heads\nFrom: Margaret Thompson, CEO\nDate: March 15, 2024\nSubject: Q1 Performance Review and Team Restructuring\n\nDear Team,\n\n| am writing to inform you of several organizational changes\neffective immediately. After careful review by our executive\ncommittee, the following appointments have been made:\n\n1. Robert Chen has been promoted to Vice President of Engineering.\nHe will oversee all technical operations moving forward.\n\n2. Dr. Sarah Williams will join as Chief Data Scientist,\nreporting directly to the CTO, James Anderson.\n\n3. Maria Garcia has been appointed as Head of Product Design.\nShe previously led the UX team at our London office.\n\n4. The new project codenamed 'Atlas' will be managed by\nDavid Nakamura and his team of senior architects.\n\nPlease direct any questions to Patricia Okonkwo in Human\nResources or contact me directly.\n\nBest regards,\nMargaret Thompson\nChief Executive Officer"
+    },
+    {
+      "document": "meeting_minutes.pdf",
+      "page": 0,
+      "text": "BOARD OF DIRECTORS - MEETING MINUTES\n\nDate: January 22, 2024\nLocation: Conference Room A, Headquarters\nTime: 10:00 AM - 12:30 PM\n\nAttendees:\n- Richard Hernandez, Chairman of the Board\n- Elizabeth Park, Chief Financial Officer\n- Thomas Muller, Chief Technology Officer\n- Dr. Aisha Patel, Independent Director\n- Kevin O'Brien, General Counsel\n- Jennifer Liu, Secretary\n\nAbsent:\n- Carlos Mendoza, VP of Sales (excused)\n\n1. CALL TO ORDER\n\nRichard Hernandez called the meeting to order at 10:05 AM.\nJennifer Liu confirmed quorum was present.\n\n2. APPROVAL OF PREVIOUS MINUTES\n\nElizabeth Park moved to approve the minutes from the\nDecember 2023 meeting. Thomas Muller seconded the motion.\nMotion carried unanimously.\n\n3. FINANCIAL REPORT\n\nElizabeth Park presented the Q4 financial results.\nRevenue increased 12% year-over-year. Dr. Aisha Patel\nraised concerns about rising operational costs in the\nAPAC region. Kevin O'Brien noted potential regulatory\nimplications of the proposed expansion into Southeast Asia."
+    },
+    {
+      "document": "meeting_minutes.pdf",
+      "page": 1,
+      "text": "4. TECHNOLOGY UPDATE\n\nThomas Muller provided an update on the AI initiative.\nHe reported that the machine learning team, led by\nDr. Yuki Tanaka, has achieved significant milestones\nin the natural language processing project.\n\nAlexander Popov from the infrastructure team presented\nthe cloud migration timeline. The full migration to AWS\nis expected to be completed by Q3 2024.\n\n5. NEW BUSINESS\nRichard Hernandez introduced a proposal for a strategic\npartnership with NovaTech Solutions. The partnership would\nbe managed by Catherine Dubois from Business Development.\nDr. Aisha Patel recommended conducting due diligence\nbefore proceeding. Kevin O'Brien agreed to coordinate\nthe legal review with external counsel.\n\n6. ADJOURNMENT\n\nRichard Hernandez adjourned the meeting at 12:25 PM.\nThe next meeting is scheduled for March 18, 2024.\n\nRespectfully submitted,\nJennifer Liu\n\nCorporate Secretary\n\nApproved by: Richard Hernandez, Chairman"
+    },
+    {
+      "document": "research_report.pdf",
+      "page": 0,
+      "text": "RESEARCH DEPARTMENT - ANNUAL REPORT 2024\n\nPrepared by: Dr. Olivia Chambers, Research Director\n\nEXECUTIVE SUMMARY\n\nThis report summarizes the research activities and\nachievements of the department for fiscal year 2024.\nOur team of 45 researchers across three divisions has\nproduced 23 peer-reviewed publications.\n\nTEAM LEADS AND KEY PERSONNEL\n\nComputational Biology Division:\nLead: Dr. Benjamin Foster\nSenior Researchers: Dr. Priya Sharma, Lucas Zimmermann\nNotable: Published groundbreaking work on protein folding\n\nMachine Learning Division:\nLead: Dr. Fatima Al-Rashidi\nSenior Researchers: Christopher Wong, Anna Kowalski\nNotable: Developed novel transformer architecture\n\nApplied Mathematics Division:\nLead: Prof. Michael O'Sullivan\nSenior Researchers: Dr. Elena Volkov, Raj Krishnamurthy\nNotable: Breakthrough in optimization algorithms\n\nEXTERNAL COLLABORATIONS\n\nOur department maintained active collaborations with\n\nseveral institutions. Dr. Priya Sharma co-authored a\npaper with Prof. Hans Weber from ETH Zurich."
+    },
+    {
+      "document": "research_report.pdf",
+      "page": 1,
+      "text": "Dr. Fatima Al-Rashidi presented at NeurIPS alongside\nDr. James Chen from Stanford University.\n\nAWARDS AND RECOGNITION\n\n- Dr. Benjamin Foster received the Young Investigator\nAward from the National Science Foundation.\n- Anna Kowalski was named to the Forbes 30 Under 30\nlist in the Science category.\n- Christopher Wong received a best paper award at ICML.\n\nBUDGET AND RESOURCES\n\nTotal research budget: $4.2M\nExternal grants secured: $1.8M\n- NIH Grant (Pl: Dr. Benjamin Foster): $600K\n- NSF Grant (PI: Dr. Fatima Al-Rashidi): $450K\n- DARPA Contract (PI: Prof. Michael O'Sullivan): $750K\n\nLOOKING AHEAD\n\nFor 2025, we plan to expand the ML division under\nDr. Fatima Al-Rashidi. New hires will include two\npostdoctoral researchers and a visiting scholar.\n\nSubmitted by:\nDr. Olivia Chambers\nDirector of Research\n\nReviewed by: Margaret Thompson, CEO\nDate: December 15, 2024"
+    }
+  ]
+}

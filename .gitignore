@@ -31,3 +31,4 @@ tests/data/synthetic/
 
 # Model caches downloaded at runtime or baked into the image
 .cache/
+.deepeval/

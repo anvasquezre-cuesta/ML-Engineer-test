@@ -44,8 +44,12 @@ dev = [
     "pydoclint>=0.9.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytrec-eval-terrier>=0.5.10",
     "ruff>=0.16.8",
     "types-boto3>=1.43.101",
+]
+eval = [
+    "deepeval==4.2.6",
 ]
 
 [build-system]
@@ -129,6 +133,8 @@ testpaths = ["tests"]
 xfail_strict = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# The eval extra ships pytest plugins that must not change how the suite runs.
+addopts = "-p no:deepeval -p no:rerunfailures -p no:repeat -p no:xdist"
 filterwarnings = [
     # Tests use the in-process Qdrant, which has no payload indexes.
     "ignore:Payload indexes have no effect in the local Qdrant:UserWarning",

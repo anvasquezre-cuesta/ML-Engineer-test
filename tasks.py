@@ -12,7 +12,7 @@ from invoke import context
 from invoke import exceptions
 from invoke import tasks
 
-PYTHON_PATHS = ("app", "tests", "scripts", "tasks.py")
+PYTHON_PATHS = ("app", "evaluation", "tests", "scripts", "tasks.py")
 COMMIT_SIZE_LIMIT = 600
 PYTEST_NO_TESTS_COLLECTED = 5
 
