@@ -17,6 +17,36 @@ services:
     volumes:
       - dynamodb_data:/home/dynamodblocal/data
 
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.47
+    command: ["server", "-s3", "-dir=/data"]
+    environment:
+      AWS_ACCESS_KEY_ID: docintel-local
+      AWS_SECRET_ACCESS_KEY: docintel-local-secret
+    ports:
+      - "8333:8333"
+    volumes:
+      - seaweedfs_data:/data
+    healthcheck:
+      # "localhost" resolves to IPv6 in this image; the gateway listens on IPv4.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8333/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  seaweedfs-init:
+    image: chrislusf/seaweedfs:4.47
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        until echo "s3.bucket.create -name docintel"
+        | weed shell -master=seaweedfs:9333; do sleep 1; done
+    restart: "no"
+
 volumes:
   qdrant_data:
   dynamodb_data:
+  seaweedfs_data:

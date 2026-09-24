@@ -224,10 +224,12 @@ class BlobSettings(pydantic.BaseModel):
 
     Attributes:
         bucket: Bucket name.
-        endpoint_url: Custom endpoint (MinIO); empty uses AWS S3.
+        endpoint_url: Custom S3-compatible endpoint; empty uses AWS S3.
         access_key_id: Access key; empty uses the task role.
         secret_access_key: Secret key; empty uses the task role.
         region: Bucket region.
+        timeout_s: Connect and read timeout of each request.
+        max_retries: Retries after the first attempt, done by botocore.
     """
 
     bucket: str = "docintel"
@@ -235,6 +237,8 @@ class BlobSettings(pydantic.BaseModel):
     access_key_id: pydantic.SecretStr | None = None
     secret_access_key: pydantic.SecretStr | None = None
     region: str = "us-east-1"
+    timeout_s: float = pydantic.Field(default=10.0, gt=0)
+    max_retries: int = pydantic.Field(default=3, ge=0)
 
 
 class QueueSettings(pydantic.BaseModel):
