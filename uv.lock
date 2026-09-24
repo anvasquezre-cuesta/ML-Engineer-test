@@ -674,12 +674,13 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 
-[package.dev-dependencies]
+[package.optional-dependencies]
 dev = [
     { name = "hypothesis" },
     { name = "import-linter" },
     { name = "invoke" },
     { name = "mypy" },
+    { name = "pip" },
     { name = "pydoclint" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -696,37 +697,35 @@ requires-dist = [
     { name = "fastapi" },
     { name = "fastembed", specifier = ">=0.8.1" },
     { name = "httpx" },
+    { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.168.1" },
+    { name = "import-linter", marker = "extra == 'dev'", specifier = ">=2.15" },
+    { name = "invoke", marker = "extra == 'dev'", specifier = ">=3.0.3" },
     { name = "langchain-aws", specifier = ">=1.7.9" },
     { name = "langchain-core", specifier = ">=1.6.4" },
     { name = "langchain-experimental", specifier = ">=0.4.2" },
     { name = "langchain-openai", specifier = ">=1.6.5" },
     { name = "langchain-text-splitters", specifier = ">=1.1.2" },
     { name = "langfuse", specifier = ">=4.15.4" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.3.1" },
     { name = "pillow" },
+    { name = "pip", marker = "extra == 'dev'", specifier = ">=25.0" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pydoclint", marker = "extra == 'dev'", specifier = ">=0.9.1" },
     { name = "pymupdf" },
     { name = "pytesseract" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.1.1" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.4.0" },
     { name = "python-multipart" },
     { name = "qdrant-client", specifier = ">=1.19.1" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.16.8" },
     { name = "spacy" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.54" },
     { name = "structlog", specifier = ">=26.1.0" },
+    { name = "types-boto3", marker = "extra == 'dev'", specifier = ">=1.43.101" },
     { name = "uvicorn", extras = ["standard"] },
 ]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "hypothesis", specifier = ">=6.168.1" },
-    { name = "import-linter", specifier = ">=2.15" },
-    { name = "invoke", specifier = ">=3.0.3" },
-    { name = "mypy", specifier = ">=2.3.1" },
-    { name = "pydoclint", specifier = ">=0.9.1" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pytest-asyncio", specifier = ">=1.4.0" },
-    { name = "ruff", specifier = ">=0.16.8" },
-    { name = "types-boto3", specifier = ">=1.43.101" },
-]
+provides-extras = ["dev"]
 
 [[package]]
 name = "fastapi"
@@ -2648,6 +2647,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/18/f0/a5595c1e8c3ae44b9828cb2f0fa8155e5095ef04d6327b8f61cf44a3df85/pillow-12.3.0-cp315-cp315t-win32.whl", hash = "sha256:1657923d2d45afb66526e5b933e5b3052e6bdea196c90d3abb2424e18c77dae8", size = 6474384, upload-time = "2026-07-01T11:56:18.855Z" },
     { url = "https://files.pythonhosted.org/packages/e4/04/62bcd9f844984c5938d3b05264a61d797a29d3e0812341a8204af70bbdee/pillow-12.3.0-cp315-cp315t-win_amd64.whl", hash = "sha256:8cd2f7bdda092d99c9fc2fb7391354f306d01443d22785d0cbfafa2e2c8bb418", size = 7243537, upload-time = "2026-07-01T11:56:21.214Z" },
     { url = "https://files.pythonhosted.org/packages/3d/68/1f3066acedf37673694a7141381d8f811ae97f30d34413d236abe7d489f1/pillow-12.3.0-cp315-cp315t-win_arm64.whl", hash = "sha256:06ff022112bc9cbf83b60f8e028d94ad87b60621706487e65f673de61610ab59", size = 2567491, upload-time = "2026-07-01T11:56:23.506Z" },
+]
+
+[[package]]
+name = "pip"
+version = "26.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/15/4500e320e6b101ec3b719ae85b697d9940b6cda672bc555bd6016fc60c6f/pip-26.2.1.tar.gz", hash = "sha256:f6ad667e89a1fe78046c8f13232b247200f5258d7828f3f7883d660878e0813f", size = 1848877, upload-time = "2026-08-04T22:51:14.148Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/6e/1736e5b4ae2b778ef2f81c47d797de9f891d4d8acb047a24ca37a60294dd/pip-26.2.1-py3-none-any.whl", hash = "sha256:71138adf1f4ca900cdb7d289c21b7494329f2332b6d85f0e1c42108c0384ed3e", size = 1816632, upload-time = "2026-08-04T22:51:12.472Z" },
 ]
 
 [[package]]

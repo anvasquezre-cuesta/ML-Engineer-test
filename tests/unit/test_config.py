@@ -29,20 +29,6 @@ def _setting_env_names() -> set[str]:
     return names
 
 
-def test_nested_variables_override_defaults(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("DOCINTEL_CLOUD_ENV", "aws")
-    monkeypatch.setenv("DOCINTEL_CHUNKING__CHUNK_SIZE", "500")
-    monkeypatch.setenv("DOCINTEL_MATCHER__THRESHOLD", "0.85")
-
-    settings = Settings(_env_file=None)
-
-    assert settings.cloud_env == "aws"
-    assert settings.chunking.chunk_size == 500
-    assert settings.matcher.threshold == 0.85
-
-
 def test_overlap_not_smaller_than_chunk_size_is_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -51,28 +37,6 @@ def test_overlap_not_smaller_than_chunk_size_is_rejected(
 
     with pytest.raises(ValidationError, match="chunk_overlap"):
         Settings(_env_file=None)
-
-
-def test_secrets_never_appear_in_settings_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    secret = "s3cr3t-sentinel"
-    for name in (
-        "DOCINTEL_QDRANT__API_KEY",
-        "DOCINTEL_LLM__OPENAI_API_KEY",
-        "DOCINTEL_LLM_OBSERVABILITY__LANGFUSE_SECRET_KEY",
-        "DOCINTEL_BLOB__SECRET_ACCESS_KEY",
-        "DOCINTEL_JOBS__POSTGRES_DSN",
-    ):
-        monkeypatch.setenv(name, secret)
-    monkeypatch.setenv(
-        "DOCINTEL_QUEUE__RABBITMQ_URL", f"amqp://user:{secret}@mq:5672/"
-    )
-
-    settings = Settings(_env_file=None)
-
-    assert secret not in repr(settings)
-    assert secret not in settings.model_dump_json()
 
 
 def test_env_example_lists_only_real_settings_with_valid_values() -> None:

@@ -150,7 +150,9 @@ class LlmSettings(BaseModel):
     Attributes:
         provider: ``bedrock`` or ``openai``.
         model: Model id; empty uses the provider default.
-        openai_api_key: OpenAI key, required for the OpenAI provider.
+        openai_base_url: Endpoint of any OpenAI-compatible API; empty uses
+            OpenAI.
+        openai_api_key: Key for the OpenAI-compatible endpoint.
         aws_region: AWS region for Bedrock.
         aws_profile: Named AWS profile for Bedrock; empty uses the task role.
         timeout_s: Per-request timeout.
@@ -159,6 +161,7 @@ class LlmSettings(BaseModel):
 
     provider: Literal["bedrock", "openai"] = "bedrock"
     model: str = ""
+    openai_base_url: str = ""
     openai_api_key: SecretStr | None = None
     aws_region: str = "us-east-1"
     aws_profile: str = ""
