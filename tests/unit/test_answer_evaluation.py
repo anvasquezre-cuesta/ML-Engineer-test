@@ -1,7 +1,5 @@
 """Answer scoring: markers never reach the judge; fallbacks cite nothing."""
 
-import pytest
-
 from app.domain import answering
 from app.domain import rag
 from evaluation import answers
@@ -46,7 +44,6 @@ def test_only_a_cited_evidence_chunk_counts() -> None:
     assert not answers.cites_evidence(wrong, SHOWN, EVIDENCE)
 
 
-@pytest.mark.xfail(strict=True, raises=NotImplementedError, reason="stub")
 def test_only_a_refusal_that_also_cites_a_shown_passage_is_hedged() -> None:
     assert answers.hedged(f"Tanaka leads [2]. {REFUSAL}", SHOWN, REFUSAL)
     assert not answers.hedged(f"Tanaka [9]. {REFUSAL}", SHOWN, REFUSAL)

@@ -1,12 +1,6 @@
 """A candidate prompt is adopted only if it fixes refusals, breaks nothing."""
 
-import pytest
-
 from evaluation import comparison
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="adoption rule not built"
-)
 
 
 def run(**refused: bool) -> list[comparison.Outcome]:

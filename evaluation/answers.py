@@ -67,8 +67,12 @@ def hedged(completion: str, shown: Sequence[rag.Chunk], refusal: str) -> bool:
 
     Returns:
         Whether the completion is a refusal with a valid citation.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
     """
-    raise NotImplementedError
+    if not answering.read_answer(completion, shown, refusal).refused:
+        return False
+    numbers = (
+        int(number)
+        for marker in _MARKERS.findall(completion)
+        for number in re.findall(r"\d+", marker)
+    )
+    return any(1 <= number <= len(shown) for number in numbers)
