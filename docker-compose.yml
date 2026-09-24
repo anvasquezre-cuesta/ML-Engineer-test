@@ -9,6 +9,8 @@ services:
 
   dynamodb:
     image: amazon/dynamodb-local:2.6.1
+    # The named volume is created root-owned; the image's own user cannot write it.
+    user: root
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
     ports:
       - "8000:8000"

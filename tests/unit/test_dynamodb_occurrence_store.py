@@ -10,10 +10,6 @@ from app.domain import errors
 from app.domain import extraction
 from app.domain import occurrences
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="adapter not built"
-)
-
 TABLE = "occurrences-test"
 MANIFEST = occurrences.GenerationManifest(
     "memo.pdf", "g1", 1, "h1", "extractor", 2, "sync"
