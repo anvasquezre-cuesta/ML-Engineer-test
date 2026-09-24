@@ -61,10 +61,11 @@ class NerSettings(BaseModel):
     """spaCy named-entity recognition.
 
     Attributes:
-        model: Name of the installed spaCy pipeline.
+        model: Name of the installed spaCy pipeline; ``en_core_web_lg`` and the
+            lighter ``en_core_web_sm`` are locked dependencies.
     """
 
-    model: str = "en_core_web_sm"
+    model: str = "en_core_web_lg"
 
 
 class MatcherSettings(BaseModel):
