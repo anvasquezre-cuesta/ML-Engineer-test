@@ -246,6 +246,9 @@ class QueueSettings(pydantic.BaseModel):
 
     Attributes:
         rabbitmq_url: AMQP URL, including credentials.
+        rabbitmq_queue: Name of the work queue; the dead-letter and wait
+            queues are named after it.
+        prefetch: Deliveries a worker holds unacknowledged at once.
         sqs_queue_url: URL of the SQS work queue.
         sqs_dead_letter_url: URL of the SQS dead-letter queue.
         retry_delay_s: Backoff before a transient failure is retried.
@@ -254,6 +257,8 @@ class QueueSettings(pydantic.BaseModel):
     rabbitmq_url: pydantic.SecretStr = pydantic.SecretStr(
         "amqp://guest:guest@localhost:5672/"
     )
+    rabbitmq_queue: str = "docintel.jobs"
+    prefetch: int = pydantic.Field(default=1, ge=1)
     sqs_queue_url: str = ""
     sqs_dead_letter_url: str = ""
     retry_delay_s: float = pydantic.Field(default=30.0, ge=0)
