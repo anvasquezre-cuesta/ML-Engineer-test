@@ -136,6 +136,26 @@ class RAGResponse(pydantic.BaseModel):
     sources: list[str] = []
 
 
+class NameOccurrenceRecord(pydantic.BaseModel):
+    """A stored name occurrence, as listed by ``GET /api/occurrences``.
+
+    Attributes:
+        occurrence_id: Unique across documents and extraction runs.
+        document_key: The document the name was found in.
+        content_hash: SHA-256 of the document version.
+        generation: The extraction run that found it.
+        name: The name as recognized in the document.
+        bounding_box: Location of this occurrence.
+    """
+
+    occurrence_id: str
+    document_key: str
+    content_hash: str
+    generation: str
+    name: str
+    bounding_box: BoundingBox
+
+
 class HealthResponse(pydantic.BaseModel):
     """Response of ``GET /health``.
 

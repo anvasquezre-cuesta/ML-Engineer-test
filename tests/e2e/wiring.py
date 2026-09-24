@@ -18,12 +18,14 @@ from app.ports import page_renderer
 from app.service_layer import ask as ask_service
 from app.service_layer import extract as extract_service
 from app.service_layer import ingest as ingest_service
+from app.service_layer import occurrences as occurrence_service
 from tests import builders
 from tests.fakes import cpu_runner
 from tests.fakes import embedding
 from tests.fakes import llm as llm_fake
 from tests.fakes import name_matcher
 from tests.fakes import ner as ner_fake
+from tests.fakes import occurrence_store
 from tests.fakes import ocr as ocr_fake
 from tests.fakes import page_renderer as page_renderer_fake
 from tests.fakes import sparse_embedding
@@ -33,7 +35,9 @@ PAGE = builders.page_words([["Dr. Anna Berg met Lucas Moreau"]])
 
 
 def fake_container(
-    renderer: page_renderer.PageRenderer, model: llm.Llm
+    renderer: page_renderer.PageRenderer,
+    model: llm.Llm,
+    recorded: occurrence_store.InMemoryOccurrenceStore,
 ) -> Callable[[config.Settings], bootstrap.Container]:
     """Returns a factory wiring the use cases to fakes around ``renderer``.
 
@@ -44,6 +48,7 @@ def fake_container(
     Args:
         renderer: The renderer the use cases call first.
         model: The language model that answers questions.
+        recorded: The occurrence store.
 
     Returns:
         A container factory for ``create_app``.
@@ -60,17 +65,18 @@ def fake_container(
         )
         embedder = embedding.HashingEmbedding()
         sparse_embedder = sparse_embedding.WordCountSparseEmbedding()
-        return bootstrap.Container(
-            extract_names=extract_service.ExtractNames(
-                renderer=renderer,
-                ocr=reader,
-                ner=ner_fake.ExactNer({"Anna Berg", "Lucas Moreau"}),
-                matcher=name_matcher.ScriptedNameMatcher(
-                    {("Anna Berg", "Anna Berg"): 1.0}
-                ),
-                cpu=cpu,
-                threshold=0.9,
+        extract_names = extract_service.ExtractNames(
+            renderer=renderer,
+            ocr=reader,
+            ner=ner_fake.ExactNer({"Anna Berg", "Lucas Moreau"}),
+            matcher=name_matcher.ScriptedNameMatcher(
+                {("Anna Berg", "Anna Berg"): 1.0}
             ),
+            cpu=cpu,
+            threshold=0.9,
+        )
+        return bootstrap.Container(
+            extract_names=extract_names,
             ingest_document=ingest_service.IngestDocument(
                 renderer=renderer,
                 ocr=reader,
@@ -90,6 +96,12 @@ def fake_container(
                 top_k=settings.qdrant.top_k,
             ),
             vector_store=store,
+            record_extraction=occurrence_service.ExtractAndRecord(
+                extract_names,
+                recorded,
+                occurrence_service.RecordOccurrences(recorded, "fake"),
+            ),
+            query_occurrences=occurrence_service.QueryOccurrences(recorded),
         )
 
     return build
@@ -99,6 +111,7 @@ def fake_container(
 def fake_client(
     renderer: page_renderer.PageRenderer | None = None,
     model: llm.Llm | None = None,
+    recorded: occurrence_store.InMemoryOccurrenceStore | None = None,
     upload_limit: int = UPLOAD_LIMIT,
     raise_server_exceptions: bool = False,
 ) -> Iterator[testclient.TestClient]:
@@ -107,6 +120,7 @@ def fake_client(
     Args:
         renderer: The renderer to wire; a one-page blank renderer by default.
         model: The language model; by default one that is never asked.
+        recorded: The occurrence store; an empty one by default.
         upload_limit: Largest accepted upload in bytes.
         raise_server_exceptions: Re-raise unhandled server errors in the
             test instead of returning a 500.
@@ -120,6 +134,7 @@ def fake_client(
     factory = fake_container(
         renderer or page_renderer_fake.BlankPageRenderer(1),
         model or llm_fake.ScriptedLlm(""),
+        recorded or occurrence_store.InMemoryOccurrenceStore(),
     )
     with testclient.TestClient(
         main.create_app(settings, factory),

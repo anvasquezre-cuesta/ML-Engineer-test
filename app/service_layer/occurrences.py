@@ -12,6 +12,7 @@ from app.domain import ids
 from app.domain import normalize
 from app.domain import occurrences
 from app.ports import occurrence_store
+from app.service_layer import extract
 
 log = structlog.stdlib.get_logger(__name__)
 
@@ -109,6 +110,54 @@ class RecordOccurrences:
         if promoted == occurrences.PromoteOutcome.SUPERSEDED:
             return occurrences.RecordOutcome.SUPERSEDED
         return occurrences.RecordOutcome.RECORDED
+
+
+class ExtractAndRecord:
+    """Extracts the names of an uploaded PDF and records every occurrence."""
+
+    def __init__(
+        self,
+        extract_names: extract.ExtractNames,
+        writer: occurrence_store.OccurrenceWriter,
+        record: RecordOccurrences,
+    ) -> None:
+        """Initializes the use case.
+
+        Args:
+            extract_names: Finds and matches the names.
+            writer: Reserves the request's acceptance order.
+            record: Stores the occurrences as a new generation.
+        """
+        self._extract_names = extract_names
+        self._writer = writer
+        self._record = record
+
+    async def __call__(
+        self,
+        pdf: bytes,
+        queries: Sequence[extraction.QueryName],
+        document_key: str | None,
+        filename: str | None,
+    ) -> extraction.ExtractionResult:
+        """Extracts the names and records them before returning them.
+
+        The document key is ``document_key``, else the filename, else
+        ``sha256:{content hash}``. The acceptance order is reserved before
+        extraction, so a slower, older request cannot replace a newer one.
+
+        Args:
+            pdf: The validated PDF content.
+            queries: Names to match against.
+            document_key: Key chosen by the caller, if any.
+            filename: Name of the uploaded file, if any.
+
+        Returns:
+            The occurrences and matches, all recorded.
+
+        Raises:
+            NotImplementedError: Always; not built yet.
+        """
+        raise NotImplementedError
 
 
 class QueryOccurrences:

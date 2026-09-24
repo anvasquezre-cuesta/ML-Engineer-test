@@ -1,17 +1,21 @@
 """``POST /api/extract`` over HTTP: real pipeline and failure contract."""
 
+import dataclasses
 import json
 from typing import Any
 
 from fastapi import testclient
 import pytest
 
+from app import bootstrap
 from app import config
 from app import main
 from app.domain import extraction
 from app.ports import page_renderer
+from app.service_layer import occurrences as occurrence_service
 from tests import ground_truth
 from tests.e2e import wiring
+from tests.fakes import occurrence_store
 
 pytestmark = pytest.mark.e2e
 
@@ -62,6 +66,29 @@ def post_extract(
     }
 
 
+def in_memory_records(settings: config.Settings) -> bootstrap.Container:
+    """Builds the real container with occurrences recorded in memory.
+
+    Args:
+        settings: The service configuration.
+
+    Returns:
+        The container, needing no DynamoDB.
+    """
+    container = bootstrap.build_container(settings)
+    recorded = occurrence_store.InMemoryOccurrenceStore()
+    return dataclasses.replace(
+        container,
+        record_extraction=occurrence_service.ExtractAndRecord(
+            container.extract_names,
+            recorded,
+            occurrence_service.RecordOccurrences(recorded, "real-models"),
+        ),
+        query_occurrences=occurrence_service.QueryOccurrences(recorded),
+        startup=(),
+    )
+
+
 @pytest.mark.integration
 def test_sample_pdf_returns_every_verified_box_and_fuzzy_match() -> None:
     truth = json.loads(
@@ -73,7 +100,7 @@ def test_sample_pdf_returns_every_verified_box_and_fuzzy_match() -> None:
     ]
 
     with testclient.TestClient(
-        main.create_app(config.Settings(_env_file=None))
+        main.create_app(config.Settings(_env_file=None), in_memory_records)
     ) as client:
         response = client.post(
             "/api/extract",

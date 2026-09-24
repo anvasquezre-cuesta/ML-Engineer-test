@@ -14,6 +14,7 @@ from app.api import errors
 from app.api import extract
 from app.api import health
 from app.api import middleware
+from app.api import occurrences
 from app.api import rag
 
 TITLE = "Document Intelligence Service"
@@ -40,7 +41,11 @@ def create_app(
     @contextlib.asynccontextmanager
     async def lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
         container = container_factory(resolved)
+        for step in container.startup:
+            await step()
         app.state.extract_names = container.extract_names
+        app.state.record_extraction = container.record_extraction
+        app.state.query_occurrences = container.query_occurrences
         app.state.ingest_document = container.ingest_document
         app.state.ask_question = container.ask_question
         app.state.vector_store = container.vector_store
@@ -54,6 +59,7 @@ def create_app(
     app.include_router(extract.router, prefix="/api", tags=["extraction"])
     app.include_router(rag.router, prefix="/api", tags=["rag"])
     app.include_router(documents.router, prefix="/api", tags=["documents"])
+    app.include_router(occurrences.router, prefix="/api", tags=["occurrences"])
     return app
 
 

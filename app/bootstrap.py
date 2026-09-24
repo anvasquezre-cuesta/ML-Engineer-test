@@ -1,5 +1,7 @@
 """Composition root: builds adapters and use cases from Settings."""
 
+from collections.abc import Awaitable
+from collections.abc import Callable
 import dataclasses
 import re
 
@@ -8,6 +10,7 @@ import structlog
 
 from app import config
 from app.adapters.cpu_runner import thread_runner
+from app.adapters.dynamodb_occurrences import store as occurrence_store
 from app.adapters.fastembed_embedding import embedding
 from app.adapters.fastembed_sparse import sparse_embedding
 from app.adapters.fuzzy import name_matcher
@@ -29,6 +32,7 @@ from app.ports import vector_store
 from app.service_layer import ask
 from app.service_layer import extract
 from app.service_layer import ingest
+from app.service_layer import occurrences
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -40,12 +44,18 @@ class Container:
         ingest_document: Indexes a PDF for question answering.
         ask_question: Answers a question from the indexed chunks.
         vector_store: The indexed chunks, read by the documents endpoints.
+        record_extraction: Extracts names and records every occurrence.
+        query_occurrences: Lists the recorded occurrences.
+        startup: Steps awaited once before serving, e.g. creating tables.
     """
 
     extract_names: extract.ExtractNames
     ingest_document: ingest.IngestDocument
     ask_question: ask.AskQuestion
     vector_store: vector_store.VectorStore
+    record_extraction: occurrences.ExtractAndRecord
+    query_occurrences: occurrences.QueryOccurrences
+    startup: tuple[Callable[[], Awaitable[None]], ...] = ()
 
 
 def collection_name(prefix: str, *model_names: str) -> str:
@@ -118,6 +128,25 @@ def build_llm(
     return langchain_llm.LangChainLlm(chat, observability, settings.deadline_s)
 
 
+def extractor_fingerprint(settings: config.Settings) -> str:
+    """Names the models and settings that shape extracted occurrences.
+
+    A change of any of them makes a re-extraction of the same content a new
+    generation instead of a skipped duplicate.
+
+    Args:
+        settings: The service configuration.
+
+    Returns:
+        E.g. ``ner=en_core_web_lg|ocr=eng@300dpi|match=0.9``.
+    """
+    return (
+        f"ner={settings.ner.model}"
+        f"|ocr={settings.ocr.languages}@{settings.render.dpi}dpi"
+        f"|match={settings.matcher.threshold}"
+    )
+
+
 def build_container(settings: config.Settings) -> Container:
     """Loads every model and client once and wires the use cases.
 
@@ -151,15 +180,19 @@ def build_container(settings: config.Settings) -> Container:
         ),
         dimension=embedder.dimension,
     )
+    extract_names = extract.ExtractNames(
+        renderer=renderer,
+        ocr=reader,
+        ner=ner.SpacyNer.load(settings.ner.model),
+        matcher=name_matcher.RapidFuzzNameMatcher(),
+        cpu=cpu,
+        threshold=settings.matcher.threshold,
+    )
+    recorded = occurrence_store.DynamoDbOccurrenceStore(
+        occurrence_store.build_client(settings.dynamodb), settings.occurrences
+    )
     return Container(
-        extract_names=extract.ExtractNames(
-            renderer=renderer,
-            ocr=reader,
-            ner=ner.SpacyNer.load(settings.ner.model),
-            matcher=name_matcher.RapidFuzzNameMatcher(),
-            cpu=cpu,
-            threshold=settings.matcher.threshold,
-        ),
+        extract_names=extract_names,
         ingest_document=ingest.IngestDocument(
             renderer=renderer,
             ocr=reader,
@@ -183,4 +216,15 @@ def build_container(settings: config.Settings) -> Container:
             top_k=settings.qdrant.top_k,
         ),
         vector_store=store,
+        record_extraction=occurrences.ExtractAndRecord(
+            extract_names,
+            recorded,
+            occurrences.RecordOccurrences(
+                recorded, extractor_fingerprint(settings)
+            ),
+        ),
+        query_occurrences=occurrences.QueryOccurrences(recorded),
+        startup=(
+            (recorded.ensure_table,) if settings.dynamodb.create_tables else ()
+        ),
     )
