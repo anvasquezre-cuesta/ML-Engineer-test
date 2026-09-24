@@ -171,6 +171,14 @@ class OccurrenceIntegrityError(AppError):
     title = "A stored document version is incomplete."
 
 
+class OccurrenceExportTooLargeError(AppError):
+    """An export holds more occurrences than one response may carry."""
+
+    code = "occurrence_export.too_large"
+    retryable = False
+    title = "The export is too large; filter it by document or name."
+
+
 class JobNotFoundError(AppError):
     """No job exists with the requested id.
 

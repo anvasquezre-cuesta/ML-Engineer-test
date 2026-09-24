@@ -47,6 +47,7 @@ def create_app(
         app.state.extract_names = container.extract_names
         app.state.record_extraction = container.record_extraction
         app.state.query_occurrences = container.query_occurrences
+        app.state.export_occurrences = container.export_occurrences
         app.state.submit_job = container.submit_job
         app.state.query_jobs = container.query_jobs
         app.state.process_job = container.process_job

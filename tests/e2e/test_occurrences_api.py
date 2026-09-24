@@ -100,3 +100,38 @@ def test_export_that_cannot_be_read_fails_instead_of_looking_empty(
 
     assert response.status_code == 500
     assert response.json()["code"] == "occurrence_store.integrity"
+
+
+@pytest.mark.xfail(strict=True, raises=AssertionError)
+def test_export_failing_after_the_first_document_sends_no_partial_file() -> (
+    None
+):
+    recorded = occurrence_store.InMemoryOccurrenceStore()
+    with wiring.fake_client(recorded=recorded) as client:
+        extract(client, document_key="memo")
+        extract(client, document_key="minutes")
+        recorded.fail_reads_after = 1
+        response = client.get(
+            "/api/occurrences/export", params={"format": "csv"}
+        )
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "occurrence_store.unavailable"
+
+
+@pytest.mark.xfail(strict=True, raises=AssertionError)
+def test_export_counts_its_rows_and_refuses_more_than_the_limit() -> None:
+    export = "/api/occurrences/export"
+    with wiring.fake_client(export_limit=2) as client:
+        extract(client, document_key="memo")
+        one = client.get(export, params={"format": "json"})
+        extract(client, document_key="minutes")
+        both = client.get(export, params={"format": "json"})
+        narrowed = client.get(
+            export, params={"format": "json", "document_key": "minutes"}
+        )
+
+    assert one.headers.get("X-Row-Count") == str(len(one.json())) == "2"
+    assert both.status_code == 422
+    assert both.json()["code"] == "occurrence_export.too_large"
+    assert narrowed.headers.get("X-Row-Count") == "2"

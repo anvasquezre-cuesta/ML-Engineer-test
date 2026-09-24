@@ -37,6 +37,7 @@ ERROR_STATUS = types.MappingProxyType(
         "llm.not_configured": 503,
         "occurrence_store.unavailable": 503,
         "occurrence_store.integrity": 500,
+        "occurrence_export.too_large": 422,
         "job.not_found": 404,
         "job.input_missing": 500,
         "job.lease_expired": 500,

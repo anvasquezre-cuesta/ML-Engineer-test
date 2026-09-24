@@ -208,3 +208,36 @@ class QueryOccurrences:
             for row in rows:
                 if wanted is None or wanted in row.normalized_name:
                     yield row
+
+
+class ExportOccurrences:
+    """Reads a whole export before any of it is sent."""
+
+    def __init__(self, query: QueryOccurrences, max_rows: int) -> None:
+        """Initializes the use case.
+
+        Args:
+            query: Streams the current occurrences.
+            max_rows: Most occurrences one export may hold.
+        """
+        self._query = query
+        self._max_rows = max_rows
+
+    async def __call__(
+        self, document_key: str | None = None, name: str | None = None
+    ) -> list[occurrences.StoredOccurrence]:
+        """Returns every current occurrence matching the filters.
+
+        Reading stops at the first occurrence past the limit.
+
+        Args:
+            document_key: Only this document, if given.
+            name: Only names containing it, ignoring case and accents.
+
+        Returns:
+            The occurrences, document by document, in ordinal order.
+
+        Raises:
+            NotImplementedError: Always, until implemented.
+        """
+        raise NotImplementedError

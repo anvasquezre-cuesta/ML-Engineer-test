@@ -54,6 +54,7 @@ class Container:
         vector_store: The indexed chunks, read by the documents endpoints.
         record_extraction: Extracts names and records every occurrence.
         query_occurrences: Lists the recorded occurrences.
+        export_occurrences: Reads a whole occurrence export.
         submit_job: Queues an extraction or ingestion.
         query_jobs: Reads jobs and their results.
         process_job: Runs one delivered job; used by the worker.
@@ -68,6 +69,7 @@ class Container:
     vector_store: vector_store.VectorStore
     record_extraction: occurrences.ExtractAndRecord
     query_occurrences: occurrences.QueryOccurrences
+    export_occurrences: occurrences.ExportOccurrences
     submit_job: job_service.SubmitJob
     query_jobs: job_service.QueryJobs
     process_job: job_service.ProcessJob
@@ -254,6 +256,7 @@ def build_container(settings: config.Settings) -> Container:
     record = occurrences.RecordOccurrences(
         recorded, extractor_fingerprint(settings)
     )
+    query_occurrences = occurrences.QueryOccurrences(recorded)
     ingest_document = ingest.IngestDocument(
         renderer=renderer,
         ocr=reader,
@@ -283,7 +286,10 @@ def build_container(settings: config.Settings) -> Container:
         record_extraction=occurrences.ExtractAndRecord(
             extract_names, recorded, record
         ),
-        query_occurrences=occurrences.QueryOccurrences(recorded),
+        query_occurrences=query_occurrences,
+        export_occurrences=occurrences.ExportOccurrences(
+            query_occurrences, settings.export.max_rows
+        ),
         submit_job=job_service.SubmitJob(
             blobs,
             repository,

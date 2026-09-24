@@ -114,6 +114,7 @@ def fake_container(
             threshold=0.9,
         )
         record = occurrence_service.RecordOccurrences(recorded, "fake")
+        query_occurrences = occurrence_service.QueryOccurrences(recorded)
         ingest_document = ingest_service.IngestDocument(
             renderer=renderer,
             ocr=reader,
@@ -139,7 +140,10 @@ def fake_container(
             record_extraction=occurrence_service.ExtractAndRecord(
                 extract_names, recorded, record
             ),
-            query_occurrences=occurrence_service.QueryOccurrences(recorded),
+            query_occurrences=query_occurrences,
+            export_occurrences=occurrence_service.ExportOccurrences(
+                query_occurrences, settings.export.max_rows
+            ),
             submit_job=job_service.SubmitJob(
                 kit.blobs, kit.repository, kit.queue, recorded, 3, utc_now
             ),
@@ -170,6 +174,7 @@ def fake_client(
     recorded: occurrence_store.InMemoryOccurrenceStore | None = None,
     jobs: JobKit | None = None,
     upload_limit: int = UPLOAD_LIMIT,
+    export_limit: int = 1000,
     raise_server_exceptions: bool = False,
 ) -> Iterator[testclient.TestClient]:
     """Runs an app wired to fakes.
@@ -180,6 +185,7 @@ def fake_client(
         recorded: The occurrence store; an empty one by default.
         jobs: The job infrastructure; an empty kit by default.
         upload_limit: Largest accepted upload in bytes.
+        export_limit: Most occurrences one export may hold.
         raise_server_exceptions: Re-raise unhandled server errors in the
             test instead of returning a 500.
 
@@ -187,7 +193,9 @@ def fake_client(
         The running test client.
     """
     settings = config.Settings(
-        _env_file=None, upload=config.UploadSettings(max_bytes=upload_limit)
+        _env_file=None,
+        upload=config.UploadSettings(max_bytes=upload_limit),
+        export=config.ExportSettings(max_rows=export_limit),
     )
     factory = fake_container(
         renderer or page_renderer_fake.BlankPageRenderer(1),

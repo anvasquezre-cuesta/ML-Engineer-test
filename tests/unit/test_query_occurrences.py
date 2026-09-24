@@ -56,3 +56,29 @@ async def test_version_missing_occurrences_is_never_returned_partly() -> None:
 
     with pytest.raises(errors.OccurrenceIntegrityError):
         [o async for o in query()]
+
+
+@pytest.mark.xfail(strict=True, raises=NotImplementedError)
+async def test_export_holding_exactly_the_limit_is_returned_whole() -> None:
+    store = await stored(
+        {"memo.pdf": ["Anna Berg"], "minutes.pdf": ["Omar Haddad"]}
+    )
+    query = occurrence_service.QueryOccurrences(store)
+    export = occurrence_service.ExportOccurrences(query, max_rows=2)
+
+    rows = await export()
+
+    assert sorted(o.name for o in rows) == ["Anna Berg", "Omar Haddad"]
+
+
+@pytest.mark.xfail(strict=True, raises=NotImplementedError)
+async def test_export_past_the_limit_is_refused_without_reading_on() -> None:
+    store = await stored(
+        {"a.pdf": ["Anna Berg"], "b.pdf": ["Omar Haddad"], "c.pdf": ["Li Wei"]}
+    )
+    store.fail_reads_after = 2
+    query = occurrence_service.QueryOccurrences(store)
+    export = occurrence_service.ExportOccurrences(query, max_rows=1)
+
+    with pytest.raises(errors.OccurrenceExportTooLargeError):
+        await export()

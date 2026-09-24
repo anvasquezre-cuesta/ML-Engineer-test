@@ -307,6 +307,17 @@ class OccurrenceSettings(pydantic.BaseModel):
     batch_backoff_s: float = pydantic.Field(default=0.05, ge=0)
 
 
+class ExportSettings(pydantic.BaseModel):
+    """Occurrence exports, which are read whole before they are sent.
+
+    Attributes:
+        max_rows: Most occurrences one export returns; a larger export is
+            refused, so memory per export stays bounded.
+    """
+
+    max_rows: int = pydantic.Field(default=50_000, ge=1)
+
+
 class JobSettings(pydantic.BaseModel):
     """Asynchronous job tracking in DynamoDB.
 
@@ -413,6 +424,7 @@ class Settings(pydantic_settings.BaseSettings):
         queue: Job queue.
         dynamodb: DynamoDB access.
         occurrences: Name occurrence store.
+        export: Occurrence exports.
         jobs: Job tracking.
         cpu: CPU-bound work.
         logging: Structured logging.
@@ -444,6 +456,7 @@ class Settings(pydantic_settings.BaseSettings):
     queue: QueueSettings = QueueSettings()
     dynamodb: DynamoDbSettings = DynamoDbSettings()
     occurrences: OccurrenceSettings = OccurrenceSettings()
+    export: ExportSettings = ExportSettings()
     jobs: JobSettings = JobSettings()
     cpu: CpuSettings = CpuSettings()
     logging: LoggingSettings = LoggingSettings()
