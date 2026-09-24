@@ -316,6 +316,7 @@ class JobSettings(pydantic.BaseModel):
         queued_stale_s: Seconds a job may wait in ``queued`` before the
             reaper publishes it again.
         reap_limit: Most jobs of each kind handled per reaper pass.
+        reap_interval_s: Seconds between reaper passes in the worker.
         dynamodb_table: DynamoDB table name.
     """
 
@@ -323,6 +324,7 @@ class JobSettings(pydantic.BaseModel):
     lease_s: float = pydantic.Field(default=300.0, gt=0)
     queued_stale_s: float = pydantic.Field(default=120.0, gt=0)
     reap_limit: int = pydantic.Field(default=100, ge=1)
+    reap_interval_s: float = pydantic.Field(default=30.0, gt=0)
     dynamodb_table: str = "docintel-jobs"
 
 

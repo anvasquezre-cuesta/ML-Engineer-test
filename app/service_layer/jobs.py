@@ -11,6 +11,7 @@ import dataclasses
 import datetime
 import hashlib
 import json
+from typing import Any
 import uuid
 
 import structlog
@@ -373,9 +374,17 @@ class QueryJobs:
             The job and its result, or ``None`` until it succeeded.
 
         Raises:
-            NotImplementedError: Always; not built yet.
+            errors.JobNotFoundError: If no job has this id.
         """
-        raise NotImplementedError
+        job = await self._repository.get(job_id)
+        if job is None:
+            raise errors.JobNotFoundError(job_id)
+        if job.status is not jobs.JobStatus.SUCCEEDED or not job.result_key:
+            return job, None
+        stored = await self._blobs.get(job.result_key)
+        if stored is None:
+            return job, None
+        return job, _result(job.kind, json.loads(stored))
 
     async def list_by_status(
         self, status: jobs.JobStatus, limit: int
@@ -388,8 +397,34 @@ class QueryJobs:
 
         Returns:
             The jobs.
-
-        Raises:
-            NotImplementedError: Always; not built yet.
         """
-        raise NotImplementedError
+        return await self._repository.list_by_status(status, limit)
+
+
+def _result(kind: jobs.JobKind, payload: dict[str, Any]) -> JobResult:
+    """Rebuilds a stored job result.
+
+    Args:
+        kind: The job's kind.
+        payload: The result as stored by ``ProcessJob``.
+
+    Returns:
+        The extraction or ingest result.
+    """
+    if kind is jobs.JobKind.INGEST:
+        return rag.IngestResult(
+            str(payload["document_key"]),
+            rag.IngestStatus(payload["status"]),
+            int(payload["chunks_stored"]),
+        )
+    return extraction.ExtractionResult(
+        occurrences=tuple(
+            extraction.NameOccurrence(
+                str(o["name"]),
+                int(o["page_number"]),
+                extraction.Box(**o["box"]),
+            )
+            for o in payload["occurrences"]
+        ),
+        matches=tuple(extraction.NameMatch(**m) for m in payload["matches"]),
+    )

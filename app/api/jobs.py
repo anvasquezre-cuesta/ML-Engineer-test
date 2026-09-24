@@ -7,7 +7,10 @@ import fastapi
 
 from app import config
 from app.api import extract as extract_api
+from app.domain import extraction
 from app.domain import jobs
+from app.domain import pdf_validation
+from app.domain import rag
 from app.models import schemas
 from app.service_layer import jobs as job_service
 
@@ -65,11 +68,17 @@ async def submit_extract(
 
     Returns:
         The queued job.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
     """
-    raise NotImplementedError
+    try:
+        queries = extract_api.parse_names(names)
+        content = await pdf_file.read(limits.max_bytes + 1)
+    finally:
+        await pdf_file.close()
+    pdf_validation.validate_pdf(content, limits.max_bytes)
+    job = await submit(
+        jobs.JobKind.EXTRACT, content, document_key, pdf_file.filename, queries
+    )
+    return _accepted(job)
 
 
 @router.post("/jobs/ingest", status_code=202)
@@ -90,11 +99,16 @@ async def submit_ingest(
 
     Returns:
         The queued job.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
     """
-    raise NotImplementedError
+    try:
+        content = await pdf_file.read(limits.max_bytes + 1)
+    finally:
+        await pdf_file.close()
+    pdf_validation.validate_pdf(content, limits.max_bytes)
+    job = await submit(
+        jobs.JobKind.INGEST, content, document_key, pdf_file.filename
+    )
+    return _accepted(job)
 
 
 @router.get("/jobs/{job_id}")
@@ -107,11 +121,9 @@ async def get_job(job_id: str, query: Query) -> schemas.JobRecord:
 
     Returns:
         The job.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
     """
-    raise NotImplementedError
+    job, result = await query.get(job_id)
+    return _record(job, result)
 
 
 @router.get("/jobs")
@@ -129,8 +141,60 @@ async def list_jobs(
 
     Returns:
         The jobs, without results.
-
-    Raises:
-        NotImplementedError: Always; not built yet.
     """
-    raise NotImplementedError
+    found = await query.list_by_status(status, limit)
+    return [_record(job, None) for job in found]
+
+
+def _accepted(job: jobs.Job) -> schemas.JobAccepted:
+    """Maps a queued job to the submit response.
+
+    Args:
+        job: The queued job.
+
+    Returns:
+        The response body.
+    """
+    return schemas.JobAccepted(
+        job_id=job.job_id,
+        status=str(job.status),
+        document_key=job.document_key or "",
+    )
+
+
+def _record(
+    job: jobs.Job,
+    result: extraction.ExtractionResult | rag.IngestResult | None,
+) -> schemas.JobRecord:
+    """Maps a job and its result to the API shape.
+
+    Args:
+        job: The job.
+        result: Its result, if it succeeded.
+
+    Returns:
+        The response body.
+    """
+    extracted = None
+    ingested = None
+    if isinstance(result, extraction.ExtractionResult):
+        extracted = extract_api.extraction_response(result)
+    elif isinstance(result, rag.IngestResult):
+        ingested = schemas.IngestResponse(
+            status=str(result.status), chunks_stored=result.chunks_stored
+        )
+    return schemas.JobRecord(
+        job_id=job.job_id,
+        kind=str(job.kind),
+        status=str(job.status),
+        dead_lettered=job.dead_lettered,
+        attempts=job.attempts,
+        max_attempts=job.max_attempts,
+        document_key=job.document_key,
+        last_error_code=job.last_error_code,
+        last_error_message=job.last_error_message,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        extraction=extracted,
+        ingestion=ingested,
+    )

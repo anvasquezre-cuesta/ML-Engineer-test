@@ -109,6 +109,20 @@ async def extract(
         names_found=len(result.occurrences),
         matches=len(result.matches),
     )
+    return extraction_response(result)
+
+
+def extraction_response(
+    result: extraction.ExtractionResult,
+) -> schemas.ExtractionResponse:
+    """Maps an extraction result to the API response.
+
+    Args:
+        result: The occurrences and matches.
+
+    Returns:
+        The response body.
+    """
     return schemas.ExtractionResponse(
         extracted_names=[
             schemas.ExtractedName(

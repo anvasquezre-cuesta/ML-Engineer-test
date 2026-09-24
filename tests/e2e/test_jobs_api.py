@@ -12,12 +12,7 @@ from app.ports import page_renderer
 from tests.e2e import wiring
 from tests.fakes import jobs as job_fakes
 
-pytestmark = [
-    pytest.mark.e2e,
-    pytest.mark.xfail(
-        strict=True, raises=NotImplementedError, reason="jobs API not built"
-    ),
-]
+pytestmark = pytest.mark.e2e
 
 PDF = b"%PDF-1.7\nminutes"
 NAMES = json.dumps([{"first_name": "Anna", "last_name": "Berg"}])

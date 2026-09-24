@@ -65,6 +65,8 @@ def utc_now() -> datetime.datetime:
         The time (UTC).
     """
     return datetime.datetime.now(datetime.UTC)
+
+
 PAGE = builders.page_words([["Dr. Anna Berg met Lucas Moreau"]])
 
 

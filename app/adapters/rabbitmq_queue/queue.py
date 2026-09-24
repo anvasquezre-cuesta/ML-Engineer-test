@@ -97,6 +97,7 @@ class RabbitMqJobQueue(job_queue.JobQueue):
         Args:
             message: The job message.
         """
+        await self._open()
         await self._send(self._queue, jobs.encode_message(message).encode())
 
     async def consume(self) -> AsyncIterator[job_queue.Delivery]:
@@ -111,6 +112,7 @@ class RabbitMqJobQueue(job_queue.JobQueue):
         Raises:
             errors.JobQueueUnavailableError: If the consumer cannot start.
         """
+        await self._open()
         if self._consumer_tag is None:
             try:
                 self._consumer_tag = await self._opened().consume(
@@ -177,6 +179,11 @@ class RabbitMqJobQueue(job_queue.JobQueue):
             await exchange.publish(message, routing_key=routing_key)
         except _FAILURES as exc:
             raise errors.JobQueueUnavailableError() from exc
+
+    async def _open(self) -> None:
+        """Connects on first use, so the API starts while the broker is down."""
+        if self._work is None:
+            await self.connect()
 
     def _opened(self) -> pika_abc.AbstractQueue:
         """Returns the declared work queue.

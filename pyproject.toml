@@ -152,7 +152,7 @@ include_external_packages = true
 name = "Layered architecture"
 type = "layers"
 layers = [
-    "(app.main)",
+    "(app.main) | (app.worker_main)",
     "(app.bootstrap)",
     "(app.api) | (app.worker)",
     "(app.service_layer) | (app.adapters)",
