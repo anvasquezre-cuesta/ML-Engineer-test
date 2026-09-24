@@ -93,6 +93,7 @@ skip-checking-short-docstrings = false
 # under the class "Attributes:"; pydoclint only sees class-level variables.
 allow-init-docstring = true
 check-class-attributes = false
+native-mode-noqa-location = "definition"
 
 [tool.mypy]
 python_version = "3.12"
