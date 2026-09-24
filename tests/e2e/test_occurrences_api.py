@@ -86,7 +86,6 @@ def test_store_outage_fails_extract_without_returning_names() -> None:
     assert "Anna" not in response.text
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError)
 @pytest.mark.parametrize("export_format", ["json", "csv"])
 def test_export_that_cannot_be_read_fails_instead_of_looking_empty(
     export_format: str,

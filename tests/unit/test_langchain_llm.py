@@ -133,7 +133,6 @@ BOTO = botocore.exceptions
             ),
             NOT_CONFIGURED,
             id="bedrock-unknown-model",
-            marks=pytest.mark.xfail(strict=True, raises=BOTO.ClientError),
         ),
         pytest.param(
             openai.NotFoundError(
@@ -141,7 +140,6 @@ BOTO = botocore.exceptions
             ),
             NOT_CONFIGURED,
             id="openai-unknown-model",
-            marks=pytest.mark.xfail(strict=True, raises=openai.NotFoundError),
         ),
         (ValueError("bug"), ValueError),
     ],

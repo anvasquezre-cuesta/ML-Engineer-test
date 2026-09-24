@@ -94,7 +94,7 @@ async def export_occurrences(
     Returns:
         The download.
     """
-    rows = query(document_key=document_key, name=name)
+    rows = await _read_ahead(query(document_key=document_key, name=name))
     if export_format == "csv":
         body, media_type = _csv_lines(rows), "text/csv"
     else:
@@ -135,6 +135,32 @@ def _record(
             height=occurrence.box.height,
         ),
     )
+
+
+async def _read_ahead(
+    rows: AsyncIterator[occurrences.StoredOccurrence],
+) -> AsyncIterator[occurrences.StoredOccurrence]:
+    """Reads the first occurrence before the response starts.
+
+    A store failure up to that point is then an error response, not a
+    successful download that looks empty.
+
+    Args:
+        rows: The occurrences.
+
+    Returns:
+        The same occurrences, the first one already read.
+    """
+    first = await anext(rows, None)
+
+    async def replay() -> AsyncIterator[occurrences.StoredOccurrence]:
+        if first is None:
+            return
+        yield first
+        async for row in rows:
+            yield row
+
+    return replay()
 
 
 async def _json_array(

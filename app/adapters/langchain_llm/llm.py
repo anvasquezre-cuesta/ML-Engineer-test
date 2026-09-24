@@ -32,6 +32,8 @@ _BEDROCK_NOT_CONFIGURED = frozenset(
     }
 )
 
+_UNKNOWN_MODEL = "The configured model does not exist."
+
 log = structlog.stdlib.get_logger(__name__)
 
 
@@ -124,12 +126,19 @@ def _translate(exc: Exception) -> errors.AppError | None:
             code="insufficient_quota" | "credit_balance_exhausted"
         ):
             return errors.LlmNotConfiguredError("The account has no credit.")
+        case openai.NotFoundError(code="model_not_found"):
+            return errors.LlmNotConfiguredError(_UNKNOWN_MODEL)
         case openai.APIStatusError(status_code=code) if (
             code == 429 or code >= 500
         ):
             return errors.LlmUnavailableError()
         case botocore.exceptions.ClientError():
-            aws_code = exc.response.get("Error", {}).get("Code", "")
+            aws_error = exc.response.get("Error", {})
+            aws_code = aws_error.get("Code", "")
+            if aws_code == "ValidationException" and (
+                "model identifier" in aws_error.get("Message", "")
+            ):
+                return errors.LlmNotConfiguredError(_UNKNOWN_MODEL)
             if aws_code in _BEDROCK_UNAVAILABLE:
                 return errors.LlmUnavailableError()
             if aws_code in _BEDROCK_NOT_CONFIGURED:

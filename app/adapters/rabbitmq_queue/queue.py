@@ -18,7 +18,13 @@ from app.domain import errors
 from app.domain import jobs
 from app.ports import job_queue
 
-_FAILURES = (aio_pika.exceptions.AMQPError, aiormq.AMQPError, OSError)
+# A channel closed under a lost connection raises a RuntimeError subclass.
+_FAILURES = (
+    aio_pika.exceptions.AMQPError,
+    aiormq.AMQPError,
+    aiormq.exceptions.ChannelInvalidStateError,
+    OSError,
+)
 
 
 class RabbitMqJobQueue(job_queue.JobQueue):
