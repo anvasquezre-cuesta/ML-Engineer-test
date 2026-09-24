@@ -41,9 +41,7 @@ class AskQuestion:
         self._cpu = cpu
         self._top_k = top_k
 
-    async def __call__(  # noqa: DOC501, DOC503
-        self, question: str
-    ) -> answering.Answer:
+    async def __call__(self, question: str) -> answering.Answer:
         """Answers ``question`` from the retrieved chunks only.
 
         With nothing retrieved the model is not called and the answer is the
@@ -56,4 +54,16 @@ class AskQuestion:
         Returns:
             The answer and the retrieved chunks it rests on.
         """
-        raise NotImplementedError
+        vector = await self._cpu.run(self._embedder.embed_query, question)
+        hits = await self._store.search(vector, self._top_k)
+        if not hits:
+            return answering.refused(self._prompts.refusal)
+        chunks = [hit.chunk for hit in hits]
+        prompt = self._prompts.answer(question, answering.passages(chunks))
+        completion = await self._llm.complete(prompt)
+        answer = answering.read_answer(
+            completion, chunks, self._prompts.refusal
+        )
+        if not answer.refused and not answer.cited:
+            log.warning("ask.uncited_answer", chunks=len(chunks))
+        return answer

@@ -1,6 +1,5 @@
 """Ask against an in-memory Qdrant with a scripted model."""
 
-import pytest
 import qdrant_client
 
 from app import config
@@ -11,10 +10,6 @@ from app.service_layer import ask
 from tests.fakes import cpu_runner
 from tests.fakes import embedding
 from tests.fakes import llm as llm_fake
-
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="ask not built yet"
-)
 
 HIRING = "Anna Berg will lead hiring for the data team starting in March."
 BUDGET = "The board approved the laboratory budget for next year."
