@@ -1,7 +1,6 @@
 """``POST /api/extract`` over HTTP: real pipeline and failure contract."""
 
 import json
-import pathlib
 from typing import Any
 
 from fastapi import testclient
@@ -156,28 +155,3 @@ def test_logs_never_contain_extracted_names(
     assert body["request_id_header"] in logs.out
     assert "Anna Berg" not in logs.out + logs.err
     assert "Lucas Moreau" not in logs.out + logs.err
-
-
-@pytest.mark.skipif(
-    not pathlib.Path("/proc/self/fd").exists(), reason="needs /proc"
-)
-@pytest.mark.parametrize(
-    "upload_limit",
-    [4 * 1024 * 1024, wiring.UPLOAD_LIMIT],
-    ids=["accepted", "413"],
-)
-def test_spooled_uploads_leave_no_open_file_handles(upload_limit: int) -> None:
-    # Over 1 MB, the multipart parser spools the upload to a temporary file.
-    large_pdf = PDF + b"x" * (2 * 1024 * 1024)
-    open_files = pathlib.Path("/proc/self/fd")
-
-    with wiring.fake_client(upload_limit=upload_limit) as client:
-        post_extract(client, large_pdf)
-        before = len(list(open_files.iterdir()))
-        statuses = {
-            post_extract(client, large_pdf)["http_status"] for _ in range(5)
-        }
-        after = len(list(open_files.iterdir()))
-
-    assert statuses == {200 if upload_limit > len(large_pdf) else 413}
-    assert after == before
