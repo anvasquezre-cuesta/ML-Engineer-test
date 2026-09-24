@@ -306,7 +306,13 @@ class EvalSettings(pydantic.BaseModel):
         concurrency: Questions evaluated at the same time.
         max_judge_calls: Judge calls allowed per evaluation; the run stops
             when it is spent.
-        report_dir: Where the reports are written.
+        report_dir: Where the reports and per-question outcomes are written.
+        question_sets: ``samples`` (the verified questions and their
+            evidence-withheld copies) and ``reworded`` (reworded and
+            near-miss questions).
+        split: Split of the reworded set to run.
+        requests_per_minute: Generator calls allowed per minute; empty
+            leaves them unpaced.
     """
 
     judge_model: str = "us.anthropic.claude-sonnet-4-6"
@@ -314,6 +320,12 @@ class EvalSettings(pydantic.BaseModel):
     concurrency: int = pydantic.Field(default=4, ge=1)
     max_judge_calls: int = pydantic.Field(default=1500, ge=1)
     report_dir: pathlib.Path = pathlib.Path(".cache/eval/reports")
+    question_sets: list[Literal["samples", "reworded"]] = [
+        "samples",
+        "reworded",
+    ]
+    split: Literal["all", "dev", "heldout"] = "all"
+    requests_per_minute: int | None = pydantic.Field(default=None, ge=1)
 
 
 class LoggingSettings(pydantic.BaseModel):

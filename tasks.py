@@ -158,6 +158,24 @@ def evaluate(c: context.Context) -> None:
     )
 
 
+@tasks.task(name="eval-compare")
+def eval_compare(c: context.Context, baseline: str, candidate: str) -> None:
+    """Decides whether a candidate prompt may replace the shipped one.
+
+    Args:
+        c: Invoke context.
+        baseline: Outcomes file written by ``invoke eval`` on the shipped
+            prompts.
+        candidate: Outcomes file of the candidate prompts.
+    """
+    c.run(
+        f"uv run --extra eval python -m evaluation compare {baseline} "
+        f"{candidate}",
+        env=DEEPEVAL_OPT_OUTS,
+        pty=True,
+    )
+
+
 @tasks.task
 def commit_size(c: context.Context, limit: int = COMMIT_SIZE_LIMIT) -> None:
     """Fails when the staged Python change exceeds the line limit.
@@ -211,6 +229,7 @@ namespace = collection.Collection(
     test,
     test_docker,
     evaluate,
+    eval_compare,
     commit_size,
     git_status,
     prepare,

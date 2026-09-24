@@ -1,6 +1,7 @@
 """The verified sample questions and the frozen OCR text they refer to."""
 
 import pathlib
+from typing import Literal
 
 import pydantic
 
@@ -38,6 +39,16 @@ class Question(pydantic.BaseModel):
     evidence: list[Evidence]
 
 
+class SplitQuestion(Question):
+    """A reworded or near-miss question with its evaluation split.
+
+    Attributes:
+        split: ``dev`` guides diagnosis; ``heldout`` decides adoption.
+    """
+
+    split: Literal["dev", "heldout"]
+
+
 class Page(pydantic.BaseModel):
     """Frozen OCR text of one sample page.
 
@@ -62,6 +73,16 @@ class _Questions(pydantic.BaseModel):
     questions: list[Question]
 
 
+class _SplitQuestions(pydantic.BaseModel):
+    """Shape of ``reworded.json``.
+
+    Attributes:
+        questions: The questions.
+    """
+
+    questions: list[SplitQuestion]
+
+
 class _Pages(pydantic.BaseModel):
     """Shape of ``ocr_pages.json``.
 
@@ -80,6 +101,20 @@ def questions() -> list[Question]:
     """
     raw = (DATA_DIR / "samples.json").read_text(encoding="utf-8")
     return _Questions.model_validate_json(raw).questions
+
+
+def reworded(split: Literal["all", "dev", "heldout"]) -> list[SplitQuestion]:
+    """Loads the frozen reworded and near-miss questions.
+
+    Args:
+        split: The split to load, or ``all``.
+
+    Returns:
+        The questions; near-miss ones have no answer and must be refused.
+    """
+    raw = (DATA_DIR / "reworded.json").read_text(encoding="utf-8")
+    loaded = _SplitQuestions.model_validate_json(raw).questions
+    return [q for q in loaded if split in ("all", q.split)]
 
 
 def pages() -> list[Page]:
