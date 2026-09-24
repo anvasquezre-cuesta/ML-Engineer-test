@@ -12,7 +12,7 @@ from app.domain import errors
 from app.domain import extraction
 from app.domain import pdf_validation
 from app.models import schemas
-from app.service_layer import extract as extract_service
+from app.service_layer import occurrences as occurrence_service
 
 router = fastapi.APIRouter()
 log = structlog.stdlib.get_logger(__name__)
@@ -20,16 +20,21 @@ log = structlog.stdlib.get_logger(__name__)
 _NAME_PAIRS = pydantic.TypeAdapter(list[schemas.NamePair])
 
 
-def use_case(request: fastapi.Request) -> extract_service.ExtractNames:
+def use_case(
+    request: fastapi.Request,
+) -> occurrence_service.ExtractAndRecord:
     """Returns the use case built at startup.
 
     Args:
         request: The current request.
 
     Returns:
-        The extraction use case.
+        The use case that extracts and records names.
     """
-    return cast(extract_service.ExtractNames, request.app.state.extract_names)
+    return cast(
+        occurrence_service.ExtractAndRecord,
+        request.app.state.record_extraction,
+    )
 
 
 def upload_settings(request: fastapi.Request) -> config.UploadSettings:
@@ -68,17 +73,23 @@ async def extract(
     pdf_file: fastapi.UploadFile,
     names: Annotated[str, fastapi.Form()],
     extract_names: Annotated[
-        extract_service.ExtractNames, fastapi.Depends(use_case)
+        occurrence_service.ExtractAndRecord, fastapi.Depends(use_case)
     ],
     limits: Annotated[config.UploadSettings, fastapi.Depends(upload_settings)],
+    document_key: Annotated[str | None, fastapi.Form()] = None,
 ) -> schemas.ExtractionResponse:
-    """Finds every person name in a scanned PDF and fuzzy-matches it.
+    """Finds every person name in a scanned PDF, records and matches it.
+
+    Every returned occurrence is recorded first, under ``document_key`` or
+    else the filename.
 
     Args:
         pdf_file: The uploaded PDF.
         names: JSON list of the names to match against.
-        extract_names: The extraction use case.
+        extract_names: Extracts and records the names.
         limits: Upload limits.
+        document_key: Key to record the document under, if not the
+            filename.
 
     Returns:
         Every name occurrence with its box in PDF points, and the matches.
@@ -90,7 +101,9 @@ async def extract(
     finally:
         await pdf_file.close()
     pdf_validation.validate_pdf(content, limits.max_bytes)
-    result = await extract_names(content, queries)
+    result = await extract_names(
+        content, queries, document_key, pdf_file.filename
+    )
     log.info(
         "extract.completed",
         names_found=len(result.occurrences),

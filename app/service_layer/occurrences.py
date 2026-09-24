@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator
 from collections.abc import Sequence
+import hashlib
 import uuid
 
 import structlog
@@ -153,11 +154,13 @@ class ExtractAndRecord:
 
         Returns:
             The occurrences and matches, all recorded.
-
-        Raises:
-            NotImplementedError: Always; not built yet.
         """
-        raise NotImplementedError
+        content_hash = hashlib.sha256(pdf).hexdigest()
+        key = document_key or filename or f"sha256:{content_hash}"
+        order = await self._writer.allocate_order(key)
+        result = await self._extract_names(pdf, queries)
+        await self._record(key, content_hash, order, result.occurrences, "sync")
+        return result
 
 
 class QueryOccurrences:

@@ -39,9 +39,6 @@ def extract(
     )
 
 
-@pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="not recorded yet"
-)
 def test_extracted_names_are_stored_listed_and_exported_as_returned() -> None:
     with wiring.fake_client(raise_server_exceptions=True) as client:
         returned = extract(client).json()["extracted_names"]
@@ -75,7 +72,6 @@ def test_extracted_names_are_stored_listed_and_exported_as_returned() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="extract does not record yet")
 def test_store_outage_fails_extract_without_returning_names() -> None:
     recorded = occurrence_store.InMemoryOccurrenceStore()
     recorded.fail_after = 0
