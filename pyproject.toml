@@ -119,8 +119,8 @@ module = [
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
-# pytesseract ships no type information and has no stub package.
-module = ["pytesseract"]
+# pytesseract and pytrec_eval ship no type information and have no stubs.
+module = ["pytesseract", "pytrec_eval"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]

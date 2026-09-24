@@ -6,10 +6,6 @@ from app.domain import rag
 from evaluation import dataset
 from evaluation import retrieval
 
-pytestmark = pytest.mark.xfail(
-    strict=True, raises=NotImplementedError, reason="evaluation not built"
-)
-
 
 def chunk(document: str, page: int, index: int, text: str) -> rag.Chunk:
     """Builds a chunk of ``document``.

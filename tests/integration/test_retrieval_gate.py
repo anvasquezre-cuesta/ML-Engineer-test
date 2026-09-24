@@ -5,12 +5,7 @@ import pytest
 from app import config
 from evaluation import retrieval
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.xfail(
-        strict=True, raises=NotImplementedError, reason="evaluation not built"
-    ),
-]
+pytestmark = pytest.mark.integration
 
 
 async def test_hybrid_retrieval_keeps_its_measured_quality() -> None:

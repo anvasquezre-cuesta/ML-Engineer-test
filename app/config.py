@@ -152,7 +152,7 @@ class QdrantSettings(pydantic.BaseModel):
     backoff_initial_s: float = pydantic.Field(default=0.2, ge=0)
     backoff_max_s: float = pydantic.Field(default=2.0, ge=0)
     deadline_s: float = pydantic.Field(default=15.0, gt=0)
-    top_k: int = pydantic.Field(default=5, ge=1)
+    top_k: int = pydantic.Field(default=8, ge=1)
     prefetch_limit: int = pydantic.Field(default=100, ge=1)
     rrf_k: int = pydantic.Field(default=60, ge=1)
     corpus_idf: bool = True
