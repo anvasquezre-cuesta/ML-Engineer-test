@@ -5,6 +5,8 @@ assert against exactly these shapes. Optional fields may be added, but nothing
 here may be removed or renamed.
 """
 
+import datetime
+
 import pydantic
 
 
@@ -154,6 +156,55 @@ class NameOccurrenceRecord(pydantic.BaseModel):
     generation: str
     name: str
     bounding_box: BoundingBox
+
+
+class JobAccepted(pydantic.BaseModel):
+    """Response of ``POST /api/jobs/extract`` and ``/api/jobs/ingest``.
+
+    Attributes:
+        job_id: Id to poll with ``GET /api/jobs/{job_id}``.
+        status: ``queued``.
+        document_key: The document the job works on.
+    """
+
+    job_id: str
+    status: str
+    document_key: str
+
+
+class JobRecord(pydantic.BaseModel):
+    """State of an asynchronous job, as returned by ``GET /api/jobs``.
+
+    Attributes:
+        job_id: Id of the job.
+        kind: ``extract`` or ``ingest``.
+        status: ``queued``, ``running``, ``retrying``, ``succeeded`` or
+            ``dead_lettered``.
+        dead_lettered: Whether the job was given up on.
+        attempts: Times a worker started the job.
+        max_attempts: Attempts allowed.
+        document_key: The document the job works on.
+        last_error_code: Code of the most recent failure.
+        last_error_message: Safe message of the most recent failure.
+        created_at: When the job was submitted (UTC).
+        updated_at: When the job last changed (UTC).
+        extraction: The extraction result, once an extract job succeeded.
+        ingestion: The ingest result, once an ingest job succeeded.
+    """
+
+    job_id: str
+    kind: str
+    status: str
+    dead_lettered: bool
+    attempts: int
+    max_attempts: int
+    document_key: str | None
+    last_error_code: str | None = None
+    last_error_message: str | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+    extraction: ExtractionResponse | None = None
+    ingestion: IngestResponse | None = None
 
 
 class HealthResponse(pydantic.BaseModel):

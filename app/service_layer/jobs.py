@@ -31,6 +31,7 @@ Extract = Callable[
 ]
 Ingest = Callable[[bytes, str], Awaitable[rag.IngestResult]]
 Clock = Callable[[], datetime.datetime]
+JobResult = extraction.ExtractionResult | rag.IngestResult
 TERMINAL = frozenset({jobs.JobStatus.SUCCEEDED, jobs.JobStatus.DEAD_LETTERED})
 
 log = structlog.stdlib.get_logger(__name__)
@@ -343,3 +344,52 @@ class ReapJobs:
         if requeued or dead_lettered or republished:
             log.warning("jobs.reaped", **dataclasses.asdict(report))
         return report
+
+
+class QueryJobs:
+    """Reads jobs and the results of succeeded ones."""
+
+    def __init__(
+        self,
+        repository: job_repository.JobRepository,
+        blobs: blob_store.BlobStore,
+    ) -> None:
+        """Initializes the use case.
+
+        Args:
+            repository: The job store.
+            blobs: Holds the results.
+        """
+        self._repository = repository
+        self._blobs = blobs
+
+    async def get(self, job_id: str) -> tuple[jobs.Job, JobResult | None]:
+        """Reads one job and, if it succeeded, its result.
+
+        Args:
+            job_id: Id of the job.
+
+        Returns:
+            The job and its result, or ``None`` until it succeeded.
+
+        Raises:
+            NotImplementedError: Always; not built yet.
+        """
+        raise NotImplementedError
+
+    async def list_by_status(
+        self, status: jobs.JobStatus, limit: int
+    ) -> list[jobs.Job]:
+        """Lists jobs in one state, most recently updated first.
+
+        Args:
+            status: The state.
+            limit: Most jobs to return.
+
+        Returns:
+            The jobs.
+
+        Raises:
+            NotImplementedError: Always; not built yet.
+        """
+        raise NotImplementedError

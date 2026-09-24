@@ -13,6 +13,7 @@ from app.api import documents
 from app.api import errors
 from app.api import extract
 from app.api import health
+from app.api import jobs
 from app.api import middleware
 from app.api import occurrences
 from app.api import rag
@@ -46,6 +47,9 @@ def create_app(
         app.state.extract_names = container.extract_names
         app.state.record_extraction = container.record_extraction
         app.state.query_occurrences = container.query_occurrences
+        app.state.submit_job = container.submit_job
+        app.state.query_jobs = container.query_jobs
+        app.state.process_job = container.process_job
         app.state.ingest_document = container.ingest_document
         app.state.ask_question = container.ask_question
         app.state.vector_store = container.vector_store
@@ -60,6 +64,7 @@ def create_app(
     app.include_router(rag.router, prefix="/api", tags=["rag"])
     app.include_router(documents.router, prefix="/api", tags=["documents"])
     app.include_router(occurrences.router, prefix="/api", tags=["occurrences"])
+    app.include_router(jobs.router, prefix="/api", tags=["jobs"])
     return app
 
 

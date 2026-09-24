@@ -3,6 +3,7 @@
 from collections.abc import Awaitable
 from collections.abc import Callable
 import dataclasses
+import datetime
 import re
 
 import qdrant_client
@@ -11,6 +12,7 @@ import structlog
 from app import config
 from app.adapters.cpu_runner import thread_runner
 from app.adapters.dynamodb_common import client as dynamodb
+from app.adapters.dynamodb_jobs import repository as dynamodb_jobs
 from app.adapters.dynamodb_occurrences import store as occurrence_store
 from app.adapters.fastembed_embedding import embedding
 from app.adapters.fastembed_sparse import sparse_embedding
@@ -22,17 +24,22 @@ from app.adapters.langfuse_observability import observability as langfuse
 from app.adapters.noop_observability import observability as noop
 from app.adapters.pymupdf import page_renderer
 from app.adapters.qdrant import vector_store as qdrant_store
+from app.adapters.rabbitmq_queue import queue as rabbitmq_queue
+from app.adapters.s3_blobs import store as s3_blobs
 from app.adapters.spacy_ner import ner
+from app.adapters.sqs_queue import queue as sqs_queue
 from app.adapters.tesseract import ocr
 from app.adapters.text_chunker import sentence
 from app.adapters.unconfigured_llm import llm as unconfigured_llm
 from app.domain import errors
+from app.ports import job_queue
 from app.ports import llm
 from app.ports import llm_observability
 from app.ports import vector_store
 from app.service_layer import ask
 from app.service_layer import extract
 from app.service_layer import ingest
+from app.service_layer import jobs as job_service
 from app.service_layer import occurrences
 
 
@@ -47,6 +54,11 @@ class Container:
         vector_store: The indexed chunks, read by the documents endpoints.
         record_extraction: Extracts names and records every occurrence.
         query_occurrences: Lists the recorded occurrences.
+        submit_job: Queues an extraction or ingestion.
+        query_jobs: Reads jobs and their results.
+        process_job: Runs one delivered job; used by the worker.
+        reap_jobs: Recovers jobs of dead workers and lost messages.
+        job_queue: Delivers jobs to the worker.
         startup: Steps awaited once before serving, e.g. creating tables.
     """
 
@@ -56,6 +68,11 @@ class Container:
     vector_store: vector_store.VectorStore
     record_extraction: occurrences.ExtractAndRecord
     query_occurrences: occurrences.QueryOccurrences
+    submit_job: job_service.SubmitJob
+    query_jobs: job_service.QueryJobs
+    process_job: job_service.ProcessJob
+    reap_jobs: job_service.ReapJobs
+    job_queue: job_queue.JobQueue
     startup: tuple[Callable[[], Awaitable[None]], ...] = ()
 
 
@@ -148,6 +165,40 @@ def extractor_fingerprint(settings: config.Settings) -> str:
     )
 
 
+def build_job_queue(settings: config.Settings) -> job_queue.JobQueue:
+    """Picks the job queue of the environment.
+
+    Args:
+        settings: The service configuration.
+
+    Returns:
+        RabbitMQ locally, SQS on AWS.
+    """
+    queue = settings.queue
+    if settings.cloud_env is config.CloudEnv.AWS:
+        return sqs_queue.SqsJobQueue(
+            sqs_queue.build_client(queue),
+            queue.sqs_queue_url,
+            queue.sqs_dead_letter_url,
+            queue.sqs_wait_s,
+        )
+    return rabbitmq_queue.RabbitMqJobQueue(
+        queue.rabbitmq_url.get_secret_value(),
+        queue.rabbitmq_queue,
+        settings.jobs.max_attempts + 2,
+        queue.prefetch,
+    )
+
+
+def utc_now() -> datetime.datetime:
+    """Returns the current time.
+
+    Returns:
+        The time (UTC).
+    """
+    return datetime.datetime.now(datetime.UTC)
+
+
 def build_container(settings: config.Settings) -> Container:
     """Loads every model and client once and wires the use cases.
 
@@ -189,22 +240,34 @@ def build_container(settings: config.Settings) -> Container:
         cpu=cpu,
         threshold=settings.matcher.threshold,
     )
+    dynamo = dynamodb.build_client(settings.dynamodb)
     recorded = occurrence_store.DynamoDbOccurrenceStore(
-        dynamodb.build_client(settings.dynamodb), settings.occurrences
+        dynamo, settings.occurrences
+    )
+    repository = dynamodb_jobs.DynamoDbJobRepository(
+        dynamo, settings.jobs.dynamodb_table
+    )
+    blobs = s3_blobs.S3BlobStore(
+        s3_blobs.build_client(settings.blob), settings.blob.bucket
+    )
+    queue = build_job_queue(settings)
+    record = occurrences.RecordOccurrences(
+        recorded, extractor_fingerprint(settings)
+    )
+    ingest_document = ingest.IngestDocument(
+        renderer=renderer,
+        ocr=reader,
+        chunker=sentence.SentenceTextChunker(
+            settings.chunking.chunk_size, settings.chunking.chunk_overlap
+        ),
+        embedder=embedder,
+        sparse_embedder=sparse_embedder,
+        store=store,
+        cpu=cpu,
     )
     return Container(
         extract_names=extract_names,
-        ingest_document=ingest.IngestDocument(
-            renderer=renderer,
-            ocr=reader,
-            chunker=sentence.SentenceTextChunker(
-                settings.chunking.chunk_size, settings.chunking.chunk_overlap
-            ),
-            embedder=embedder,
-            sparse_embedder=sparse_embedder,
-            store=store,
-            cpu=cpu,
-        ),
+        ingest_document=ingest_document,
         ask_question=ask.AskQuestion(
             embedder=embedder,
             sparse_embedder=sparse_embedder,
@@ -218,14 +281,39 @@ def build_container(settings: config.Settings) -> Container:
         ),
         vector_store=store,
         record_extraction=occurrences.ExtractAndRecord(
-            extract_names,
-            recorded,
-            occurrences.RecordOccurrences(
-                recorded, extractor_fingerprint(settings)
-            ),
+            extract_names, recorded, record
         ),
         query_occurrences=occurrences.QueryOccurrences(recorded),
+        submit_job=job_service.SubmitJob(
+            blobs,
+            repository,
+            queue,
+            recorded,
+            settings.jobs.max_attempts,
+            utc_now,
+        ),
+        query_jobs=job_service.QueryJobs(repository, blobs),
+        process_job=job_service.ProcessJob(
+            repository,
+            blobs,
+            extract_names,
+            record,
+            ingest_document,
+            utc_now,
+            settings.jobs.lease_s,
+            settings.queue.retry_delay_s,
+        ),
+        reap_jobs=job_service.ReapJobs(
+            repository,
+            queue,
+            utc_now,
+            settings.jobs.queued_stale_s,
+            settings.jobs.reap_limit,
+        ),
+        job_queue=queue,
         startup=(
-            (recorded.ensure_table,) if settings.dynamodb.create_tables else ()
+            (recorded.ensure_table, repository.ensure_table)
+            if settings.dynamodb.create_tables
+            else ()
         ),
     )
