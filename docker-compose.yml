@@ -2,6 +2,7 @@ x-app: &app
   build:
     context: .
     dockerfile: containers/app.Dockerfile
+    target: runtime
   image: docintel-app:local
   # Credentials for the language model; every other setting has a default.
   env_file:

@@ -11,11 +11,15 @@ RUN npm pack "pdfjs-dist@${PDFJS_VERSION}" --silent \
     && cp package/build/pdf.min.mjs package/build/pdf.worker.min.mjs package/LICENSE out/ \
     && cp -r package/wasm package/cmaps package/standard_fonts package/iccs out/
 
+# The static site, also copied out as the S3 upload of the AWS deployment.
+FROM alpine:3.22 AS site
+COPY frontend/index.html frontend/app.js frontend/boxes.js frontend/styles.css /site/
+COPY --from=pdfjs /pdfjs/out /site/vendor/pdfjs/
+
 FROM nginxinc/nginx-unprivileged:1.29.8-alpine
 ENV API_UPSTREAM=http://api:8000
 COPY containers/frontend.nginx.conf.template /etc/nginx/templates/default.conf.template
-COPY frontend/index.html frontend/app.js frontend/boxes.js frontend/styles.css /usr/share/nginx/html/
-COPY --from=pdfjs /pdfjs/out /usr/share/nginx/html/vendor/pdfjs/
+COPY --from=site /site/ /usr/share/nginx/html/
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
     CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/frontend-health"]

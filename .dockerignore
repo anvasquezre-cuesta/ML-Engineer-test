@@ -16,3 +16,5 @@ docs
 evaluation
 tests
 sample_pdfs
+infra
+**/node_modules

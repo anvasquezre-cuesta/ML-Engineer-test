@@ -140,7 +140,7 @@ def test_frontend(c: context.Context) -> None:
     Args:
         c: Invoke context.
     """
-    c.run("node --test frontend/", pty=True)
+    c.run('node --test "frontend/**/*.test.mjs"', pty=True)
 
 
 @tasks.task
