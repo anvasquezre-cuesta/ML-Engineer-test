@@ -1,0 +1,86 @@
+# Runs every check the project requires before a commit, plus the tests that
+# need the compose services, the viewer tests, the CDK app and the images.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.12.18"
+  NODE_VERSION: "22"
+
+jobs:
+  prepare:
+    name: Lint, types and tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      # The acceptance tests run the real OCR.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+      - run: uv sync --frozen --extra dev
+      - run: uv run invoke prepare
+
+  docker-tests:
+    name: Tests against the compose services
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      - run: docker compose up -d --wait qdrant dynamodb rabbitmq seaweedfs
+      - run: docker compose up seaweedfs-init --exit-code-from seaweedfs-init
+      - run: uv run invoke test-docker
+      - if: failure()
+        run: docker compose logs --no-color
+
+  frontend:
+    name: Viewer unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node --test "frontend/**/*.test.mjs"
+
+  infra:
+    name: CDK app
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: uv sync --frozen
+      - run: uv run invoke check
+
+  images:
+    name: Container images build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: docker compose build api frontend
+      - run: docker build -f containers/app.Dockerfile --target lambda -t docintel-app:lambda .

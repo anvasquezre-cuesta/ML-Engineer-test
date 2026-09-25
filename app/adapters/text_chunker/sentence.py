@@ -1,0 +1,114 @@
+"""TextChunker backed by LangChain's RecursiveCharacterTextSplitter."""
+
+import functools
+import re
+
+from langchain_text_splitters import character
+
+from app.domain import rag
+from app.ports import text_chunker
+
+STRATEGY = "sentence"
+SEPARATORS = ["\n\n", "\n", ". ", " "]
+
+
+class SentenceTextChunker(text_chunker.TextChunker):
+    """Splits at paragraph, line, sentence and word breaks, never inside words.
+
+    A word longer than ``chunk_size`` becomes its own oversized chunk instead
+    of being cut into characters.
+    """
+
+    def __init__(self, chunk_size: int, chunk_overlap: int) -> None:
+        """Initializes the chunker.
+
+        Args:
+            chunk_size: Maximum chunk length in characters.
+            chunk_overlap: Characters shared by consecutive chunks.
+        """
+        self._chunk_overlap = chunk_overlap
+        # No "" separator: a word longer than chunk_size is never cut.
+        self._splitter = character.RecursiveCharacterTextSplitter(
+            separators=SEPARATORS,
+            keep_separator="end",
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
+
+    def split(self, page: rag.SourcePage) -> list[rag.Chunk]:
+        """Splits ``page`` into chunks that are exact slices of its text.
+
+        Args:
+            page: The page to split.
+
+        Returns:
+            The chunks in page order, each carrying its offsets and page.
+        """
+        return [
+            rag.Chunk(
+                document_key=page.document_key,
+                content_hash=page.content_hash,
+                page_number=page.page_number,
+                chunk_index=index,
+                start_char=start,
+                end_char=end,
+                text=page.text[start:end],
+                strategy=STRATEGY,
+            )
+            for index, (start, end) in enumerate(self._spans(page.text))
+        ]
+
+    def _spans(self, text: str) -> list[tuple[int, int]]:
+        """Locates each chunk the splitter produces in ``text``.
+
+        LangChain's own ``add_start_index`` searches with ``str.find`` and can
+        anchor a short chunk inside another word or on an earlier repeat. A
+        repeated chunk can also match several word-bounded places that all
+        look valid locally. So chunks are placed together: each starts after
+        the previous one's start, only whitespace is left uncovered before
+        it, and together they reach the end of the page. A chunk may lie
+        inside the previous one. The first placement that satisfies all of
+        these wins.
+
+        Args:
+            text: The page text.
+
+        Returns:
+            One ``(start, end)`` span per chunk, in page order.
+
+        Raises:
+            ValueError: If the chunks cannot cover the page, which would mean
+                the splitter changed text it should only slice.
+        """
+        bodies = [
+            body
+            for body in (
+                piece.strip() for piece in self._splitter.split_text(text)
+            )
+            if body
+        ]
+        patterns = [
+            re.compile(rf"(?<!\S){re.escape(body)}(?!\S)") for body in bodies
+        ]
+
+        @functools.cache
+        def place(
+            index: int, start: int, covered: int
+        ) -> tuple[tuple[int, int], ...] | None:
+            if index == len(patterns):
+                return () if text[covered:].strip() == "" else None
+            next_word = len(text) - len(text[covered:].lstrip())
+            match = patterns[index].search(text, start + 1)
+            while match is not None and match.start() <= next_word:
+                rest = place(
+                    index + 1, match.start(), max(covered, match.end())
+                )
+                if rest is not None:
+                    return (match.span(), *rest)
+                match = patterns[index].search(text, match.start() + 1)
+            return None
+
+        spans = place(0, -1, 0)
+        if spans is None:
+            raise ValueError("The chunks do not cover the page text.")
+        return list(spans)

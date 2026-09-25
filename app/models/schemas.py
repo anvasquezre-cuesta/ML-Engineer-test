@@ -1,57 +1,217 @@
 """API request/response contract.
 
-These schemas are the FIXED contract for the service — the graders send and
-assert against exactly these shapes. You may add optional fields if you have a
-reason (document it in DECISIONS.md), but do not remove or rename anything here.
+These schemas are the fixed contract for the service: clients send and
+assert against exactly these shapes. Optional fields may be added, but nothing
+here may be removed or renamed.
 """
 
-from pydantic import BaseModel, Field
+import datetime
+
+import pydantic
 
 
-class BoundingBox(BaseModel):
-    """A name's location on a page, in PDF coordinate space (points, 72/inch)."""
+class BoundingBox(pydantic.BaseModel):
+    """A name's location on a page, in PDF coordinate space.
 
-    page_number: int = Field(ge=0, description="0-based page index")
+    Attributes:
+        page_number: 0-based page index.
+        x: Left edge in points (72 per inch).
+        y: Top edge in points (72 per inch).
+        width: Box width in points.
+        height: Box height in points.
+    """
+
+    page_number: int = pydantic.Field(ge=0, description="0-based page index")
     x: float
     y: float
     width: float
     height: float
 
 
-class ExtractedName(BaseModel):
+class ExtractedName(pydantic.BaseModel):
+    """A PERSON name found in the document and where it appears.
+
+    Attributes:
+        name: The name as recognized in the document.
+        bounding_box: Location of this occurrence.
+    """
+
     name: str
     bounding_box: BoundingBox
 
 
-class FuzzyMatch(BaseModel):
+class FuzzyMatch(pydantic.BaseModel):
+    """An extracted name matched against a queried name.
+
+    Attributes:
+        extracted_name: Name found in the document.
+        matched_name: Queried name it matched.
+        score: Similarity in 0..1.
+    """
+
     extracted_name: str
     matched_name: str
-    score: float = Field(ge=0.0, le=1.0, description="0..1 similarity")
+    score: float = pydantic.Field(ge=0.0, le=1.0, description="0..1 similarity")
 
 
-class NamePair(BaseModel):
-    first_name: str = Field(min_length=1)
-    last_name: str = Field(min_length=1)
+class NamePair(pydantic.BaseModel):
+    """A queried person name.
+
+    Attributes:
+        first_name: Given name.
+        last_name: Family name.
+    """
+
+    first_name: str = pydantic.Field(min_length=1)
+    last_name: str = pydantic.Field(min_length=1)
 
 
-class ExtractionResponse(BaseModel):
+class ExtractionResponse(pydantic.BaseModel):
+    """Response of ``POST /api/extract``.
+
+    Attributes:
+        extracted_names: Every name occurrence with its box.
+        fuzzy_matches: Extracted names that match the queried names.
+    """
+
     extracted_names: list[ExtractedName]
     fuzzy_matches: list[FuzzyMatch] = []
 
 
-class IngestResponse(BaseModel):
+class IngestResponse(pydantic.BaseModel):
+    """Response of ``POST /api/ingest``.
+
+    Attributes:
+        status: Outcome of the ingestion.
+        chunks_stored: Number of chunks stored for the document.
+    """
+
     status: str
     chunks_stored: int
 
 
-class RAGRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=2000)
+class DocumentResponse(pydantic.BaseModel):
+    """An indexed document.
+
+    Attributes:
+        document_key: Identity of the document, e.g. its filename.
+        content_hash: SHA-256 hex digest of the ingested PDF.
+        chunk_count: Chunks stored for the document.
+    """
+
+    document_key: str
+    content_hash: str
+    chunk_count: int
 
 
-class RAGResponse(BaseModel):
+class DeleteDocumentResponse(pydantic.BaseModel):
+    """Response of ``DELETE /api/documents/{document_key}``.
+
+    Attributes:
+        document_key: Identity of the deleted document.
+        chunks_deleted: Chunks removed from the index.
+    """
+
+    document_key: str
+    chunks_deleted: int
+
+
+class RAGRequest(pydantic.BaseModel):
+    """Request of ``POST /api/ask``.
+
+    Attributes:
+        question: Question about the ingested documents.
+    """
+
+    question: str = pydantic.Field(min_length=1, max_length=2000)
+
+
+class RAGResponse(pydantic.BaseModel):
+    """Response of ``POST /api/ask``.
+
+    Attributes:
+        answer: Answer grounded in the retrieved chunks.
+        sources: References to the retrieved chunks used.
+    """
+
     answer: str
     sources: list[str] = []
 
 
-class HealthResponse(BaseModel):
+class NameOccurrenceRecord(pydantic.BaseModel):
+    """A stored name occurrence, as listed by ``GET /api/occurrences``.
+
+    Attributes:
+        occurrence_id: Unique across documents and extraction runs.
+        document_key: The document the name was found in.
+        content_hash: SHA-256 of the document version.
+        generation: The extraction run that found it.
+        name: The name as recognized in the document.
+        bounding_box: Location of this occurrence.
+    """
+
+    occurrence_id: str
+    document_key: str
+    content_hash: str
+    generation: str
+    name: str
+    bounding_box: BoundingBox
+
+
+class JobAccepted(pydantic.BaseModel):
+    """Response of ``POST /api/jobs/extract`` and ``/api/jobs/ingest``.
+
+    Attributes:
+        job_id: Id to poll with ``GET /api/jobs/{job_id}``.
+        status: ``queued``.
+        document_key: The document the job works on.
+    """
+
+    job_id: str
+    status: str
+    document_key: str
+
+
+class JobRecord(pydantic.BaseModel):
+    """State of an asynchronous job, as returned by ``GET /api/jobs``.
+
+    Attributes:
+        job_id: Id of the job.
+        kind: ``extract`` or ``ingest``.
+        status: ``queued``, ``running``, ``retrying``, ``succeeded`` or
+            ``dead_lettered``.
+        dead_lettered: Whether the job was given up on.
+        attempts: Times a worker started the job.
+        max_attempts: Attempts allowed.
+        document_key: The document the job works on.
+        last_error_code: Code of the most recent failure.
+        last_error_message: Safe message of the most recent failure.
+        created_at: When the job was submitted (UTC).
+        updated_at: When the job last changed (UTC).
+        extraction: The extraction result, once an extract job succeeded.
+        ingestion: The ingest result, once an ingest job succeeded.
+    """
+
+    job_id: str
+    kind: str
+    status: str
+    dead_lettered: bool
+    attempts: int
+    max_attempts: int
+    document_key: str | None
+    last_error_code: str | None = None
+    last_error_message: str | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+    extraction: ExtractionResponse | None = None
+    ingestion: IngestResponse | None = None
+
+
+class HealthResponse(pydantic.BaseModel):
+    """Response of ``GET /health``.
+
+    Attributes:
+        status: ``ok`` when the service is up.
+    """
+
     status: str

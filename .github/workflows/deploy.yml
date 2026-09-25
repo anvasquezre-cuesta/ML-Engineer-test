@@ -1,0 +1,54 @@
+# Deploys the CDK stack by hand only, after a reviewer approves the
+# "production" environment (Settings > Environments > Required reviewers).
+# The AWS role is assumed through GitHub OIDC; nothing long-lived is stored.
+name: Deploy to AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      destroy_after:
+        description: Destroy the stack once the smoke test has run
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy, smoke test and optionally destroy
+    runs-on: ubuntu-24.04
+    environment: production
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.18"
+          enable-cache: true
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "22"
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - run: uv sync --frozen
+      - run: uv run invoke check
+      - run: uv run invoke deploy
+      - run: uv run invoke outputs >> "$GITHUB_STEP_SUMMARY"
+      - name: Smoke test
+        working-directory: .
+        run: |
+          uv sync --frozen --extra dev
+          api_url=$(jq -r '.Docintel.ApiUrl' infra/cdk.out/outputs.json)
+          uv run invoke smoke --url "$api_url"
+      - if: always() && inputs.destroy_after
+        run: uv run invoke destroy && uv run invoke leftovers

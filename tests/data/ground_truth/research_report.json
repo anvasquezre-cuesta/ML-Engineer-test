@@ -1,0 +1,190 @@
+{
+  "document": "research_report.pdf",
+  "page_count": 2,
+  "names": [
+    {
+      "name": "Olivia Chambers",
+      "page_number": 0,
+      "x": 122.16,
+      "y": 82.08,
+      "width": 72.24,
+      "height": 8.64
+    },
+    {
+      "name": "Benjamin Foster",
+      "page_number": 0,
+      "x": 96.96,
+      "y": 283.68,
+      "width": 68.88,
+      "height": 9.12
+    },
+    {
+      "name": "Priya Sharma",
+      "page_number": 0,
+      "x": 160.56,
+      "y": 300.48,
+      "width": 59.28,
+      "height": 9.12
+    },
+    {
+      "name": "Priya Sharma",
+      "page_number": 0,
+      "x": 149.04,
+      "y": 569.28,
+      "width": 57.36,
+      "height": 9.12
+    },
+    {
+      "name": "Lucas Zimmermann",
+      "page_number": 0,
+      "x": 224.16,
+      "y": 300.48,
+      "width": 84.0,
+      "height": 7.2
+    },
+    {
+      "name": "Fatima Al-Rashidi",
+      "page_number": 0,
+      "x": 97.2,
+      "y": 367.68,
+      "width": 73.68,
+      "height": 7.2
+    },
+    {
+      "name": "Christopher Wong",
+      "page_number": 0,
+      "x": 144.48,
+      "y": 384.48,
+      "width": 78.72,
+      "height": 9.12
+    },
+    {
+      "name": "Anna Kowalski",
+      "page_number": 0,
+      "x": 227.28,
+      "y": 384.48,
+      "width": 61.2,
+      "height": 7.2
+    },
+    {
+      "name": "Michael O'Sullivan",
+      "page_number": 0,
+      "x": 104.64,
+      "y": 451.68,
+      "width": 76.8,
+      "height": 7.2
+    },
+    {
+      "name": "Elena Volkov",
+      "page_number": 0,
+      "x": 160.56,
+      "y": 468.48,
+      "width": 56.4,
+      "height": 8.64
+    },
+    {
+      "name": "Raj Krishnamurthy",
+      "page_number": 0,
+      "x": 221.52,
+      "y": 468.48,
+      "width": 78.0,
+      "height": 9.12
+    },
+    {
+      "name": "Hans Weber",
+      "page_number": 0,
+      "x": 119.28,
+      "y": 586.08,
+      "width": 52.32,
+      "height": 7.2
+    },
+    {
+      "name": "Olivia Chambers",
+      "page_number": 1,
+      "x": 64.08,
+      "y": 485.28,
+      "width": 70.08,
+      "height": 7.2
+    },
+    {
+      "name": "Benjamin Foster",
+      "page_number": 1,
+      "x": 70.56,
+      "y": 132.48,
+      "width": 68.88,
+      "height": 9.12
+    },
+    {
+      "name": "Benjamin Foster",
+      "page_number": 1,
+      "x": 141.12,
+      "y": 300.48,
+      "width": 74.64,
+      "height": 9.12
+    },
+    {
+      "name": "Fatima Al-Rashidi",
+      "page_number": 1,
+      "x": 64.56,
+      "y": 48.48,
+      "width": 73.68,
+      "height": 7.2
+    },
+    {
+      "name": "Fatima Al-Rashidi",
+      "page_number": 1,
+      "x": 143.76,
+      "y": 317.28,
+      "width": 79.68,
+      "height": 9.12
+    },
+    {
+      "name": "Fatima Al-Rashidi",
+      "page_number": 1,
+      "x": 64.56,
+      "y": 418.08,
+      "width": 76.08,
+      "height": 7.2
+    },
+    {
+      "name": "Christopher Wong",
+      "page_number": 1,
+      "x": 54.72,
+      "y": 199.68,
+      "width": 76.32,
+      "height": 9.12
+    },
+    {
+      "name": "Anna Kowalski",
+      "page_number": 1,
+      "x": 54.48,
+      "y": 166.08,
+      "width": 61.2,
+      "height": 7.2
+    },
+    {
+      "name": "Michael O'Sullivan",
+      "page_number": 1,
+      "x": 176.64,
+      "y": 334.08,
+      "width": 82.8,
+      "height": 9.12
+    },
+    {
+      "name": "James Chen",
+      "page_number": 1,
+      "x": 63.84,
+      "y": 65.28,
+      "width": 53.28,
+      "height": 7.2
+    },
+    {
+      "name": "Margaret Thompson",
+      "page_number": 1,
+      "x": 108.48,
+      "y": 535.68,
+      "width": 88.32,
+      "height": 9.12
+    }
+  ]
+}

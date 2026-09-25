@@ -166,6 +166,83 @@ uv run uvicorn app.main:app --reload
 
 Sample scanned PDFs are in `sample_pdfs/`.
 
+## Running this implementation
+
+### With Docker (everything in containers)
+
+Needs Docker with Compose v2. The first build takes a few minutes: the image
+bakes in Tesseract, the spaCy model and the FastEmbed models.
+
+```bash
+cp .env.example .env        # then set DOCINTEL_LLM__OPENAI_API_KEY in .env
+docker compose up -d --build
+uv run invoke smoke         # optional: health, extract, ingest + ask, jobs
+```
+
+| What | Where |
+|---|---|
+| API docs (Swagger) | http://localhost:8080/docs |
+| Audit viewer | http://localhost:8081 |
+| Qdrant dashboard | http://localhost:6333/dashboard |
+| RabbitMQ management | http://localhost:15672 (guest / guest) |
+
+```bash
+curl -F pdf_file=@sample_pdfs/company_memo.pdf \
+     -F 'names=[{"first_name":"Robert","last_name":"Chen"}]' \
+     http://localhost:8080/api/extract
+curl -F pdf_file=@sample_pdfs/company_memo.pdf http://localhost:8080/api/ingest
+curl -H 'content-type: application/json' \
+     -d '{"question":"Who was promoted to Vice President of Engineering?"}' \
+     http://localhost:8080/api/ask
+```
+
+Long documents can go through the job endpoints instead:
+`POST /api/jobs/extract` or `/api/jobs/ingest`, then poll
+`GET /api/jobs/{job_id}`. Recorded name occurrences are listed at
+`GET /api/occurrences` and exported at `GET /api/occurrences/export?format=csv`.
+
+`docker compose down` stops everything; add `-v` to delete the data.
+
+### On the host (for development)
+
+Needs [uv](https://docs.astral.sh/uv/) (it installs Python 3.12). The spaCy
+model comes from `uv.lock`; the FastEmbed models download to `.cache/` on the
+first start.
+
+```bash
+uv sync --extra dev
+docker compose up -d qdrant dynamodb rabbitmq seaweedfs seaweedfs-init
+uv run uvicorn app.main:app --port 8090   # port 8000 is DynamoDB Local
+uv run python -m app.worker_main          # in a second terminal, for jobs
+```
+
+### Tests
+
+```bash
+uv run invoke prepare        # lint, docstrings, imports, mypy, tests, commit size
+uv run invoke test-docker    # tests against the compose services
+uv run invoke test-frontend  # viewer unit tests; needs Node.js 22
+uv run invoke eval           # judged RAG evaluation; the judge runs on Bedrock
+```
+
+### On AWS
+
+`infra/` is a separate CDK (Python) project: the API on Lambda behind API
+Gateway, the worker and Qdrant on Fargate, the viewer on S3 + CloudFront. It
+needs Node.js 22 and AWS keys in `.env` (`DOCINTEL_INFRA__AWS_*`, or the
+Bedrock keys). Uploads are capped at 4 MiB there (Lambda's request limit);
+larger files go through the job endpoints.
+
+```bash
+cd infra
+uv sync
+uv run invoke check      # lint, types and CDK assertion tests
+uv run invoke deploy     # prints the viewer and API URLs
+(cd .. && uv run invoke smoke --url <ApiUrl>)
+uv run invoke destroy    # deletes the stack and its published assets
+uv run invoke leftovers  # confirms nothing of the stack is left
+```
+
 ## Use of AI tools
 
 Using AI assistants (Copilot, Claude, ChatGPT, agents) is **allowed and

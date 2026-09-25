@@ -1,0 +1,66 @@
+[project]
+name = "docintel-infra"
+version = "0.1.0"
+description = "AWS CDK app deploying the document intelligence service."
+requires-python = ">=3.12"
+dependencies = [
+    "aws-cdk-lib==2.270.0",
+    "constructs==10.8.1",
+    "pydantic-settings>=2.10",
+]
+
+[dependency-groups]
+dev = [
+    "invoke>=3.0.3",
+    "mypy>=2.3.1",
+    "pydoclint>=0.9.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 80
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "D", "E", "F", "I", "N", "TID", "UP", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+force-sort-within-sections = true
+known-first-party = ["docintel_infra"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"os.environ".msg = "Read configuration through InfraSettings."
+"os.getenv".msg = "Read configuration through InfraSettings."
+"os.putenv".msg = "Read configuration through InfraSettings."
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydoclint]
+style = "google"
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-yield-types = false
+skip-checking-short-docstrings = false
+allow-init-docstring = true
+check-class-attributes = false
+native-mode-noqa-location = "definition"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
