@@ -26,21 +26,24 @@ PYTHON_FILES = " ".join(
 def _credentials() -> dict[str, str]:
     """Returns the deploy credentials as environment for a CLI subprocess.
 
+    Without configured keys only the region is set, and the CLI falls back
+    to its own credential chain, such as a CI role.
+
     Returns:
         The AWS variables.
-
-    Raises:
-        exceptions.Exit: If the deploy credentials are not configured.
     """
     settings = config.InfraSettings()
+    region = {
+        "AWS_REGION": settings.region,
+        "AWS_DEFAULT_REGION": settings.region,
+    }
     if not (settings.aws_access_key_id and settings.aws_secret_access_key):
-        raise exceptions.Exit("Set the AWS keys in .env first.", code=1)
+        return region
     secret = settings.aws_secret_access_key.get_secret_value()
     return {
         "AWS_ACCESS_KEY_ID": settings.aws_access_key_id.get_secret_value(),
         "AWS_SECRET_ACCESS_KEY": secret,
-        "AWS_REGION": settings.region,
-        "AWS_DEFAULT_REGION": settings.region,
+        **region,
     }
 
 
@@ -119,6 +122,35 @@ def _orphan_log_groups(c: context.Context) -> list[str]:
         f"--log-group-name-prefix /aws/lambda/{stack}-",
     )
     return [g["logGroupName"] for g in (found or {}).get("logGroups", [])]
+
+
+def _still_exists(c: context.Context, arn: str) -> bool:
+    """Checks a tagged resource, since the tagging index lags deletions.
+
+    Args:
+        c: Invoke context.
+        arn: The resource ARN.
+
+    Returns:
+        False for NAT gateways, VPC endpoints and ECS clusters that are
+        already deleted; True for everything else.
+    """
+    name = arn.rsplit("/", 1)[-1]
+    if ":natgateway/" in arn:
+        found = _aws(c, f"ec2 describe-nat-gateways --nat-gateway-ids {name}")
+        states = [g["State"] for g in (found or {}).get("NatGateways", [])]
+        return any(state != "deleted" for state in states)
+    if ":vpc-endpoint/" in arn:
+        return bool(
+            _aws(c, f"ec2 describe-vpc-endpoints --vpc-endpoint-ids {name}")
+        )
+    if ":cluster/" in arn and ":ecs:" in arn:
+        found = _aws(c, f"ecs describe-clusters --clusters {name}")
+        return any(
+            cluster["status"] == "ACTIVE"
+            for cluster in (found or {}).get("clusters", [])
+        )
+    return True
 
 
 def _cdk(c: context.Context, command: str) -> None:
@@ -255,6 +287,7 @@ def leftovers(c: context.Context) -> None:
     left += [
         r["ResourceARN"]
         for r in (tagged or {}).get("ResourceTagMappingList", [])
+        if _still_exists(c, r["ResourceARN"])
     ]
     left += _orphan_log_groups(c)
     images, files = _stack_assets()
