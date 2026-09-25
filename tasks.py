@@ -134,6 +134,16 @@ def test_docker(c: context.Context) -> None:
 
 
 @tasks.task
+def test_frontend(c: context.Context) -> None:
+    """Runs the audit viewer's unit tests; needs Node.js 22 or later.
+
+    Args:
+        c: Invoke context.
+    """
+    c.run("node --test frontend/", pty=True)
+
+
+@tasks.task
 def smoke(c: context.Context, url: str = "http://localhost:8080") -> None:
     """Runs the smoke test against a running deployment.
 
@@ -239,6 +249,7 @@ namespace = collection.Collection(
     typecheck,
     test,
     test_docker,
+    test_frontend,
     smoke,
     evaluate,
     eval_compare,

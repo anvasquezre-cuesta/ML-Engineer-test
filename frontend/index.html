@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Name Audit Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Name audit viewer</h1>
+    <p>Upload a scanned PDF to see every detected person name drawn where the service says it is.</p>
+  </header>
+
+  <main>
+    <form id="extract-form" class="panel">
+      <label class="field">PDF document
+        <input id="pdf" name="pdf" type="file" accept="application/pdf,.pdf" required>
+      </label>
+      <label class="field">Document key <span class="hint">(optional, defaults to the file name)</span>
+        <input id="document-key" type="text" maxlength="200" autocomplete="off">
+      </label>
+      <fieldset>
+        <legend>Names to match</legend>
+        <div id="name-rows"></div>
+        <button id="add-name" type="button" class="secondary">Add a name</button>
+      </fieldset>
+      <fieldset class="mode">
+        <legend>Run</legend>
+        <label><input type="radio" name="mode" value="sync" checked> Now (wait for the result)</label>
+        <label><input type="radio" name="mode" value="job"> As a background job</label>
+      </fieldset>
+      <button id="submit" type="submit">Extract names</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <section id="results" hidden>
+      <div class="summary" id="summary"></div>
+      <div class="layout">
+        <div id="pages" class="pages" aria-label="Document pages"></div>
+        <aside class="tables">
+          <h2>Detected names</h2>
+          <p class="legend"><span class="swatch matched"></span> matches a queried name <span class="swatch other"></span> other name</p>
+          <table id="names-table">
+            <thead><tr><th>Name</th><th>Page</th><th>x</th><th>y</th><th>w</th><th>h</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <h2>Fuzzy matches</h2>
+          <table id="matches-table">
+            <thead><tr><th>Found</th><th>Queried</th><th>Score</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </aside>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Dead-lettered jobs</h2>
+        <button id="refresh-dead" type="button" class="secondary">Refresh</button>
+      </div>
+      <table id="dead-table">
+        <thead><tr><th>Job</th><th>Kind</th><th>Document</th><th>Error</th><th>Attempts</th><th>Updated</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="dead-status" class="hint"></p>
+    </section>
+  </main>
+
+  <template id="name-row">
+    <div class="name-row">
+      <input class="first" type="text" placeholder="First name" aria-label="First name">
+      <input class="last" type="text" placeholder="Last name" aria-label="Last name">
+      <button type="button" class="remove secondary" aria-label="Remove name">Remove</button>
+    </div>
+  </template>
+</body>
+</html>

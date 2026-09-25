@@ -1,0 +1,41 @@
+# Serves the audit viewer and proxies the API, so the browser stays on one origin.
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    # nginx has no MIME type for ES modules; browsers refuse modules served otherwise.
+    include /etc/nginx/mime.types;
+    types {
+        text/javascript mjs;
+    }
+
+    # Uploads are validated by the API; this only has to let them through.
+    client_max_body_size 25m;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" always;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location = /frontend-health {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    location = /health {
+        proxy_pass ${API_UPSTREAM};
+    }
+
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Synchronous extraction of a long scan can take minutes.
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}

@@ -46,6 +46,18 @@ services:
       api:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: .
+      dockerfile: containers/frontend.Dockerfile
+    image: docintel-frontend:local
+    ports:
+      - "8081:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
   qdrant:
     image: qdrant/qdrant:v1.19.1
     ports:
