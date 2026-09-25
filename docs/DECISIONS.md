@@ -52,28 +52,28 @@ The main choices, why they were made, and what they cost.
 - **Cost:** names one letter apart can pass (Park and Parker score 0.93).
   The score is shown so a person can decide.
 
-## 6. Small embedding model and sentence-based pieces
-- **Choice:** FastEmbed with `bge-small-en-v1.5` turns text into numbers.
-  Text is split into pieces of about 800 letters, at paragraph, line or
-  sentence ends, never inside a word.
+## 6. Small embedding model and sentence-based chunks
+- **Choice:** text is split into chunks of about 800 characters, at
+  paragraph, line or sentence ends, never inside a word. Each chunk is
+  embedded with FastEmbed and `bge-small-en-v1.5`.
 - **Why:** bigger models were not clearly better on these documents but are
   slower and larger. Splitting by meaning was tested and gave no clear gain.
 - **Cost:** English only.
 
 ## 7. Search by meaning and by keywords, no re-ranker
-- **Choice:** Qdrant searches the pieces two ways (by meaning and by
+- **Choice:** Qdrant searches the chunks two ways (by meaning and by
   keywords) and mixes the two result lists. There is no second AI step to
   re-sort them.
 - **Why:** keyword search catches names, numbers and exact terms that the
-  meaning search can miss. The mixed search already found the right piece
+  meaning search can miss. The mixed search already found the right chunk
   for the test questions.
 - **Cost:** a known Qdrant keyword-scoring issue after deletes had to be
   worked around and is covered by a test.
 
 ## 8. Answers only from the found text
-- **Choice:** the AI gets only the found pieces. It must mark each fact with
-  the piece number, or say the fixed sentence "I cannot answer this from the
-  provided documents." Sources are taken only from the pieces it marked.
+- **Choice:** the AI gets only the found chunks. It must mark each fact with
+  the chunk number, or say the fixed sentence "I cannot answer this from the
+  provided documents." Sources are taken only from the chunks it marked.
   All prompt text lives in files.
 - **Why:** answers stay grounded, and the sources can always be checked.
 - **Cost:** some answerable but oddly worded questions get refused.
