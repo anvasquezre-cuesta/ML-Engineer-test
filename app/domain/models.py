@@ -89,6 +89,16 @@ class EntitySpan:
 
 
 @dataclass(frozen=True, slots=True)
+class PersonMention:
+    """One occurrence of a person's name, located on its page in PDF points."""
+
+    name: str
+    page: int  # 0-based
+    box: Box
+    confidence: float  # mean OCR confidence of the words in the name, 0..100
+
+
+@dataclass(frozen=True, slots=True)
 class NameMatch:
     extracted: str
     candidate: str

@@ -34,8 +34,8 @@ class OCREngine(Protocol):
 
 
 class NERModel(Protocol):
-    def find_persons(self, text: str) -> list[EntitySpan]:
-        """Return person entities as character spans of ``text``."""
+    def find_persons(self, texts: Sequence[str]) -> list[list[EntitySpan]]:
+        """For each text, in order, the person entities as character spans of that text."""
         ...
 
 
