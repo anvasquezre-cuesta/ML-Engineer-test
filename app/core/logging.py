@@ -31,7 +31,9 @@ def configure_logging(level: str = "INFO", json: bool = True) -> None:
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
+        # Caching freezes each module logger on first use, which defeats reconfiguration
+        # (tests, a second create_app); at this request volume it saves nothing measurable.
+        cache_logger_on_first_use=False,
     )
 
     formatter = structlog.stdlib.ProcessorFormatter(

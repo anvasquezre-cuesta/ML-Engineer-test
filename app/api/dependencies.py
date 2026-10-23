@@ -1,0 +1,21 @@
+"""FastAPI dependency providers: routers get services and settings from here only."""
+
+from typing import cast
+
+from fastapi import Request
+
+from app.container import Services
+from app.core.config import Settings
+from app.services.extraction import ExtractionService
+
+
+def get_services(request: Request) -> Services:
+    return cast(Services, request.app.state.services)
+
+
+def get_app_settings(request: Request) -> Settings:
+    return cast(Settings, request.app.state.settings)
+
+
+def get_extraction_service(request: Request) -> ExtractionService:
+    return get_services(request).extraction
