@@ -33,7 +33,7 @@ uv run pytest --cov                       # branch coverage; the build fails bel
 | 6 | OCR punctuation (apostrophes) | `unit/test_fuzzy_matching.py::test_apostrophe_names_match` (O'Brien ~ OBrien ~ O’Brien) |
 | 7 | Full-string similarity, no substring trick | `unit/test_fuzzy_matching.py::test_partial_or_different_names_stay_below_threshold` (Jennifer vs Jennifer Liu, Robert vs James Chen) |
 | 8 | Chunking never cuts a word | `unit/test_chunker.py::test_chunker_never_splits_words` (28 cases), `::test_overlap_between_neighbours_is_exact`, `::test_invalid_window_is_rejected` |
-| 9 | A second ingest must not overwrite the first | `unit/test_ingestion_service.py::test_second_ingest_does_not_overwrite_first`, `::test_reingesting_the_same_file_changes_nothing`; `integration/test_chroma_store.py::test_two_documents_are_both_stored`, `::test_same_document_twice_leaves_the_count_unchanged`; `e2e/test_ingest_api.py::test_second_document_does_not_overwrite_the_first` |
+| 9 | A second ingest must not overwrite the first | `unit/test_ingestion_service.py::test_second_ingest_does_not_overwrite_first`, `::test_reingesting_the_same_file_changes_nothing`; `integration/test_vector_stores.py::test_two_documents_are_both_stored`, `::test_same_document_twice_leaves_the_count_unchanged`; `e2e/test_ingest_api.py::test_second_document_does_not_overwrite_the_first` |
 | 10 | No hallucinated sources | `unit/test_ask_service.py::test_sources_come_only_from_retrieved_chunks`, `::test_model_declining_to_answer_clears_the_sources` |
 | 11 | Grounded answers: no LLM call without evidence | `unit/test_ask_service.py::test_no_llm_call_below_similarity_threshold`, `::test_gate_uses_the_best_match_and_context_keeps_a_weaker_answer_page`; `e2e/test_ask_api.py::test_unanswerable_question_is_not_found_without_llm_call` |
 | 12 | Reject non-PDFs by content, not extension | `unit/test_document_loader.py::test_rejects_non_pdf_by_content_not_name`; `e2e/test_errors.py` case "non-PDF by content" |
@@ -45,10 +45,12 @@ uv run pytest --cov                       # branch coverage; the build fails bel
 | Concern | Tests |
 | --- | --- |
 | Timeouts and retries on the LLM | `unit/test_openai_llm.py` (connection error, timeout, 3 attempts on 503, recovery after one 500, unknown model, readiness ping without retries) |
-| Vector-store failures | `unit/test_chroma_store_errors.py` (startup, write, query, count → 503) |
-| Upsert-then-prune, persistence | `integration/test_chroma_store.py::test_reingest_with_fewer_chunks_prunes_the_stale_ones`, `::test_data_survives_a_restart` |
+| Vector-store failures | `unit/test_chroma_store_errors.py` (startup, write, query, count → 503); `unit/test_qdrant_store_errors.py` (transient errors retried, client errors not, exhausted retries → 503) |
+| One store contract, two implementations | `integration/test_vector_stores.py`: every test parametrised over Chroma and Qdrant (in-process), persistence on disk for both |
+| Upsert-then-prune, persistence | `integration/test_vector_stores.py::test_reingest_with_fewer_chunks_prunes_the_stale_ones`, `::test_data_survives_a_restart` |
 | Embedding truncation is visible | `integration/test_sentence_embedder.py::test_truncation_is_logged` |
 | Request IDs and privacy in logs | `e2e/test_observability.py` (every line of a request carries its ID; no names), `unit/*::*_never_names`, `e2e/test_errors.py::test_validation_errors_do_not_echo_the_rejected_input` |
 | Liveness vs readiness | `e2e/test_health.py`, `unit/test_readiness.py` |
 | Configuration | `unit/test_config.py` (env overrides, validation, secret not in repr) |
+| Audit viewer | `e2e/test_viewer.py` (served, wired to `/api/extract`, pinned pdf.js, no `innerHTML`); rendering checked in headless Chromium: 55 boxes on the names at 100 % and 200 % |
 | The whole path | `e2e/test_ask_api.py::test_extract_ingest_ask_end_to_end` (fakes); `integration/test_extract_api_real.py`, `integration/test_ask_real.py` (real services, Gate B) |

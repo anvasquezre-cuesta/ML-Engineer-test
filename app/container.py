@@ -12,10 +12,12 @@ from app.adapters.chroma_store import ChromaVectorStore
 from app.adapters.fuzzy_matcher import FuzzyMatcher
 from app.adapters.openai_llm import OpenAICompatibleLLM
 from app.adapters.pymupdf_renderer import PyMuPDFRenderer
+from app.adapters.qdrant_store import QdrantVectorStore
 from app.adapters.sentence_embedder import SentenceTransformerEmbedder
 from app.adapters.spacy_ner import SpacyNER
 from app.adapters.tesseract_ocr import TesseractOCR
-from app.core.config import Settings
+from app.core.config import RAGSettings, Settings
+from app.domain.protocols import VectorStore
 from app.services.ask import AskService
 from app.services.chunking import WordWindowChunker
 from app.services.documents import DocumentLoader
@@ -37,6 +39,13 @@ class Services:
 ServicesFactory = Callable[[Settings], Services]
 
 
+def build_vector_store(rag: RAGSettings) -> VectorStore:
+    """The one place the store is chosen; services only see the Protocol."""
+    if rag.vector_store == "qdrant":
+        return QdrantVectorStore.from_settings(rag)
+    return ChromaVectorStore.persistent(rag)
+
+
 def build_services(settings: Settings) -> Services:
     renderer = PyMuPDFRenderer()
     loader = DocumentLoader(
@@ -52,7 +61,7 @@ def build_services(settings: Settings) -> Services:
 
     chunker = WordWindowChunker(settings.rag.chunk_words, settings.rag.overlap_words)
     embedder = SentenceTransformerEmbedder(settings.rag)
-    store = ChromaVectorStore.persistent(settings.rag)
+    store = build_vector_store(settings.rag)
     llm = OpenAICompatibleLLM(settings.llm)
 
     return Services(
@@ -69,7 +78,10 @@ def build_services(settings: Settings) -> Services:
         readiness=ReadinessService(
             [
                 Check("ocr", tesseract.version),
-                Check("vector_store", lambda: f"{store.count()} chunks stored"),
+                Check(
+                    "vector_store",
+                    lambda: f"{settings.rag.vector_store}: {store.count()} chunks stored",
+                ),
                 # Loaded in this function: if either failed, the app would not have started.
                 Check("ner_model", lambda: f"{settings.ner.model} loaded"),
                 Check("embedding_model", lambda: f"{settings.rag.embedding_model} loaded"),

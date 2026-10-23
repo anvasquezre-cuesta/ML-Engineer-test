@@ -1,0 +1,17 @@
+# Only pyproject.toml, uv.lock and app/ are copied into the image; keep the build context small.
+.git
+.venv
+.env
+.env.*
+data/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tests/
+docs/
+scripts/
+sample_pdfs/

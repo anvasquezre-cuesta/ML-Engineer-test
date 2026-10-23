@@ -47,8 +47,18 @@ class RAGSettings(BaseModel):
     )
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_batch_size: int = Field(default=32, ge=1)
-    chroma_path: str = "./data/chroma"
     collection: str = "documents"
+    vector_store: Literal["chroma", "qdrant"] = Field(
+        default="chroma", description="Embedded Chroma, or Qdrant (a service or embedded)"
+    )
+    chroma_path: str = "./data/chroma"
+    qdrant_url: str | None = Field(
+        default=None, description="e.g. http://qdrant:6333; unset = embedded Qdrant at qdrant_path"
+    )
+    qdrant_path: str = "./data/qdrant"
+    qdrant_api_key: SecretStr | None = None
+    qdrant_timeout_s: float = Field(default=10.0, gt=0)
+    qdrant_max_retries: int = Field(default=2, ge=0)
 
     @model_validator(mode="after")
     def _overlap_smaller_than_chunk(self) -> Self:

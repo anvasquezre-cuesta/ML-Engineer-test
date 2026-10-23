@@ -21,9 +21,12 @@ dependencies = [
     "en-core-web-lg",
     # Fuzzy matching (thefuzz runs on rapidfuzz; python-Levenshtein is not needed)
     "thefuzz",
-    # Embeddings + vector store (Chroma is embedded/local; swap for qdrant-client if preferred)
+    # Embeddings + vector store: embedded Chroma by default, Qdrant via RAG__VECTOR_STORE=qdrant
     "sentence-transformers",
+    # Direct only so [tool.uv.sources] can send Linux to the CPU wheels (no CUDA in the image)
+    "torch>=2.14",
     "chromadb",
+    "qdrant-client>=1.15",
     # LLM (OpenAI-compatible: OpenAI, Ollama, vLLM, ...)
     "openai>=3.37.0",
     # Structured JSON logging
@@ -86,3 +89,9 @@ fail_under = 90
 
 [tool.uv.sources]
 en-core-web-lg = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" }
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

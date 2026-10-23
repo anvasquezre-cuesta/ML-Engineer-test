@@ -18,6 +18,7 @@ from app.api.errors import register_error_handlers
 from app.api.extract import router as extract_router
 from app.api.health import router as health_router
 from app.api.rag import router as rag_router
+from app.api.viewer import router as viewer_router
 from app.container import ServicesFactory, build_services
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
@@ -57,6 +58,7 @@ def create_app(
     app.include_router(health_router, tags=["ops"])
     app.include_router(extract_router, prefix="/api", tags=["extraction"])
     app.include_router(rag_router, prefix="/api", tags=["rag"])
+    app.include_router(viewer_router)
     return app
 
 
