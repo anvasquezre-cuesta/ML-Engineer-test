@@ -41,6 +41,13 @@ class TesseractOCR:
             raise OCRFailed(f"OCR failed on page {page.index}: {exc}") from exc
         return words_from_tesseract(data)
 
+    def version(self) -> str:
+        """Readiness probe: raises if the binary is missing."""
+        try:
+            return f"tesseract {pytesseract.get_tesseract_version()}, lang={self._lang}"
+        except pytesseract.TesseractNotFoundError as exc:
+            raise OCRFailed("Tesseract is not installed or not on PATH.") from exc
+
 
 def words_from_tesseract(data: dict[str, list[Any]]) -> list[OcrWord]:
     """Keep real words only: non-blank text with a confidence of 0 or more."""

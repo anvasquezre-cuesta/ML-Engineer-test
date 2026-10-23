@@ -14,12 +14,13 @@ from app.container import Services
 from app.core.config import LimitSettings, Settings
 from app.domain.errors import OCRFailed
 from app.domain.models import OcrWord, PageImage
-from app.domain.protocols import LLMClient
+from app.domain.protocols import LLMClient, OCREngine, PdfRenderer, VectorStore
 from app.main import create_app
 from app.services.ask import AskService
 from app.services.chunking import WordWindowChunker
 from app.services.documents import DocumentLoader
 from app.services.extraction import ExtractionService
+from app.services.health import Check, ReadinessService
 from app.services.ingestion import IngestionService
 from app.services.names import NameExtractor
 from app.services.ocr import OcrService
@@ -51,18 +52,20 @@ class FailingOCR:
 
 
 def fake_services(
-    ocr: FakeOCR | FailingOCR | None = None,
-    store: InMemoryVectorStore | None = None,
+    ocr: OCREngine | None = None,
+    store: VectorStore | None = None,
     llm: LLMClient | None = None,
+    renderer: PdfRenderer | None = None,
+    checks: list[Check] | None = None,
 ) -> Callable[[Settings], Services]:
     def build(settings: Settings) -> Services:
-        renderer = FakeRenderer([blank_page(0)])
+        pdf_renderer = renderer or FakeRenderer([blank_page(0)])
         loader = DocumentLoader(
-            renderer,
+            pdf_renderer,
             max_bytes=settings.limits.max_upload_bytes,
             max_pages=settings.limits.max_pages,
         )
-        ocr_service = OcrService(renderer, ocr or FakeOCR({0: LINE}), dpi=72)
+        ocr_service = OcrService(pdf_renderer, ocr or FakeOCR({0: LINE}), dpi=72)
         embedder = FakeEmbedder()
         shared_store = store if store is not None else InMemoryVectorStore()
         return Services(
@@ -87,6 +90,11 @@ def fake_services(
                 min_similarity=settings.rag.min_similarity,
                 context_min_similarity=settings.rag.context_min_similarity,
             ),
+            readiness=ReadinessService(
+                checks
+                if checks is not None
+                else [Check("vector_store", lambda: f"{shared_store.count()} chunks stored")]
+            ),
         )
 
     return build
@@ -100,15 +108,26 @@ def make_client() -> Iterator[ClientFactory]:
     clients: list[TestClient] = []
 
     def make(
-        ocr: FakeOCR | FailingOCR | None = None,
-        store: InMemoryVectorStore | None = None,
+        ocr: OCREngine | None = None,
+        store: VectorStore | None = None,
         llm: LLMClient | None = None,
+        renderer: PdfRenderer | None = None,
+        checks: list[Check] | None = None,
         max_upload_bytes: int = 1000,
+        max_pages: int = 50,
+        request_overhead_bytes: int = 1024 * 1024,
+        raise_server_exceptions: bool = True,
     ) -> TestClient:
-        settings = Settings(
-            _env_file=None, log_json=False, limits=LimitSettings(max_upload_bytes=max_upload_bytes)
+        limits = LimitSettings(
+            max_upload_bytes=max_upload_bytes,
+            max_pages=max_pages,
+            request_overhead_bytes=request_overhead_bytes,
         )
-        client = TestClient(create_app(settings, fake_services(ocr, store, llm)))
+        settings = Settings(_env_file=None, log_json=False, limits=limits)
+        client = TestClient(
+            create_app(settings, fake_services(ocr, store, llm, renderer, checks)),
+            raise_server_exceptions=raise_server_exceptions,
+        )
         client.__enter__()  # runs the lifespan
         clients.append(client)
         return client

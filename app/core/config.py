@@ -65,7 +65,9 @@ class RAGSettings(BaseModel):
 
 
 class LLMSettings(BaseModel):
-    base_url: str = "http://localhost:11434/v1"  # Ollama's OpenAI-compatible endpoint
+    # Ollama's OpenAI-compatible endpoint. 127.0.0.1, not localhost: Ollama listens on IPv4
+    # only, and resolving localhost to ::1 first cost 2.08 s on each new connection (Windows).
+    base_url: str = "http://127.0.0.1:11434/v1"
     api_key: SecretStr = SecretStr("ollama")  # Ollama ignores it; the client requires one
     model: str = "llama3.2:1b"  # small enough for a grader's laptop; any chat model works
     timeout_s: float = Field(default=30.0, gt=0)
@@ -76,6 +78,15 @@ class LLMSettings(BaseModel):
 class LimitSettings(BaseModel):
     max_upload_bytes: int = Field(default=20 * 1024 * 1024, ge=1)
     max_pages: int = Field(default=50, ge=1)
+    request_overhead_bytes: int = Field(
+        default=1024 * 1024,
+        ge=0,
+        description="Allowance above max_upload_bytes for multipart framing and form fields",
+    )
+
+    @property
+    def max_request_bytes(self) -> int:
+        return self.max_upload_bytes + self.request_overhead_bytes
 
 
 class Settings(BaseSettings):

@@ -36,12 +36,17 @@ def blank_page(index: int, *, dpi: int = 72, rotation: int = 0) -> PageImage:
 
 
 class FakeRenderer:
-    def __init__(self, pages: list[PageImage]) -> None:
+    """Renders the given pages; with ``error`` set, opening the document raises it."""
+
+    def __init__(self, pages: list[PageImage], error: Exception | None = None) -> None:
         self.pages = pages
+        self.error = error
         self.page_count_calls = 0
 
     def page_count(self, pdf: bytes) -> int:
         self.page_count_calls += 1
+        if self.error is not None:
+            raise self.error
         return len(self.pages)
 
     def render(self, pdf: bytes, dpi: int) -> Iterator[PageImage]:
@@ -153,6 +158,24 @@ class FakeLLM:
     def complete(self, system: str, user: str) -> str:
         self.calls.append((system, user))
         return self.answer
+
+
+class FailingStore:
+    """A ``VectorStore`` whose every call raises ``error``."""
+
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def replace_document(
+        self, doc_id: str, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]
+    ) -> int:
+        raise self.error
+
+    def query(self, vector: Sequence[float], top_k: int) -> list[RetrievedChunk]:
+        raise self.error
+
+    def count(self) -> int:
+        raise self.error
 
 
 class InMemoryVectorStore:

@@ -60,3 +60,17 @@ class RAGResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+# Added (not part of the original contract): GET /health/ready. /health is kept exactly as
+# specified for liveness; readiness reports each dependency separately. See DECISIONS.md.
+class CheckStatus(BaseModel):
+    ok: bool
+    critical: bool
+    detail: str
+    duration_ms: float
+
+
+class ReadinessResponse(BaseModel):
+    status: str = Field(description='"ready", "degraded" (non-critical failure) or "unavailable"')
+    checks: dict[str, CheckStatus]

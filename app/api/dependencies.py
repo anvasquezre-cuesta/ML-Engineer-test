@@ -8,6 +8,7 @@ from app.container import Services
 from app.core.config import Settings
 from app.services.ask import AskService
 from app.services.extraction import ExtractionService
+from app.services.health import ReadinessService
 from app.services.ingestion import IngestionService
 
 
@@ -29,3 +30,7 @@ def get_ingestion_service(request: Request) -> IngestionService:
 
 def get_ask_service(request: Request) -> AskService:
     return get_services(request).ask
+
+
+def get_readiness_service(request: Request) -> ReadinessService:
+    return get_services(request).readiness

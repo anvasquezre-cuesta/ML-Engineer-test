@@ -44,3 +44,14 @@ class OpenAICompatibleLLM:
         if not response.choices:
             raise UpstreamUnavailable("The language model returned no answer.")
         return (response.choices[0].message.content or "").strip()
+
+    def ping(self, timeout_s: float = 2.0) -> str:
+        """Readiness probe: the endpoint answers and serves the configured model."""
+        try:
+            models = self._client.with_options(timeout=timeout_s, max_retries=0).models.list()
+        except openai.APIError as exc:
+            raise UpstreamUnavailable(f"The language model is unavailable: {exc}") from exc
+        available = {model.id for model in models}
+        if self._model not in available:
+            raise UpstreamUnavailable(f"Model '{self._model}' is not served by the endpoint.")
+        return f"{self._model} available"

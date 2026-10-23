@@ -87,6 +87,25 @@ def test_every_occurrence_is_returned_with_its_own_page_and_box() -> None:
     assert mentions[0].box.y0 != mentions[1].box.y0  # different lines on different pages
 
 
+def test_entity_crossing_lines_is_never_produced() -> None:
+    # Trap: whole-page NER merged a heading with the next line into one "person".
+    # Per-line input makes that impossible; the documented cost is that a name wrapped
+    # across two lines is not found at all (no sample name wraps).
+    ner = FakeNER("MINUTES Date", "Robert Chen")
+    page = ocr_page(
+        0,
+        words_on_line("MEETING MINUTES", 1),
+        words_on_line("Date: January 22", 2),
+        words_on_line("approved by Robert", 3),
+        words_on_line("Chen, CTO", 4),
+    )
+
+    mentions = NameExtractor(ner).extract([page])
+
+    assert mentions == []
+    assert all("\n" not in text for text in ner.calls[0])
+
+
 def test_all_caps_heading_is_not_a_person() -> None:
     page = ocr_page(0, words_on_line("BOARD OF DIRECTORS - MEETING MINUTES", line=1))
 

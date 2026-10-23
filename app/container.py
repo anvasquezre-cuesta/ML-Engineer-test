@@ -20,6 +20,7 @@ from app.services.ask import AskService
 from app.services.chunking import WordWindowChunker
 from app.services.documents import DocumentLoader
 from app.services.extraction import ExtractionService
+from app.services.health import Check, ReadinessService
 from app.services.ingestion import IngestionService
 from app.services.names import NameExtractor
 from app.services.ocr import OcrService
@@ -30,6 +31,7 @@ class Services:
     extraction: ExtractionService
     ingestion: IngestionService
     ask: AskService
+    readiness: ReadinessService
 
 
 ServicesFactory = Callable[[Settings], Services]
@@ -42,7 +44,8 @@ def build_services(settings: Settings) -> Services:
         max_bytes=settings.limits.max_upload_bytes,
         max_pages=settings.limits.max_pages,
     )
-    ocr = OcrService(renderer, TesseractOCR(settings.ocr), dpi=settings.ocr.dpi)
+    tesseract = TesseractOCR(settings.ocr)
+    ocr = OcrService(renderer, tesseract, dpi=settings.ocr.dpi)
 
     names = NameExtractor(SpacyNER(settings.ner))
     matcher = FuzzyMatcher(threshold=settings.matching.threshold)
@@ -62,5 +65,15 @@ def build_services(settings: Settings) -> Services:
             top_k=settings.rag.top_k,
             min_similarity=settings.rag.min_similarity,
             context_min_similarity=settings.rag.context_min_similarity,
+        ),
+        readiness=ReadinessService(
+            [
+                Check("ocr", tesseract.version),
+                Check("vector_store", lambda: f"{store.count()} chunks stored"),
+                # Loaded in this function: if either failed, the app would not have started.
+                Check("ner_model", lambda: f"{settings.ner.model} loaded"),
+                Check("embedding_model", lambda: f"{settings.rag.embedding_model} loaded"),
+                Check("llm", llm.ping, critical=False),  # only /api/ask needs it
+            ]
         ),
     )

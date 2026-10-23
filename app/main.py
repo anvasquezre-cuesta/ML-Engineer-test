@@ -16,12 +16,12 @@ from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
 from app.api.extract import router as extract_router
+from app.api.health import router as health_router
 from app.api.rag import router as rag_router
 from app.container import ServicesFactory, build_services
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
-from app.core.middleware import RequestIDMiddleware
-from app.models.schemas import HealthResponse
+from app.core.middleware import BodySizeLimitMiddleware, RequestIDMiddleware
 
 logger = structlog.get_logger(__name__)
 
@@ -41,22 +41,22 @@ def create_app(
             "startup",
             ocr_dpi=settings.ocr.dpi,
             ner_model=settings.ner.model,
+            llm_model=settings.llm.model,
             duration_ms=round((time.perf_counter() - started) * 1000, 1),
         )
         yield
         logger.info("shutdown")
 
     app = FastAPI(title="Document Intelligence Service", lifespan=lifespan)
+    # The last middleware added runs first: the request ID exists before the size check,
+    # so even a 413 for an oversized body carries it.
+    app.add_middleware(BodySizeLimitMiddleware, max_body_bytes=settings.limits.max_request_bytes)
     app.add_middleware(RequestIDMiddleware)
     register_error_handlers(app)
 
+    app.include_router(health_router, tags=["ops"])
     app.include_router(extract_router, prefix="/api", tags=["extraction"])
     app.include_router(rag_router, prefix="/api", tags=["rag"])
-
-    @app.get("/health", response_model=HealthResponse, tags=["ops"])
-    def health() -> HealthResponse:
-        return HealthResponse(status="ok")
-
     return app
 
 

@@ -116,3 +116,40 @@ def test_empty_content_is_an_empty_answer() -> None:
     transport = httpx2.MockTransport(lambda request: httpx2.Response(200, json=_completion(None)))
 
     assert _llm(transport).complete("s", "u") == ""
+
+
+def _models(*ids: str) -> dict[str, object]:
+    return {
+        "object": "list",
+        "data": [{"id": i, "object": "model", "created": 0, "owned_by": "x"} for i in ids],
+    }
+
+
+def test_ping_succeeds_when_the_configured_model_is_served() -> None:
+    transport = httpx2.MockTransport(
+        lambda request: httpx2.Response(200, json=_models("other", "tiny-model"))
+    )
+
+    assert _llm(transport).ping() == "tiny-model available"
+
+
+def test_ping_fails_when_the_model_is_not_pulled() -> None:
+    transport = httpx2.MockTransport(lambda request: httpx2.Response(200, json=_models("other")))
+
+    with pytest.raises(UpstreamUnavailable, match="not served"):
+        _llm(transport).ping()
+
+
+def test_ping_fails_fast_when_the_endpoint_is_down() -> None:
+    attempts = 0
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        nonlocal attempts
+        attempts += 1
+        raise httpx2.ConnectError("connection refused")
+
+    settings = SETTINGS.model_copy(update={"max_retries": 5})
+    with pytest.raises(UpstreamUnavailable):
+        _llm(httpx2.MockTransport(handler), settings).ping()
+
+    assert attempts == 1  # readiness never waits for the request retries
