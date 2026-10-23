@@ -145,3 +145,5 @@ scripts/      evaluate_extraction · calibrate_similarity · draw_boxes
 | First answer slow or 2 s extra per connection | Use `127.0.0.1`, not `localhost`, in `LLM__BASE_URL` (Ollama listens on IPv4 only) |
 | `No module named pip` from `spacy download` | Not needed: `uv sync` already installed the model |
 | Windows warning about symlinks from Hugging Face | Harmless; the model is cached as copies |
+| Windows: `FileNotFoundError` inside `.venv`, or "DLL load failed … nombre del archivo … demasiado largo" / "filename too long" | The clone path is too deep for Windows' 260-character limit: the deepest file in `.venv` is 145 characters below the project folder, so keep the folder path under ~110 characters (e.g. `C:\src\ML-Engineer-test`), or enable long paths (`LongPathsEnabled`, needs admin); then delete `.venv` and run `uv sync --extra dev` again |
+| The very first `pytest` after a fresh install is much slower than later runs | Seen once on Windows (first run 96 min, second 66 s, same 312 tests), most likely antivirus scanning the newly installed packages on first import; later runs are normal |
