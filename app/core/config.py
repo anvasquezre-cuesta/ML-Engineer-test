@@ -37,8 +37,14 @@ class RAGSettings(BaseModel):
     chunk_words: int = Field(default=150, ge=1)
     overlap_words: int = Field(default=30, ge=0)
     top_k: int = Field(default=5, ge=1)
-    # Placeholder until calibrated on the sample questions (roadmap F9).
-    min_similarity: float = Field(default=0.35, ge=0.0, le=1.0)
+    # Calibrated with scripts/calibrate_similarity.py: answerable best matches 0.373-0.590,
+    # unanswerable 0.000-0.291; an answer-bearing page scored 0.325 behind a 0.574 page.
+    min_similarity: float = Field(
+        default=0.33, ge=0.0, le=1.0, description="Best match needed to answer at all"
+    )
+    context_min_similarity: float = Field(
+        default=0.30, ge=0.0, le=1.0, description="Similarity needed to enter the prompt"
+    )
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_batch_size: int = Field(default=32, ge=1)
     chroma_path: str = "./data/chroma"
@@ -50,11 +56,18 @@ class RAGSettings(BaseModel):
             raise ValueError("overlap_words must be smaller than chunk_words")
         return self
 
+    @model_validator(mode="after")
+    def _context_floor_not_above_gate(self) -> Self:
+        # Otherwise a question could pass the gate with no chunk allowed into the prompt.
+        if self.context_min_similarity > self.min_similarity:
+            raise ValueError("context_min_similarity must not exceed min_similarity")
+        return self
+
 
 class LLMSettings(BaseModel):
     base_url: str = "http://localhost:11434/v1"  # Ollama's OpenAI-compatible endpoint
     api_key: SecretStr = SecretStr("ollama")  # Ollama ignores it; the client requires one
-    model: str = "llama3.2"
+    model: str = "llama3.2:1b"  # small enough for a grader's laptop; any chat model works
     timeout_s: float = Field(default=30.0, gt=0)
     max_retries: int = Field(default=2, ge=0)
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)

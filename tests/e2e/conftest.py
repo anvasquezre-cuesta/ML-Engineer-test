@@ -14,7 +14,9 @@ from app.container import Services
 from app.core.config import LimitSettings, Settings
 from app.domain.errors import OCRFailed
 from app.domain.models import OcrWord, PageImage
+from app.domain.protocols import LLMClient
 from app.main import create_app
+from app.services.ask import AskService
 from app.services.chunking import WordWindowChunker
 from app.services.documents import DocumentLoader
 from app.services.extraction import ExtractionService
@@ -23,6 +25,7 @@ from app.services.names import NameExtractor
 from app.services.ocr import OcrService
 from tests.fakes import (
     FakeEmbedder,
+    FakeLLM,
     FakeNER,
     FakeOCR,
     FakeRenderer,
@@ -48,7 +51,9 @@ class FailingOCR:
 
 
 def fake_services(
-    ocr: FakeOCR | FailingOCR | None = None, store: InMemoryVectorStore | None = None
+    ocr: FakeOCR | FailingOCR | None = None,
+    store: InMemoryVectorStore | None = None,
+    llm: LLMClient | None = None,
 ) -> Callable[[Settings], Services]:
     def build(settings: Settings) -> Services:
         renderer = FakeRenderer([blank_page(0)])
@@ -58,6 +63,8 @@ def fake_services(
             max_pages=settings.limits.max_pages,
         )
         ocr_service = OcrService(renderer, ocr or FakeOCR({0: LINE}), dpi=72)
+        embedder = FakeEmbedder()
+        shared_store = store if store is not None else InMemoryVectorStore()
         return Services(
             extraction=ExtractionService(
                 loader,
@@ -69,8 +76,16 @@ def fake_services(
                 loader,
                 ocr_service,
                 WordWindowChunker(settings.rag.chunk_words, settings.rag.overlap_words),
-                FakeEmbedder(),
-                store if store is not None else InMemoryVectorStore(),
+                embedder,
+                shared_store,
+            ),
+            ask=AskService(
+                embedder,
+                shared_store,
+                llm or FakeLLM(),
+                top_k=settings.rag.top_k,
+                min_similarity=settings.rag.min_similarity,
+                context_min_similarity=settings.rag.context_min_similarity,
             ),
         )
 
@@ -87,12 +102,13 @@ def make_client() -> Iterator[ClientFactory]:
     def make(
         ocr: FakeOCR | FailingOCR | None = None,
         store: InMemoryVectorStore | None = None,
+        llm: LLMClient | None = None,
         max_upload_bytes: int = 1000,
     ) -> TestClient:
         settings = Settings(
             _env_file=None, log_json=False, limits=LimitSettings(max_upload_bytes=max_upload_bytes)
         )
-        client = TestClient(create_app(settings, fake_services(ocr, store)))
+        client = TestClient(create_app(settings, fake_services(ocr, store, llm)))
         client.__enter__()  # runs the lifespan
         clients.append(client)
         return client

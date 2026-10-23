@@ -143,6 +143,18 @@ class FakeEmbedder:
         return [v / norm for v in vector]
 
 
+class FakeLLM:
+    """Returns a canned answer and records every (system, user) prompt it receives."""
+
+    def __init__(self, answer: str = "Robert Chen.") -> None:
+        self.answer = answer
+        self.calls: list[tuple[str, str]] = []
+
+    def complete(self, system: str, user: str) -> str:
+        self.calls.append((system, user))
+        return self.answer
+
+
 class InMemoryVectorStore:
     """A ``VectorStore`` with the same ID and replace semantics as the Chroma adapter."""
 

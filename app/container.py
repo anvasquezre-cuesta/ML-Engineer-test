@@ -10,11 +10,13 @@ from dataclasses import dataclass
 
 from app.adapters.chroma_store import ChromaVectorStore
 from app.adapters.fuzzy_matcher import FuzzyMatcher
+from app.adapters.openai_llm import OpenAICompatibleLLM
 from app.adapters.pymupdf_renderer import PyMuPDFRenderer
 from app.adapters.sentence_embedder import SentenceTransformerEmbedder
 from app.adapters.spacy_ner import SpacyNER
 from app.adapters.tesseract_ocr import TesseractOCR
 from app.core.config import Settings
+from app.services.ask import AskService
 from app.services.chunking import WordWindowChunker
 from app.services.documents import DocumentLoader
 from app.services.extraction import ExtractionService
@@ -27,6 +29,7 @@ from app.services.ocr import OcrService
 class Services:
     extraction: ExtractionService
     ingestion: IngestionService
+    ask: AskService
 
 
 ServicesFactory = Callable[[Settings], Services]
@@ -47,8 +50,17 @@ def build_services(settings: Settings) -> Services:
     chunker = WordWindowChunker(settings.rag.chunk_words, settings.rag.overlap_words)
     embedder = SentenceTransformerEmbedder(settings.rag)
     store = ChromaVectorStore.persistent(settings.rag)
+    llm = OpenAICompatibleLLM(settings.llm)
 
     return Services(
         extraction=ExtractionService(loader, ocr, names, matcher),
         ingestion=IngestionService(loader, ocr, chunker, embedder, store),
+        ask=AskService(
+            embedder,
+            store,
+            llm,
+            top_k=settings.rag.top_k,
+            min_similarity=settings.rag.min_similarity,
+            context_min_similarity=settings.rag.context_min_similarity,
+        ),
     )
