@@ -68,7 +68,17 @@ Errors are JSON `{"detail": "...", "request_id": "..."}` with status 415 (not a 
 docker compose up --build
 ```
 
-Starts the app on port 8000 with Qdrant and Ollama on an internal network (not published), pulls `llama3.2:1b` once, and waits for each dependency's healthcheck. The image bakes in Tesseract and both models and runs offline as a non-root user. `APP_PORT=9000` changes the host port; `LLM_MODEL=llama3.2` a larger model. The first build downloads several GB of images and Python wheels.
+Starts the app on port 8000 with Qdrant and Ollama on an internal network (not published), pulls `llama3.2:1b` once, and waits for each dependency's healthcheck. The image bakes in Tesseract and both models and runs offline as a non-root user. `APP_PORT=9000` changes the host port; `LLM_MODEL=llama3.2` a larger model.
+
+Measured on Docker Desktop (8 CPUs, 7 GB): the first build takes about 13 minutes and produces a 4.1 GB image; the official Ollama image adds 9.2 GB. From `docker compose up -d` the app is healthy in about 3.5 minutes on a first start (model pull included), then in about 30 s. The first `/api/ask` on a cold CPU model takes about 12 s (the compose file allows 60 s).
+
+```bash
+curl http://localhost:8000/health          # {"status":"ok"}
+curl http://localhost:8000/health/ready    # "ready", vector_store "qdrant: …", llm "llama3.2:1b available"
+docker compose down                        # stop; add -v to also delete the stored data
+```
+
+On Windows, Docker Desktop needs WSL2 (`wsl --install` in an administrator PowerShell, then reboot).
 
 ## 5. Test
 

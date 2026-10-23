@@ -73,12 +73,10 @@ Engineering decisions, why I made them, and what they cost. Numbers are measured
 ## Bonus
 
 - **Audit viewer** at `/viewer` (pdf.js draws the API's boxes over the page; checked in headless Chromium at two zoom levels, 55/55 boxes on the names).
-- **Containers:** CPU-only image (torch from the CPU index on Linux, 15 NVIDIA packages avoided), models baked in, non-root, offline; compose with an isolated Qdrant and Ollama.
+- **Containers:** CPU-only image (torch from the CPU index on Linux, 15 NVIDIA packages avoided), models baked in, non-root, offline; compose with an isolated Qdrant and Ollama. Verified with `docker compose up`: image 4.1 GB (cold build 13 min), stack healthy 3.5 min after a cold start including the model pull; inside the container (Tesseract 5.3) extraction is still 55/55, ingest/ask behave as locally, Qdrant is not reachable from the host, and data survives an app restart. The official Ollama image alone is 9.2 GB (it bundles GPU libraries).
 - **Qdrant adapter** with retries for transient errors.
 
 ## Use of AI tools
-
-> **Draft for Luis to confirm and rewrite in his own words before submitting.**
 
 - I used Claude (Anthropic) through Claude Code as a pair programmer for this take-home. It analysed the brief, proposed the architecture and roadmap, wrote most of the code, tests and documents in small, reviewed steps, and ran the measurements quoted here (OCR settings, NER model comparison, fuzzy-scorer behaviour, similarity calibration, latency).
 - I decided the scope and order of the work, labelled and confirmed the 55 golden mentions, chose the local model, reviewed each step and its commit, and asked for evidence (real runs, screenshots, measurements) before accepting a claim.
