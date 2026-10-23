@@ -27,6 +27,7 @@ class OpenAICompatibleLLM:
             http_client=http_client,
         )
         self._model = settings.model
+        self._readiness_timeout_s = settings.readiness_timeout_s
         self._temperature = settings.temperature
 
     def complete(self, system: str, user: str) -> str:
@@ -45,10 +46,12 @@ class OpenAICompatibleLLM:
             raise UpstreamUnavailable("The language model returned no answer.")
         return (response.choices[0].message.content or "").strip()
 
-    def ping(self, timeout_s: float = 2.0) -> str:
+    def ping(self) -> str:
         """Readiness probe: the endpoint answers and serves the configured model."""
         try:
-            models = self._client.with_options(timeout=timeout_s, max_retries=0).models.list()
+            models = self._client.with_options(
+                timeout=self._readiness_timeout_s, max_retries=0
+            ).models.list()
         except openai.APIError as exc:
             raise UpstreamUnavailable(f"The language model is unavailable: {exc}") from exc
         available = {model.id for model in models}

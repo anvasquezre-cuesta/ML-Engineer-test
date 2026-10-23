@@ -71,6 +71,7 @@ class QdrantVectorStore:
             client,
             settings.collection,
             max_retries=settings.qdrant_max_retries,
+            backoff_s=settings.qdrant_backoff_s,
             index_payload=settings.qdrant_url is not None,
         )
 

@@ -51,6 +51,7 @@ uv run pytest --cov                       # branch coverage; the build fails bel
 | Embedding truncation is visible | `integration/test_sentence_embedder.py::test_truncation_is_logged` |
 | Request IDs and privacy in logs | `e2e/test_observability.py` (every line of a request carries its ID; no names), `unit/*::*_never_names`, `e2e/test_errors.py::test_validation_errors_do_not_echo_the_rejected_input` |
 | Liveness vs readiness | `e2e/test_health.py`, `unit/test_readiness.py` |
+| Fixed API contract (no renames, only optional additions) | `unit/test_schema_contract.py` against `fixtures/original_contract_schema.json`, the skeleton's schemas frozen from commit 7acb727 |
 | Configuration | `unit/test_config.py` (env overrides, validation, secret not in repr) |
 | Audit viewer | `e2e/test_viewer.py` (served, wired to `/api/extract`, pinned pdf.js, no `innerHTML`); rendering checked in headless Chromium: 55 boxes on the names at 100 % and 200 % |
 | The whole path | `e2e/test_ask_api.py::test_extract_ingest_ask_end_to_end` (fakes); `integration/test_extract_api_real.py`, `integration/test_ask_real.py` (real services, Gate B) |

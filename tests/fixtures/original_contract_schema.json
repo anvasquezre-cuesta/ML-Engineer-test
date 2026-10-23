@@ -1,0 +1,314 @@
+{
+  "_source": "app/models/schemas.py at commit 7acb727 (the provided skeleton)",
+  "models": {
+    "BoundingBox": {
+      "description": "A name's location on a page, in PDF coordinate space (points, 72/inch).",
+      "properties": {
+        "page_number": {
+          "description": "0-based page index",
+          "minimum": 0,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "width": {
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "title": "Height",
+          "type": "number"
+        }
+      },
+      "required": [
+        "page_number",
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "BoundingBox",
+      "type": "object"
+    },
+    "ExtractedName": {
+      "$defs": {
+        "BoundingBox": {
+          "description": "A name's location on a page, in PDF coordinate space (points, 72/inch).",
+          "properties": {
+            "page_number": {
+              "description": "0-based page index",
+              "minimum": 0,
+              "title": "Page Number",
+              "type": "integer"
+            },
+            "x": {
+              "title": "X",
+              "type": "number"
+            },
+            "y": {
+              "title": "Y",
+              "type": "number"
+            },
+            "width": {
+              "title": "Width",
+              "type": "number"
+            },
+            "height": {
+              "title": "Height",
+              "type": "number"
+            }
+          },
+          "required": [
+            "page_number",
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "title": "BoundingBox",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "bounding_box": {
+          "$ref": "#/$defs/BoundingBox"
+        }
+      },
+      "required": [
+        "name",
+        "bounding_box"
+      ],
+      "title": "ExtractedName",
+      "type": "object"
+    },
+    "ExtractionResponse": {
+      "$defs": {
+        "BoundingBox": {
+          "description": "A name's location on a page, in PDF coordinate space (points, 72/inch).",
+          "properties": {
+            "page_number": {
+              "description": "0-based page index",
+              "minimum": 0,
+              "title": "Page Number",
+              "type": "integer"
+            },
+            "x": {
+              "title": "X",
+              "type": "number"
+            },
+            "y": {
+              "title": "Y",
+              "type": "number"
+            },
+            "width": {
+              "title": "Width",
+              "type": "number"
+            },
+            "height": {
+              "title": "Height",
+              "type": "number"
+            }
+          },
+          "required": [
+            "page_number",
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "title": "BoundingBox",
+          "type": "object"
+        },
+        "ExtractedName": {
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "bounding_box": {
+              "$ref": "#/$defs/BoundingBox"
+            }
+          },
+          "required": [
+            "name",
+            "bounding_box"
+          ],
+          "title": "ExtractedName",
+          "type": "object"
+        },
+        "FuzzyMatch": {
+          "properties": {
+            "extracted_name": {
+              "title": "Extracted Name",
+              "type": "string"
+            },
+            "matched_name": {
+              "title": "Matched Name",
+              "type": "string"
+            },
+            "score": {
+              "description": "0..1 similarity",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Score",
+              "type": "number"
+            }
+          },
+          "required": [
+            "extracted_name",
+            "matched_name",
+            "score"
+          ],
+          "title": "FuzzyMatch",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "extracted_names": {
+          "items": {
+            "$ref": "#/$defs/ExtractedName"
+          },
+          "title": "Extracted Names",
+          "type": "array"
+        },
+        "fuzzy_matches": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FuzzyMatch"
+          },
+          "title": "Fuzzy Matches",
+          "type": "array"
+        }
+      },
+      "required": [
+        "extracted_names"
+      ],
+      "title": "ExtractionResponse",
+      "type": "object"
+    },
+    "FuzzyMatch": {
+      "properties": {
+        "extracted_name": {
+          "title": "Extracted Name",
+          "type": "string"
+        },
+        "matched_name": {
+          "title": "Matched Name",
+          "type": "string"
+        },
+        "score": {
+          "description": "0..1 similarity",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "extracted_name",
+        "matched_name",
+        "score"
+      ],
+      "title": "FuzzyMatch",
+      "type": "object"
+    },
+    "HealthResponse": {
+      "properties": {
+        "status": {
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "HealthResponse",
+      "type": "object"
+    },
+    "IngestResponse": {
+      "properties": {
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "chunks_stored": {
+          "title": "Chunks Stored",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "chunks_stored"
+      ],
+      "title": "IngestResponse",
+      "type": "object"
+    },
+    "NamePair": {
+      "properties": {
+        "first_name": {
+          "minLength": 1,
+          "title": "First Name",
+          "type": "string"
+        },
+        "last_name": {
+          "minLength": 1,
+          "title": "Last Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "first_name",
+        "last_name"
+      ],
+      "title": "NamePair",
+      "type": "object"
+    },
+    "RAGRequest": {
+      "properties": {
+        "question": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question"
+      ],
+      "title": "RAGRequest",
+      "type": "object"
+    },
+    "RAGResponse": {
+      "properties": {
+        "answer": {
+          "title": "Answer",
+          "type": "string"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "answer"
+      ],
+      "title": "RAGResponse",
+      "type": "object"
+    }
+  }
+}

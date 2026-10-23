@@ -59,6 +59,7 @@ class RAGSettings(BaseModel):
     qdrant_api_key: SecretStr | None = None
     qdrant_timeout_s: float = Field(default=10.0, gt=0)
     qdrant_max_retries: int = Field(default=2, ge=0)
+    qdrant_backoff_s: float = Field(default=0.2, ge=0, description="Doubles on each retry")
 
     @model_validator(mode="after")
     def _overlap_smaller_than_chunk(self) -> Self:
@@ -82,6 +83,9 @@ class LLMSettings(BaseModel):
     model: str = "llama3.2:1b"  # small enough for a grader's laptop; any chat model works
     timeout_s: float = Field(default=30.0, gt=0)
     max_retries: int = Field(default=2, ge=0)
+    readiness_timeout_s: float = Field(
+        default=2.0, gt=0, description="/health/ready LLM probe; no retries"
+    )
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
 
 

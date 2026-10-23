@@ -1,5 +1,5 @@
 # docker compose up --build
-#   app     http://localhost:8000  (API, /docs, /viewer, /health, /health/ready)
+#   app     http://localhost:${APP_PORT:-8000}  (API, /docs, /viewer, /health, /health/ready)
 #   qdrant  vector store, internal network only (isolated: not published to the host)
 #   ollama  OpenAI-compatible LLM, internal network only; ollama-pull fetches the model once
 #
@@ -12,7 +12,7 @@ services:
     build: .
     image: document-intelligence:local
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:8000"
     environment:
       RAG__VECTOR_STORE: qdrant
       RAG__QDRANT_URL: http://qdrant:6333

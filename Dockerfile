@@ -53,14 +53,16 @@ ENV PATH=/app/.venv/bin:$PATH \
     ANONYMIZED_TELEMETRY=False \
     LOG_JSON=true \
     RAG__CHROMA_PATH=/data/chroma \
-    RAG__QDRANT_PATH=/data/qdrant
+    RAG__QDRANT_PATH=/data/qdrant \
+    PORT=8000
 
 USER app
 VOLUME ["/data"]
-EXPOSE 8000
+EXPOSE ${PORT}
 
 # Liveness only (the process answers); compose uses /health/ready for dependency health.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=3 \
-    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+    CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.environ['PORT']}/health\", timeout=4)"]
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so ${PORT} expands; exec keeps uvicorn as PID 1 to receive stop signals.
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
