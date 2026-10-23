@@ -19,6 +19,7 @@ class OCRSettings(BaseModel):
     tesseract_cmd: str | None = Field(
         default=None, description="Path to the tesseract binary when it is not on PATH"
     )
+    page_timeout_s: float = Field(default=120.0, gt=0, description="Tesseract limit per page")
 
 
 class NERSettings(BaseModel):

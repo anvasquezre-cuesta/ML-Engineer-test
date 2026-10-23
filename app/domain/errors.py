@@ -14,11 +14,19 @@ class UnsupportedMediaType(DomainError):
 
 
 class InvalidDocument(DomainError):
-    """The upload is empty, corrupt or encrypted, or ``names`` is malformed."""
+    """The upload is empty, corrupt, encrypted or has no pages."""
+
+
+class InvalidRequest(DomainError):
+    """A request field other than the file is malformed (e.g. the ``names`` JSON)."""
 
 
 class DocumentTooLarge(DomainError):
     """The upload exceeds the byte or page limit."""
+
+
+class OCRFailed(DomainError):
+    """The OCR engine is missing, crashed or timed out."""
 
 
 class UpstreamUnavailable(DomainError):

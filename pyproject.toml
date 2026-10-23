@@ -62,8 +62,14 @@ plugins = ["pydantic.mypy"]
 module = ["pytesseract.*", "thefuzz.*", "chromadb.*", "sentence_transformers.*", "pymupdf.*", "fitz.*"]
 ignore_missing_imports = true
 
+# Adapters exist to wrap partly untyped libraries (PyMuPDF); the rest of app/ stays fully strict.
+[[tool.mypy.overrides]]
+module = ["app.adapters.*"]
+disallow_untyped_calls = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
     "integration: needs Tesseract and the spaCy model; skipped when missing",
 ]
