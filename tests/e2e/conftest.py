@@ -1,4 +1,4 @@
-"""HTTP tests run the real app wiring with fake adapters (no Tesseract, no spaCy).
+"""HTTP tests run the real app wiring with fake adapters (no Tesseract, spaCy or models).
 
 The fake document is one page; the fake OCR reads one line, at 72 DPI so one
 pixel is one point:  "Approved by: Robert Chen, CTO"
@@ -12,13 +12,24 @@ from fastapi.testclient import TestClient
 from app.adapters.fuzzy_matcher import FuzzyMatcher
 from app.container import Services
 from app.core.config import LimitSettings, Settings
+from app.domain.errors import OCRFailed
 from app.domain.models import OcrWord, PageImage
 from app.main import create_app
+from app.services.chunking import WordWindowChunker
 from app.services.documents import DocumentLoader
 from app.services.extraction import ExtractionService
+from app.services.ingestion import IngestionService
 from app.services.names import NameExtractor
 from app.services.ocr import OcrService
-from tests.fakes import FakeNER, FakeOCR, FakeRenderer, blank_page, ocr_word
+from tests.fakes import (
+    FakeEmbedder,
+    FakeNER,
+    FakeOCR,
+    FakeRenderer,
+    InMemoryVectorStore,
+    blank_page,
+    ocr_word,
+)
 
 PDF = b"%PDF-1.7 fake document"
 
@@ -33,12 +44,12 @@ LINE = [
 
 class FailingOCR:
     def recognize(self, page: PageImage) -> list[OcrWord]:
-        from app.domain.errors import OCRFailed
-
         raise OCRFailed("Tesseract is not installed or not on PATH.")
 
 
-def fake_services(ocr: FakeOCR | FailingOCR | None = None) -> Callable[[Settings], Services]:
+def fake_services(
+    ocr: FakeOCR | FailingOCR | None = None, store: InMemoryVectorStore | None = None
+) -> Callable[[Settings], Services]:
     def build(settings: Settings) -> Services:
         renderer = FakeRenderer([blank_page(0)])
         loader = DocumentLoader(
@@ -46,14 +57,21 @@ def fake_services(ocr: FakeOCR | FailingOCR | None = None) -> Callable[[Settings
             max_bytes=settings.limits.max_upload_bytes,
             max_pages=settings.limits.max_pages,
         )
-        engine = ocr or FakeOCR({0: LINE})
+        ocr_service = OcrService(renderer, ocr or FakeOCR({0: LINE}), dpi=72)
         return Services(
             extraction=ExtractionService(
                 loader,
-                OcrService(renderer, engine, dpi=72),
+                ocr_service,
                 NameExtractor(FakeNER("Robert Chen")),
                 FuzzyMatcher(threshold=settings.matching.threshold),
-            )
+            ),
+            ingestion=IngestionService(
+                loader,
+                ocr_service,
+                WordWindowChunker(settings.rag.chunk_words, settings.rag.overlap_words),
+                FakeEmbedder(),
+                store if store is not None else InMemoryVectorStore(),
+            ),
         )
 
     return build
@@ -66,11 +84,15 @@ ClientFactory = Callable[..., TestClient]
 def make_client() -> Iterator[ClientFactory]:
     clients: list[TestClient] = []
 
-    def make(ocr: FakeOCR | FailingOCR | None = None, max_upload_bytes: int = 1000) -> TestClient:
+    def make(
+        ocr: FakeOCR | FailingOCR | None = None,
+        store: InMemoryVectorStore | None = None,
+        max_upload_bytes: int = 1000,
+    ) -> TestClient:
         settings = Settings(
             _env_file=None, log_json=False, limits=LimitSettings(max_upload_bytes=max_upload_bytes)
         )
-        client = TestClient(create_app(settings, fake_services(ocr)))
+        client = TestClient(create_app(settings, fake_services(ocr, store)))
         client.__enter__()  # runs the lifespan
         clients.append(client)
         return client

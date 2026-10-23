@@ -8,13 +8,17 @@ same wiring with fakes.
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.adapters.chroma_store import ChromaVectorStore
 from app.adapters.fuzzy_matcher import FuzzyMatcher
 from app.adapters.pymupdf_renderer import PyMuPDFRenderer
+from app.adapters.sentence_embedder import SentenceTransformerEmbedder
 from app.adapters.spacy_ner import SpacyNER
 from app.adapters.tesseract_ocr import TesseractOCR
 from app.core.config import Settings
+from app.services.chunking import WordWindowChunker
 from app.services.documents import DocumentLoader
 from app.services.extraction import ExtractionService
+from app.services.ingestion import IngestionService
 from app.services.names import NameExtractor
 from app.services.ocr import OcrService
 
@@ -22,6 +26,7 @@ from app.services.ocr import OcrService
 @dataclass(frozen=True, slots=True)
 class Services:
     extraction: ExtractionService
+    ingestion: IngestionService
 
 
 ServicesFactory = Callable[[Settings], Services]
@@ -35,6 +40,15 @@ def build_services(settings: Settings) -> Services:
         max_pages=settings.limits.max_pages,
     )
     ocr = OcrService(renderer, TesseractOCR(settings.ocr), dpi=settings.ocr.dpi)
+
     names = NameExtractor(SpacyNER(settings.ner))
     matcher = FuzzyMatcher(threshold=settings.matching.threshold)
-    return Services(extraction=ExtractionService(loader, ocr, names, matcher))
+
+    chunker = WordWindowChunker(settings.rag.chunk_words, settings.rag.overlap_words)
+    embedder = SentenceTransformerEmbedder(settings.rag)
+    store = ChromaVectorStore.persistent(settings.rag)
+
+    return Services(
+        extraction=ExtractionService(loader, ocr, names, matcher),
+        ingestion=IngestionService(loader, ocr, chunker, embedder, store),
+    )

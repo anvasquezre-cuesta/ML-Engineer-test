@@ -68,6 +68,10 @@ class VectorStore(Protocol):
         """Return up to ``top_k`` chunks, most similar first."""
         ...
 
+    def count(self) -> int:
+        """Number of chunks stored across all documents."""
+        ...
+
 
 class LLMClient(Protocol):
     def complete(self, system: str, user: str) -> str:

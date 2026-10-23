@@ -7,6 +7,7 @@ from fastapi import Request
 from app.container import Services
 from app.core.config import Settings
 from app.services.extraction import ExtractionService
+from app.services.ingestion import IngestionService
 
 
 def get_services(request: Request) -> Services:
@@ -19,3 +20,7 @@ def get_app_settings(request: Request) -> Settings:
 
 def get_extraction_service(request: Request) -> ExtractionService:
     return get_services(request).extraction
+
+
+def get_ingestion_service(request: Request) -> IngestionService:
+    return get_services(request).ingestion

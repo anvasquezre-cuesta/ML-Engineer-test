@@ -4,9 +4,20 @@ Each is a tiny working implementation, so tests read like the domain and the
 same fake serves many tests. They also record calls for assertions.
 """
 
+import hashlib
+import math
 from collections.abc import Iterator, Sequence
 
-from app.domain.models import Box, EntitySpan, OcrPage, OcrWord, PageImage, PageWord
+from app.domain.models import (
+    Box,
+    Chunk,
+    EntitySpan,
+    OcrPage,
+    OcrWord,
+    PageImage,
+    PageWord,
+    RetrievedChunk,
+)
 
 
 def blank_page(index: int, *, dpi: int = 72, rotation: int = 0) -> PageImage:
@@ -109,3 +120,49 @@ class FakeNER:
                 spans.append(EntitySpan(person, start, start + len(person)))
                 start = text.find(person, start + 1)
         return sorted(spans, key=lambda s: s.start_char)
+
+
+class FakeEmbedder:
+    """Deterministic bag-of-words vectors: texts sharing words are close. Records calls."""
+
+    DIMENSIONS = 64
+
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        self.calls.append(list(texts))
+        return [self._vector(text) for text in texts]
+
+    def _vector(self, text: str) -> list[float]:
+        vector = [0.0] * self.DIMENSIONS
+        for word in text.lower().split():
+            digest = hashlib.sha256(word.strip(".,:;?!").encode()).digest()
+            vector[digest[0] % self.DIMENSIONS] += 1.0
+        norm = math.sqrt(sum(v * v for v in vector)) or 1.0
+        return [v / norm for v in vector]
+
+
+class InMemoryVectorStore:
+    """A ``VectorStore`` with the same ID and replace semantics as the Chroma adapter."""
+
+    def __init__(self) -> None:
+        self.rows: dict[str, tuple[Chunk, list[float]]] = {}
+
+    def replace_document(
+        self, doc_id: str, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]
+    ) -> int:
+        self.rows = {k: v for k, v in self.rows.items() if v[0].doc_id != doc_id}
+        for chunk, vector in zip(chunks, vectors, strict=True):
+            self.rows[chunk.chunk_id] = (chunk, list(vector))
+        return len(chunks)
+
+    def query(self, vector: Sequence[float], top_k: int) -> list[RetrievedChunk]:
+        scored = [
+            RetrievedChunk(chunk, max(0.0, sum(a * b for a, b in zip(vector, v, strict=True))))
+            for chunk, v in self.rows.values()
+        ]
+        return sorted(scored, key=lambda r: -r.similarity)[:top_k]
+
+    def count(self) -> int:
+        return len(self.rows)

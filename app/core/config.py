@@ -40,6 +40,7 @@ class RAGSettings(BaseModel):
     # Placeholder until calibrated on the sample questions (roadmap F9).
     min_similarity: float = Field(default=0.35, ge=0.0, le=1.0)
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_batch_size: int = Field(default=32, ge=1)
     chroma_path: str = "./data/chroma"
     collection: str = "documents"
 
