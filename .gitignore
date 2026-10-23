@@ -10,10 +10,16 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
-# Env / secrets
+# Env / secrets (the template is documentation, not a secret)
 .env
 .env.*
+!.env.example
+
+# Local vector store data
+data/
 
 # OS / IDE
 .DS_Store

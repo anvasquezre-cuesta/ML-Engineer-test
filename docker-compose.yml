@@ -1,0 +1,81 @@
+# docker compose up --build
+#   app     http://localhost:${APP_PORT:-8000}  (API, /docs, /viewer, /health, /health/ready)
+#   qdrant  vector store, internal network only (isolated: not published to the host)
+#   ollama  OpenAI-compatible LLM, internal network only; ollama-pull fetches the model once
+#
+# Change the model with LLM_MODEL=llama3.2 docker compose up --build
+
+name: document-intelligence
+
+services:
+  app:
+    build: .
+    image: document-intelligence:local
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      RAG__VECTOR_STORE: qdrant
+      RAG__QDRANT_URL: http://qdrant:6333
+      LLM__BASE_URL: http://ollama:11434/v1
+      LLM__MODEL: ${LLM_MODEL:-llama3.2:1b}
+      # First answers from a cold model on CPU can be slow.
+      LLM__TIMEOUT_S: "60"
+    volumes:
+      - app_data:/data
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      # Readiness: 503 (unhealthy) when OCR or the vector store fails; the LLM is non-critical.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=8)"
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      # The image has no curl; bash's /dev/tcp checks that the HTTP port accepts connections.
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.34.1
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  ollama-pull:
+    image: ollama/ollama:0.34.1
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["ollama", "pull", "${LLM_MODEL:-llama3.2:1b}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  app_data:
+  qdrant_data:
+  ollama_data:

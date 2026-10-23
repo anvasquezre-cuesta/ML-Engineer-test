@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit Viewer</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5d6675; --line: #dde1e7;
+    --accent: #2457c5; --match: #0f8a4b; --match-fill: rgba(15, 138, 75, 0.10);
+    --nomatch: #c06a00; --nomatch-fill: rgba(192, 106, 0, 0.08); --error: #b42318;
+    --focus: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b2029; --text: #e6e9ef; --muted: #9aa3b2; --line: #2c3340;
+      --accent: #7aa2ff; --match: #3ccf86; --match-fill: rgba(60, 207, 134, 0.18);
+      --nomatch: #f0a14a; --nomatch-fill: rgba(240, 161, 74, 0.18); --error: #ff8a80;
+      --focus: #b79cff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 20px 8px; }
+  h1 { margin: 0; font-size: 18px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  form { display: grid; gap: 12px; grid-template-columns: minmax(220px, 1fr) minmax(260px, 2fr) auto;
+         align-items: end; padding: 12px 20px; }
+  label { display: grid; gap: 4px; font-weight: 600; font-size: 13px; }
+  input[type=file], textarea, select, button { font: inherit; color: inherit; }
+  textarea { min-height: 64px; resize: vertical; padding: 6px 8px; background: var(--panel);
+             border: 1px solid var(--line); border-radius: 6px; }
+  .actions { display: flex; gap: 8px; align-items: center; }
+  select { padding: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+  button { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #fff;
+           font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.6; cursor: progress; }
+  #status { padding: 0 20px 8px; color: var(--muted); min-height: 1.5em; }
+  #status.error { color: var(--error); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; padding: 0 20px 24px; }
+  #pages { display: grid; gap: 16px; justify-items: start; overflow-x: auto; }
+  .page { position: relative; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
+  .page canvas { display: block; }
+  .page-label { position: absolute; top: -1px; left: -1px; padding: 1px 6px; font-size: 11px;
+                background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
+  /* Drawn just outside the API box (1.5 px border, negative margin) so the name stays readable. */
+  .box { position: absolute; border: 1.5px solid var(--nomatch); background: var(--nomatch-fill);
+         margin: -1.5px 0 0 -1.5px; box-sizing: content-box; border-radius: 2px; cursor: pointer; }
+  .box.matched { border-color: var(--match); background: var(--match-fill); }
+  .box.focused { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .box .tip { display: none; position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 2;
+              white-space: nowrap; padding: 4px 8px; border-radius: 4px; font-size: 12px;
+              background: #111827; color: #f9fafb; pointer-events: none; }
+  .box:hover .tip, .box.focused .tip { display: block; }
+  aside { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+          align-self: start; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+  aside h2 { margin: 0 0 8px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover, tbody tr.focused { background: var(--match-fill); }
+  .score { font-variant-numeric: tabular-nums; }
+  .legend { display: flex; gap: 12px; margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px;
+            border: 2px solid var(--match); background: var(--match-fill); }
+  .swatch.none { border-color: var(--nomatch); background: var(--nomatch-fill); }
+  @media (max-width: 860px) {
+    form { grid-template-columns: 1fr; }
+    main { grid-template-columns: 1fr; }
+    aside { position: static; max-height: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Audit viewer</h1>
+  <p>Upload a scanned PDF: each detected person name is drawn where the API says it is, so a reviewer can confirm it on the page.</p>
+</header>
+
+<form id="form">
+  <label>Scanned PDF
+    <input id="pdf" type="file" accept="application/pdf,.pdf" required>
+  </label>
+  <label>Names to match (one "First Last" per line)
+    <textarea id="names" placeholder="María García&#10;Robert Chen"></textarea>
+  </label>
+  <div class="actions">
+    <label>Zoom
+      <select id="zoom">
+        <option value="1">100%</option>
+        <option value="1.5" selected>150%</option>
+        <option value="2">200%</option>
+      </select>
+    </label>
+    <button id="run" type="submit">Extract</button>
+  </div>
+</form>
+<div id="status" role="status" aria-live="polite"></div>
+
+<main>
+  <section id="pages" aria-label="Pages"></section>
+  <aside>
+    <h2>Detected names</h2>
+    <div class="legend"><span><i class="swatch"></i>matches a listed name</span><span><i class="swatch none"></i>no match</span></div>
+    <table>
+      <thead><tr><th>Name</th><th>Page</th><th>Best match</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </aside>
+</main>
+
+<script type="module">
+import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
+const $ = (id) => document.getElementById(id);
+const state = { pdf: null, result: null };
+
+function setStatus(text, isError = false) {
+  $("status").textContent = text;
+  $("status").classList.toggle("error", isError);
+}
+
+// "María García" -> {first_name: "María", last_name: "García"}; the last word is the surname.
+function parseNames(text) {
+  const pairs = [];
+  const skipped = [];
+  for (const line of text.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    const parts = line.split(/\s+/);
+    if (parts.length < 2) { skipped.push(line); continue; }
+    pairs.push({ first_name: parts.slice(0, -1).join(" "), last_name: parts.at(-1) });
+  }
+  return { pairs, skipped };
+}
+
+// Best match per extracted name: the API returns every pair above the threshold.
+function bestMatches(matches) {
+  const best = new Map();
+  for (const m of matches) {
+    const current = best.get(m.extracted_name);
+    if (!current || m.score > current.score) best.set(m.extracted_name, m);
+  }
+  return best;
+}
+
+async function render() {
+  const { pdf, result } = state;
+  if (!pdf || !result) return;
+  const zoom = Number($("zoom").value);
+  const best = bestMatches(result.fuzzy_matches);
+  const pagesEl = $("pages");
+  pagesEl.replaceChildren();
+
+  const pageEls = [];
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n);
+    const viewport = page.getViewport({ scale: zoom });
+    const dpr = window.devicePixelRatio || 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(viewport.width * dpr);
+    canvas.height = Math.floor(viewport.height * dpr);
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+    await page.render({
+      canvasContext: canvas.getContext("2d"),
+      viewport,
+      transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0],
+    }).promise;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "page";
+    wrapper.dataset.page = String(n - 1);
+    wrapper.style.width = `${viewport.width}px`;
+    wrapper.style.height = `${viewport.height}px`;
+    const label = document.createElement("span");
+    label.className = "page-label";
+    label.textContent = `page ${n - 1} (0-based)`;
+    wrapper.append(canvas, label);
+    pagesEl.append(wrapper);
+    // Points -> CSS pixels. The API's origin is top-left, like the canvas, so no y flip.
+    // page.view[2] is the page width in points (unrotated pages, as in the API).
+    pageEls.push({ el: wrapper, scale: viewport.width / page.view[2] });
+  }
+
+  const rows = $("rows");
+  rows.replaceChildren();
+  result.extracted_names.forEach((item, i) => {
+    const b = item.bounding_box;
+    const target = pageEls[b.page_number];
+    const match = best.get(item.name);
+    const box = document.createElement("div");
+    box.className = match ? "box matched" : "box";
+    box.dataset.index = String(i);
+    Object.assign(box.style, {
+      left: `${b.x * target.scale}px`,
+      top: `${b.y * target.scale}px`,
+      width: `${b.width * target.scale}px`,
+      height: `${b.height * target.scale}px`,
+    });
+    const tip = document.createElement("span");
+    tip.className = "tip";
+    tip.textContent = match
+      ? `${item.name} → ${match.matched_name} (${match.score.toFixed(2)})`
+      : `${item.name} (no match)`;
+    box.append(tip);
+    box.title = `${item.name} · page ${b.page_number} · x ${b.x}, y ${b.y}, ${b.width} × ${b.height} pt`;
+    box.addEventListener("click", () => focus(i));
+    target.el.append(box);
+
+    const row = document.createElement("tr");
+    row.dataset.index = String(i);
+    const cells = [item.name, String(b.page_number),
+                   match ? `${match.matched_name} ${match.score.toFixed(2)}` : "—"];
+    for (const text of cells) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      row.append(td);
+    }
+    row.lastChild.classList.add("score");
+    row.addEventListener("click", () => focus(i));
+    rows.append(row);
+  });
+}
+
+function focus(index) {
+  document.querySelectorAll(".focused").forEach((el) => el.classList.remove("focused"));
+  const box = document.querySelector(`.box[data-index="${index}"]`);
+  const row = document.querySelector(`tr[data-index="${index}"]`);
+  box?.classList.add("focused");
+  row?.classList.add("focused");
+  box?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+}
+
+$("form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = $("pdf").files[0];
+  if (!file) return;
+  const { pairs, skipped } = parseNames($("names").value);
+  $("run").disabled = true;
+  setStatus("Running OCR and name extraction…");
+  try {
+    const body = new FormData();
+    body.append("pdf_file", file);
+    body.append("names", JSON.stringify(pairs));
+    const response = await fetch("/api/extract", { method: "POST", body });
+    const payload = await response.json();
+    if (!response.ok) {
+      const detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail);
+      setStatus(`Error ${response.status}: ${detail} (request ${payload.request_id})`, true);
+      return;
+    }
+    state.result = payload;
+    state.pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    await render();
+    const matched = new Set(payload.fuzzy_matches.map((m) => m.extracted_name));
+    const found = payload.extracted_names.length;
+    const withMatch = payload.extracted_names.filter((n) => matched.has(n.name)).length;
+    setStatus(`${found} name${found === 1 ? "" : "s"} on ${state.pdf.numPages} page(s); ` +
+              `${withMatch} match a listed name.` +
+              (skipped.length ? ` Skipped (need first and last name): ${skipped.join(", ")}.` : ""));
+  } catch (error) {
+    setStatus(`Could not reach the API: ${error.message}`, true);
+  } finally {
+    $("run").disabled = false;
+  }
+});
+
+$("zoom").addEventListener("change", () => render());
+</script>
+</body>
+</html>

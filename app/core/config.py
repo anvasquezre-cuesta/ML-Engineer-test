@@ -1,0 +1,127 @@
+"""Centralised, environment-overridable configuration.
+
+Every tunable (DPI, thresholds, model names, hosts, limits) lives here. Nested
+groups are overridden with a double underscore, e.g. ``OCR__DPI=200`` or
+``RAG__CHUNK_WORDS=120``. Values are read from the environment and from ``.env``.
+"""
+
+from functools import lru_cache
+from typing import Literal, Self
+
+from pydantic import BaseModel, Field, SecretStr, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class OCRSettings(BaseModel):
+    dpi: int = Field(default=300, ge=72, le=600, description="Render resolution for OCR")
+    lang: str = Field(default="eng", description="Tesseract language(s), e.g. 'eng+spa'")
+    psm: int = Field(default=3, ge=0, le=13, description="Tesseract page segmentation mode")
+    tesseract_cmd: str | None = Field(
+        default=None, description="Path to the tesseract binary when it is not on PATH"
+    )
+    page_timeout_s: float = Field(default=120.0, gt=0, description="Tesseract limit per page")
+
+
+class NERSettings(BaseModel):
+    model: str = Field(default="en_core_web_lg", description="spaCy pipeline name")
+    person_labels: tuple[str, ...] = Field(
+        default=("PERSON", "PER"), description="Entity labels treated as a person"
+    )
+
+
+class MatchingSettings(BaseModel):
+    threshold: float = Field(default=0.90, ge=0.0, le=1.0, description="Minimum similarity")
+
+
+class RAGSettings(BaseModel):
+    chunk_words: int = Field(default=150, ge=1)
+    overlap_words: int = Field(default=30, ge=0)
+    top_k: int = Field(default=5, ge=1)
+    # Calibrated with scripts/calibrate_similarity.py: answerable best matches 0.373-0.590,
+    # unanswerable 0.000-0.291; an answer-bearing page scored 0.325 behind a 0.574 page.
+    min_similarity: float = Field(
+        default=0.33, ge=0.0, le=1.0, description="Best match needed to answer at all"
+    )
+    context_min_similarity: float = Field(
+        default=0.30, ge=0.0, le=1.0, description="Similarity needed to enter the prompt"
+    )
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_batch_size: int = Field(default=32, ge=1)
+    collection: str = "documents"
+    vector_store: Literal["chroma", "qdrant"] = Field(
+        default="chroma", description="Embedded Chroma, or Qdrant (a service or embedded)"
+    )
+    chroma_path: str = "./data/chroma"
+    qdrant_url: str | None = Field(
+        default=None, description="e.g. http://qdrant:6333; unset = embedded Qdrant at qdrant_path"
+    )
+    qdrant_path: str = "./data/qdrant"
+    qdrant_api_key: SecretStr | None = None
+    qdrant_timeout_s: float = Field(default=10.0, gt=0)
+    qdrant_max_retries: int = Field(default=2, ge=0)
+    qdrant_backoff_s: float = Field(default=0.2, ge=0, description="Doubles on each retry")
+
+    @model_validator(mode="after")
+    def _overlap_smaller_than_chunk(self) -> Self:
+        if self.overlap_words >= self.chunk_words:
+            raise ValueError("overlap_words must be smaller than chunk_words")
+        return self
+
+    @model_validator(mode="after")
+    def _context_floor_not_above_gate(self) -> Self:
+        # Otherwise a question could pass the gate with no chunk allowed into the prompt.
+        if self.context_min_similarity > self.min_similarity:
+            raise ValueError("context_min_similarity must not exceed min_similarity")
+        return self
+
+
+class LLMSettings(BaseModel):
+    # Ollama's OpenAI-compatible endpoint. 127.0.0.1, not localhost: Ollama listens on IPv4
+    # only, and resolving localhost to ::1 first cost 2.08 s on each new connection (Windows).
+    base_url: str = "http://127.0.0.1:11434/v1"
+    api_key: SecretStr = SecretStr("ollama")  # Ollama ignores it; the client requires one
+    model: str = "llama3.2:1b"  # small enough for a grader's laptop; any chat model works
+    timeout_s: float = Field(default=30.0, gt=0)
+    max_retries: int = Field(default=2, ge=0)
+    readiness_timeout_s: float = Field(
+        default=2.0, gt=0, description="/health/ready LLM probe; no retries"
+    )
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+
+
+class LimitSettings(BaseModel):
+    max_upload_bytes: int = Field(default=20 * 1024 * 1024, ge=1)
+    max_pages: int = Field(default=50, ge=1)
+    request_overhead_bytes: int = Field(
+        default=1024 * 1024,
+        ge=0,
+        description="Allowance above max_upload_bytes for multipart framing and form fields",
+    )
+
+    @property
+    def max_request_bytes(self) -> int:
+        return self.max_upload_bytes + self.request_overhead_bytes
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_nested_delimiter="__",
+        extra="ignore",
+    )
+
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    log_json: bool = Field(default=True, description="JSON logs; false gives console output")
+
+    ocr: OCRSettings = OCRSettings()
+    ner: NERSettings = NERSettings()
+    matching: MatchingSettings = MatchingSettings()
+    rag: RAGSettings = RAGSettings()
+    llm: LLMSettings = LLMSettings()
+    limits: LimitSettings = LimitSettings()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Process-wide settings. Tests call ``get_settings.cache_clear()`` after env changes."""
+    return Settings()

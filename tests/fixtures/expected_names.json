@@ -1,0 +1,76 @@
+{
+  "_note": "Hand-labelled person mentions in sample_pdfs/, one entry per occurrence, in reading order. page is 0-based. Names exclude titles (Dr., Prof.). Apostrophes are written as ASCII; compare after normalisation, since the scans may use a typographic apostrophe.",
+  "total_mentions": 55,
+  "documents": {
+    "company_memo.pdf": {
+      "page_count": 1,
+      "mentions": [
+        {"page": 0, "name": "Margaret Thompson"},
+        {"page": 0, "name": "Robert Chen"},
+        {"page": 0, "name": "Sarah Williams"},
+        {"page": 0, "name": "James Anderson"},
+        {"page": 0, "name": "Maria Garcia"},
+        {"page": 0, "name": "David Nakamura"},
+        {"page": 0, "name": "Patricia Okonkwo"},
+        {"page": 0, "name": "Margaret Thompson"}
+      ]
+    },
+    "meeting_minutes.pdf": {
+      "page_count": 2,
+      "mentions": [
+        {"page": 0, "name": "Richard Hernandez"},
+        {"page": 0, "name": "Elizabeth Park"},
+        {"page": 0, "name": "Thomas Muller"},
+        {"page": 0, "name": "Aisha Patel"},
+        {"page": 0, "name": "Kevin O'Brien"},
+        {"page": 0, "name": "Jennifer Liu"},
+        {"page": 0, "name": "Carlos Mendoza"},
+        {"page": 0, "name": "Richard Hernandez"},
+        {"page": 0, "name": "Jennifer Liu"},
+        {"page": 0, "name": "Elizabeth Park"},
+        {"page": 0, "name": "Thomas Muller"},
+        {"page": 0, "name": "Elizabeth Park"},
+        {"page": 0, "name": "Aisha Patel"},
+        {"page": 0, "name": "Kevin O'Brien"},
+        {"page": 1, "name": "Thomas Muller"},
+        {"page": 1, "name": "Yuki Tanaka"},
+        {"page": 1, "name": "Alexander Popov"},
+        {"page": 1, "name": "Richard Hernandez"},
+        {"page": 1, "name": "Catherine Dubois"},
+        {"page": 1, "name": "Aisha Patel"},
+        {"page": 1, "name": "Kevin O'Brien"},
+        {"page": 1, "name": "Richard Hernandez"},
+        {"page": 1, "name": "Jennifer Liu"},
+        {"page": 1, "name": "Richard Hernandez"}
+      ]
+    },
+    "research_report.pdf": {
+      "page_count": 2,
+      "mentions": [
+        {"page": 0, "name": "Olivia Chambers"},
+        {"page": 0, "name": "Benjamin Foster"},
+        {"page": 0, "name": "Priya Sharma"},
+        {"page": 0, "name": "Lucas Zimmermann"},
+        {"page": 0, "name": "Fatima Al-Rashidi"},
+        {"page": 0, "name": "Christopher Wong"},
+        {"page": 0, "name": "Anna Kowalski"},
+        {"page": 0, "name": "Michael O'Sullivan"},
+        {"page": 0, "name": "Elena Volkov"},
+        {"page": 0, "name": "Raj Krishnamurthy"},
+        {"page": 0, "name": "Priya Sharma"},
+        {"page": 0, "name": "Hans Weber"},
+        {"page": 1, "name": "Fatima Al-Rashidi"},
+        {"page": 1, "name": "James Chen"},
+        {"page": 1, "name": "Benjamin Foster"},
+        {"page": 1, "name": "Anna Kowalski"},
+        {"page": 1, "name": "Christopher Wong"},
+        {"page": 1, "name": "Benjamin Foster"},
+        {"page": 1, "name": "Fatima Al-Rashidi"},
+        {"page": 1, "name": "Michael O'Sullivan"},
+        {"page": 1, "name": "Fatima Al-Rashidi"},
+        {"page": 1, "name": "Olivia Chambers"},
+        {"page": 1, "name": "Margaret Thompson"}
+      ]
+    }
+  }
+}

@@ -9,13 +9,18 @@ from pydantic import BaseModel, Field
 
 
 class BoundingBox(BaseModel):
-    """A name's location on a page, in PDF coordinate space (points, 72/inch)."""
+    """A name's location on a page, in PDF coordinate space (points, 72/inch).
+
+    Origin at the page's top-left corner, y growing downward (PyMuPDF / pdf.js
+    convention). In native PDF space (bottom-left origin) the box's lower edge is
+    ``page_height - y - height``.
+    """
 
     page_number: int = Field(ge=0, description="0-based page index")
-    x: float
-    y: float
-    width: float
-    height: float
+    x: float = Field(description="Left edge, points from the page's left side")
+    y: float = Field(description="Top edge, points from the page's top (y grows downward)")
+    width: float = Field(description="Width in points")
+    height: float = Field(description="Height in points")
 
 
 class ExtractedName(BaseModel):
@@ -55,3 +60,17 @@ class RAGResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+# Added (not part of the original contract): GET /health/ready. /health is kept exactly as
+# specified for liveness; readiness reports each dependency separately. See DECISIONS.md.
+class CheckStatus(BaseModel):
+    ok: bool
+    critical: bool
+    detail: str
+    duration_ms: float
+
+
+class ReadinessResponse(BaseModel):
+    status: str = Field(description='"ready", "degraded" (non-critical failure) or "unavailable"')
+    checks: dict[str, CheckStatus]
