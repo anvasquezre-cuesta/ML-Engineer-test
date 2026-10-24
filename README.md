@@ -166,6 +166,46 @@ uv run uvicorn app.main:app --reload
 
 Sample scanned PDFs are in `sample_pdfs/`.
 
+## RAG Endpoints
+
+### POST /api/ingest
+
+Upload a scanned PDF to OCR, chunk, embed, and index for RAG.
+
+```bash
+curl -F "file=@sample_pdfs/company_memo.pdf" http://localhost:8000/api/ingest
+# {"status":"ok","chunks_stored":12}
+```
+
+### POST /api/ask
+
+Ask a question about ingested documents. Answers are grounded in retrieved
+document chunks with source citations.
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"question":"Who attended the meeting?"}' http://localhost:8000/api/ask
+# {"answer":"...","sources":["..."]}
+```
+
+## Configuration
+
+All settings are environment variables with the `DIS_` prefix:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DIS_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | sentence-transformers model name |
+| `DIS_CHROMA_DIR` | `.chroma/` | ChromaDB persistence directory |
+| `DIS_CHROMA_COLLECTION` | `doc_intelligence` | Chroma collection name |
+| `DIS_CHUNK_SIZE` | `500` | Max characters per RAG chunk |
+| `DIS_TOP_K` | `5` | Chunks to retrieve for RAG |
+| `DIS_LLM_BASE_URL` | `http://127.0.0.1:8787/v1` | OpenAI-compatible LLM endpoint |
+| `DIS_LLM_API_KEY` | `not-needed` | LLM API key |
+| `DIS_LLM_MODEL` | `gpt-4` | LLM model name |
+| `DIS_LLM_TIMEOUT` | `30.0` | LLM request timeout (seconds) |
+| `DIS_LLM_MAX_RETRIES` | `3` | LLM retry count |
+| `DIS_LLM_BACKOFF_SECONDS` | `2.0` | LLM retry backoff (seconds) |
+
 ## Use of AI tools
 
 Using AI assistants (Copilot, Claude, ChatGPT, agents) is **allowed and

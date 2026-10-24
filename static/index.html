@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document Intelligence — Audit Viewer</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
+    header { border-bottom: 1px solid #ccc; padding-bottom: 12px; margin-bottom: 16px; }
+    #errorBanner { display: none; background: #fee; border: 1px solid #c00; padding: 12px; border-radius: 4px; }
+    .page-wrap { margin-bottom: 32px; position: relative; }
+    .page-canvas { border: 1px solid #ccc; display: block; }
+    .overlay-box { position: absolute; border: 2px solid #e63946; background: rgba(230, 57, 70, 0.15); font-size: 10px; color: #a00; padding: 2px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Extract & Overlay</h1>
+    <input type="file" id="fileInput" accept="application/pdf">
+    <button id="extractBtn" onclick="doExtract()">Extract &amp; Overlay</button>
+  </header>
+  <div id="errorBanner" role="alert"></div>
+  <div id="montage"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.min.js" onerror="window.__pdfjsLoadFailed = true"></script>
+  <script src="viewer.js"></script>
+</body>
+</html>

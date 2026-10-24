@@ -1,14 +1,8 @@
-"""Embeddings for RAG.
+"""Embedding provider protocol for RAG."""
 
-Implement this. Load the embedding model ONCE (not per request) and reuse it.
-"""
-
-
-def get_embeddings(texts: list[str]) -> list[list[float]]:
-    """Embed a batch of chunks."""
-    raise NotImplementedError
+from typing import Protocol
 
 
-def get_query_embedding(text: str) -> list[float]:
-    """Embed a single query."""
-    raise NotImplementedError
+class EmbeddingProvider(Protocol):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
+    def embed_query(self, text: str) -> list[float]: ...

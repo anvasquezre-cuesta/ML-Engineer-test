@@ -1,5 +1,6 @@
 # Internal grader material — never ship to candidates
 GRADING.md
+AGENTS.md
 
 # Python
 __pycache__/
@@ -15,7 +16,23 @@ venv/
 .env
 .env.*
 
+# Embedded vector store (runtime data, not source)
+.chroma/
+
 # OS / IDE
 .DS_Store
 .idea/
 .vscode/
+
+# BMad working files
+_bmad/
+_bmad-output/
+.serena/
+uv.lock
+.bmad-loop/runs/
+.bmad-loop/cache/
+.bmad-loop/policy.toml
+_bmad/render/
+.bmad-loop/
+.claude/
+.agents/

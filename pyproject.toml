@@ -25,6 +25,7 @@ dependencies = [
     "chromadb",
     # LLM / HTTP
     "httpx",
+    "langchain-openai",
 ]
 
 [project.optional-dependencies]
@@ -39,3 +40,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]

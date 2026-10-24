@@ -1,25 +1,9 @@
-"""Vector store for RAG.
+"""Vector store protocol for RAG."""
 
-Use whatever store you like — an embedded/local one (e.g. Chroma) is fine; a
-separate service (e.g. Qdrant) is a bonus. Implement this. Reminders (graded):
-any connection/config comes from config, not hardcoded; IDs must be unique
-across documents (a second ingest must not overwrite the first); wrap the client
-so failures surface as meaningful errors.
-"""
+from typing import Protocol
 
 
-def init_collection() -> None:
-    """Create the collection if it does not exist."""
-    raise NotImplementedError
-
-
-def store_document_chunks(
-    chunks: list[str], metadata: list[dict] | None = None
-) -> None:
-    """Embed and store chunks with their metadata."""
-    raise NotImplementedError
-
-
-def search_similar(query_embedding: list[float], top_k: int = 5) -> list[dict]:
-    """Return the most similar chunks as ``{"text", "score"}``."""
-    raise NotImplementedError
+class VectorStore(Protocol):
+    def add_chunks(self, ids: list[str], embeddings: list[list[float]],
+                   documents: list[str], metadatas: list[dict]) -> None: ...
+    def query(self, query_embedding: list[float], top_k: int) -> list[dict]: ...

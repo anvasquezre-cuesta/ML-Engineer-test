@@ -1,9 +1,11 @@
-"""NER: extract PERSON names from text.
+"""NER service: extract person names from text via the NerProvider port."""
 
-Implement this. Return person names only — not organizations, places, or dates.
-"""
+from typing import Protocol
 
 
-def extract_names(text: str) -> list[str]:
-    """Return the person names found in ``text``."""
-    raise NotImplementedError
+class NerProvider(Protocol):
+    def extract_persons(self, text: str) -> list[str]: ...
+
+
+def extract_names(text: str, provider: NerProvider) -> list[str]:
+    return provider.extract_persons(text)
