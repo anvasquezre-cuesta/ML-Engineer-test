@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<!-- pdf.js renders the PDF pages; boxes from /api/extract are drawn over them. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+        integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  /* Dark focus mode: the document is the only bright surface; matches glow green. */
+  :root {
+    color-scheme: dark;
+    --bg: #0e1116; --panel: #151a21; --raise: #1c232c; --hover: #222a35;
+    --ink: #e8edf4; --muted: #8b96a8; --faint: #5b6577; --line: #252d38;
+    --accent: #7c9cff; --accent-ink: #0e1116;
+    --ok: #3ddc84; --other: #ffb547; --error: #ff6b6b;
+    --sans: "Geist", "Segoe UI", system-ui, sans-serif;
+    --mono: "Geist Mono", ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14.5px/1.5 var(--sans);
+         -webkit-font-smoothing: antialiased; }
+  button, input, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .app { display: grid; grid-template-rows: auto auto minmax(0, 1fr); height: 100%; }
+
+  /* Top bar */
+  .top { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel);
+         border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .logo { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+          background: linear-gradient(135deg, var(--accent), #b38cff); color: var(--accent-ink);
+          font: 700 12px var(--mono); }
+  .brand small { color: var(--muted); font-weight: 400; }
+  .tabs { display: flex; gap: 4px; margin-left: auto; }
+  .tab { border: 0; background: transparent; color: var(--muted); padding: 7px 14px; border-radius: 8px;
+         cursor: pointer; font-weight: 500; }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { background: var(--raise); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+
+  /* Toolbar */
+  .toolbar { display: flex; gap: 10px; align-items: center; padding: 12px 20px; background: var(--panel);
+             border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .field { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 6px 4px 12px;
+           background: var(--raise); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+  .field:focus-within { border-color: var(--accent); }
+  .label { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .file-btn { cursor: pointer; }
+  .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .file-name { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .names-field { flex: 1 1 320px; flex-wrap: wrap; }
+  .names-field input { flex: 1 1 140px; min-width: 120px; border: 0; background: transparent; outline: none;
+                       padding: 6px 4px; }
+  .names-field input::placeholder { color: var(--faint); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px;
+          background: #23304d; color: var(--accent); font-size: 13px; white-space: nowrap; }
+  .chip button { border: 0; background: transparent; color: inherit; cursor: pointer; width: 20px; height: 20px;
+                 border-radius: 50%; line-height: 1; opacity: .7; }
+  .chip button:hover { opacity: 1; background: rgba(124,156,255,.18); }
+  .pill { padding: 2px 8px; border-radius: 999px; background: #23304d; color: var(--accent); font-size: 12px; }
+  .btn { border: 0; border-radius: 10px; padding: 10px 20px; font-weight: 600; cursor: pointer;
+         background: var(--ink); color: var(--bg); min-height: 40px; }
+  .btn:hover { background: #fff; }
+  .btn:disabled { opacity: .45; cursor: progress; }
+  .status { color: var(--muted); font-size: 13px; font-family: var(--mono); }
+  .status.error { color: var(--error); }
+
+  /* Extract view */
+  .main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
+  .stage { overflow: auto; padding: 28px 24px 48px;
+           background: radial-gradient(ellipse at 50% 0%, #1a212b, var(--bg) 65%); }
+  .side { overflow: auto; background: var(--panel); border-left: 1px solid var(--line); padding: 18px;
+          display: flex; flex-direction: column; gap: 16px; }
+  @media (max-width: 900px) {
+    .app { height: auto; }
+    .main { grid-template-columns: minmax(0, 1fr); }
+    .side { border-left: 0; border-top: 1px solid var(--line); }
+  }
+
+  .drop { max-width: 560px; margin: 8vh auto 0; border: 1.5px dashed #343e4d; border-radius: 16px;
+          padding: 48px 24px; text-align: center; color: var(--muted); cursor: pointer; transition: .15s; }
+  .drop strong { display: block; color: var(--ink); font-size: 17px; margin-bottom: 4px; }
+  .drop.over, .drop:hover { border-color: var(--accent); background: rgba(124,156,255,.06); color: var(--ink); }
+  .drop .hint { font-size: 13px; margin-top: 12px; color: var(--faint); }
+
+  .page-label { display: flex; justify-content: space-between; max-width: 100%; margin: 0 auto 8px;
+                color: var(--muted); font: 12px var(--mono); }
+  .page { position: relative; margin: 0 auto 28px; background: #fff;
+          box-shadow: 0 0 0 1px #2c3542, 0 24px 60px rgba(0,0,0,.55); }
+  .page canvas { display: block; width: 100%; height: auto; }
+  .box { position: absolute; border: 2px solid var(--other); border-radius: 2px;
+         background: rgba(255,181,71,.16); cursor: pointer; transition: box-shadow .2s; }
+  .box.match { border-color: var(--ok); background: rgba(61,220,132,.18);
+               box-shadow: 0 0 12px rgba(61,220,132,.45); }
+  .box.flash { box-shadow: 0 0 0 4px var(--accent), 0 0 24px rgba(124,156,255,.8); }
+  .loading { display: grid; place-items: center; gap: 12px; padding: 12vh 0; color: var(--muted); }
+  .spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line);
+             border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .side h3 { margin: 0; font: 500 11.5px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+             color: var(--muted); }
+  .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .stat { background: var(--raise); border-radius: 12px; padding: 12px; }
+  .stat b { display: block; font-size: 24px; font-weight: 600; line-height: 1.1;
+            font-variant-numeric: tabular-nums; }
+  .stat small { color: var(--muted); font-size: 12px; }
+  .stat.ok b { color: var(--ok); }
+  .list { display: flex; flex-direction: column; gap: 2px; }
+  .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+         padding: 9px 10px; border-radius: 10px; border: 0; background: transparent; text-align: left;
+         cursor: pointer; width: 100%; }
+  .row:hover, .row.sel { background: var(--hover); }
+  .row.static { cursor: default; }
+  .row.static:hover { background: transparent; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; background: var(--other); }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(61,220,132,.6); }
+  .dot.none { background: var(--faint); }
+  .who { min-width: 0; }
+  .who b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who small { color: var(--muted); font: 12px var(--mono); }
+  .score { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+  .score.ok { color: var(--ok); }
+  .bar { height: 3px; border-radius: 3px; background: var(--line); margin-top: 5px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--ok); }
+  .empty-note { color: var(--faint); font-size: 13px; padding: 4px 10px; }
+  .foot { margin-top: auto; color: var(--faint); font-size: 12px; line-height: 1.5; }
+  .legend { display: flex; gap: 14px; color: var(--muted); font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* Ask view */
+  .rag { overflow: auto; padding: 28px 20px 48px; }
+  .rag-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 340px minmax(0, 1fr);
+              gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .rag-grid { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+  .card p.sub { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  .card .drop { margin: 0; padding: 28px 16px; }
+  .docs { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .docs li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px;
+             background: var(--raise); font-size: 13px; }
+  .docs li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .docs .meta { color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+  .ask-bar { display: flex; gap: 8px; }
+  .ask-bar .field { flex: 1; }
+  .ask-bar input { flex: 1; border: 0; background: transparent; outline: none; padding: 8px 4px; min-width: 0; }
+  .ask-bar input::placeholder { color: var(--faint); }
+  .suggest { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .suggest button { border: 1px solid var(--line); background: transparent; color: var(--muted);
+                    border-radius: 999px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; }
+  .suggest button:hover { color: var(--ink); border-color: var(--accent); }
+  .thread { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+  .qa { border-top: 1px solid var(--line); padding-top: 14px; }
+  .qa .q { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  .qa .a { white-space: pre-wrap; font-size: 15.5px; line-height: 1.6; }
+  .qa .a.none { color: var(--muted); font-style: italic; }
+  .sources { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .src { font: 12px var(--mono); padding: 3px 9px; border-radius: 6px; background: rgba(61,220,132,.12);
+         color: var(--ok); border: 1px solid rgba(61,220,132,.3); }
+  .src.none { background: transparent; color: var(--faint); border-color: var(--line); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><div class="logo">DI</div>Audit viewer <small>· Document Intelligence</small></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="extract">Extract names</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="rag">Ask the documents</button>
+    </nav>
+  </header>
+
+  <!-- Extract -------------------------------------------------------------------- -->
+  <div class="toolbar" id="extract-toolbar">
+    <label class="field file-btn" title="Choose a scanned PDF">
+      <span class="label">PDF</span>
+      <span class="file-name" id="file-name">Choose file…</span>
+      <input id="extract-file" type="file" accept="application/pdf,.pdf">
+    </label>
+    <div class="field names-field" id="names-field">
+      <span class="label">People to check</span>
+      <span id="chips" style="display:contents"></span>
+      <input id="name-input" type="text" autocomplete="off"
+             placeholder="Type a name, press Enter (first names | last names)">
+    </div>
+    <button id="extract-run" class="btn">Extract</button>
+    <span id="extract-status" class="status" role="status"></span>
+  </div>
+
+  <main class="main" id="tab-extract">
+    <section class="stage" id="stage">
+      <div class="drop" id="extract-drop" tabindex="0" role="button" aria-label="Choose or drop a scanned PDF">
+        <strong>Drop a scanned PDF here</strong>
+        or click to choose one. Every page is OCR'd and each person's name is boxed where it sits.
+        <div class="hint">Green = matches your list · Amber = other person</div>
+      </div>
+      <div id="loading" class="loading" hidden><div class="spinner"></div><span id="loading-text"></span></div>
+      <div id="pages"></div>
+    </section>
+
+    <aside class="side">
+      <div class="summary">
+        <div class="stat"><b id="stat-occ">–</b><small>occurrences</small></div>
+        <div class="stat"><b id="stat-people">–</b><small>people</small></div>
+        <div class="stat ok"><b id="stat-match">–</b><small>matches</small></div>
+      </div>
+      <h3>People found</h3>
+      <div class="list" id="people"><div class="empty-note">Run an extraction to list the names.</div></div>
+      <div id="missing-block" hidden>
+        <h3>Not found in the document</h3>
+        <div class="list" id="missing"></div>
+      </div>
+      <div class="foot">
+        <div class="legend"><span><i class="dot ok"></i>Match ≥ threshold</span><span><i class="dot"></i>Other person</span></div>
+        <p>Click a name to jump to its box; click again for the next occurrence. Pages are shown
+          1-based; the API's <code>page_number</code> is 0-based. Boxes are PDF points, top-left origin.</p>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Ask ------------------------------------------------------------------------ -->
+  <main class="rag" id="tab-rag" hidden>
+    <div class="rag-grid">
+      <section class="card">
+        <h2>Documents</h2>
+        <p class="sub">Ingest a PDF: OCR, chunking and embedding into the vector store.</p>
+        <div class="drop" id="ingest-drop" tabindex="0" role="button" aria-label="Choose or drop a PDF to ingest">
+          <strong>Drop a PDF to ingest</strong>or click to choose one
+        </div>
+        <input id="ingest-file" type="file" accept="application/pdf,.pdf" hidden>
+        <p id="ingest-status" class="status" role="status" style="margin:10px 0 0"></p>
+        <ul class="docs" id="docs"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Ask</h2>
+        <p class="sub">Answers come only from ingested documents; sources are built by the server from the passages the answer cites.</p>
+        <div class="ask-bar">
+          <div class="field"><input id="question" type="text" maxlength="2000"
+               placeholder="Who leads the Computational Biology Division?"></div>
+          <button id="ask-run" class="btn">Ask</button>
+        </div>
+        <div class="suggest" id="suggest">
+          <button type="button">How much was the NSF grant?</button>
+          <button type="button">¿Quién dirige la división de Machine Learning?</button>
+          <button type="button">What is the CEO's salary?</button>
+        </div>
+        <p id="ask-status" class="status" role="status" style="margin:10px 0 0"></p>
+        <div class="thread" id="thread"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...children) => {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+};
+
+// ---- Tabs ------------------------------------------------------------------------
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const extract = tab.dataset.tab === "extract";
+    document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+    $("tab-extract").hidden = !extract;
+    $("extract-toolbar").hidden = !extract;
+    $("tab-rag").hidden = extract;
+  });
+});
+
+function setStatus(node, text, isError = false) {
+  node.textContent = text;
+  node.classList.toggle("error", isError);
+}
+
+// Calls the API; on failure throws the server's error code and message.
+async function callApi(url, options) {
+  const response = await fetch(url, options);
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = body && body.error;
+    throw new Error(error ? `${error.code}: ${error.message}` : `HTTP ${response.status}`);
+  }
+  return body;
+}
+
+// Click or drop a PDF onto a zone.
+function dropZone(zone, input, onFile) {
+  zone.addEventListener("click", () => input.click());
+  zone.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") input.click(); });
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    zone.classList.remove("over");
+    if (e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]);
+  });
+  input.addEventListener("change", () => { if (input.files[0]) onFile(input.files[0]); });
+}
+
+// ---- People to check (chips) ------------------------------------------------------
+const requested = [];  // {first_name, last_name}
+
+// "Robert | Chen" → {first_name, last_name}; without "|", the last word is the last name.
+function parseName(text) {
+  let first, last;
+  if (text.includes("|")) {
+    [first, last] = text.split("|", 2).map((part) => part.trim());
+  } else {
+    const words = text.trim().split(/\s+/);
+    last = words.pop();
+    first = words.join(" ");
+  }
+  if (!first || !last) throw new Error(`Write a first and a last name: "${text}"`);
+  return { first_name: first, last_name: last };
+}
+
+function renderChips() {
+  $("chips").replaceChildren(...requested.map((name, index) => {
+    const remove = el("button", { type: "button", textContent: "×", title: "Remove" });
+    remove.setAttribute("aria-label", `Remove ${name.first_name} ${name.last_name}`);
+    remove.addEventListener("click", () => { requested.splice(index, 1); renderChips(); });
+    return el("span", { className: "chip" }, `${name.first_name} ${name.last_name}`, remove);
+  }));
+}
+
+function addNames(text) {
+  for (const part of text.split(/[\n;,]/).map((p) => p.trim()).filter(Boolean)) {
+    requested.push(parseName(part));
+  }
+  renderChips();
+}
+
+$("name-input").addEventListener("keydown", (e) => {
+  const input = e.target;
+  if (e.key === "Enter" || e.key === ",") {
+    e.preventDefault();
+    if (!input.value.trim()) return;
+    try { addNames(input.value); input.value = ""; setStatus($("extract-status"), ""); }
+    catch (err) { setStatus($("extract-status"), err.message, true); }
+  } else if (e.key === "Backspace" && !input.value && requested.length) {
+    requested.pop();
+    renderChips();
+  }
+});
+$("names-field").addEventListener("click", () => $("name-input").focus());
+
+// ---- Extract ----------------------------------------------------------------------
+let extractFile = null;
+dropZone($("extract-drop"), $("extract-file"), (file) => {
+  extractFile = file;
+  $("file-name").textContent = file.name;
+  runExtract();
+});
+$("extract-run").addEventListener("click", runExtract);
+
+async function runExtract() {
+  const file = extractFile || $("extract-file").files[0];
+  const status = $("extract-status");
+  if (!file) return setStatus(status, "Choose a PDF first.", true);
+  const pending = $("name-input").value.trim();  // a typed name not yet turned into a chip
+  if (pending) {
+    try { addNames(pending); $("name-input").value = ""; }
+    catch (err) { return setStatus(status, err.message, true); }
+  }
+
+  const button = $("extract-run");
+  button.disabled = true;
+  setStatus(status, "");
+  $("extract-drop").hidden = true;
+  $("pages").replaceChildren();
+  $("loading").hidden = false;
+  const started = performance.now();
+  const tick = setInterval(() => {
+    $("loading-text").textContent =
+      `OCR and name recognition… ${((performance.now() - started) / 1000).toFixed(0)} s`;
+  }, 250);
+  try {
+    const form = new FormData();
+    form.append("pdf_file", file);
+    form.append("names", JSON.stringify(requested));
+    const result = await callApi("/api/extract", { method: "POST", body: form });
+    const seconds = ((performance.now() - started) / 1000).toFixed(1);
+    clearInterval(tick);
+    $("loading").hidden = true;
+    await render(file, result);
+    setStatus(status, `${file.name} · ${seconds} s`);
+  } catch (err) {
+    clearInterval(tick);
+    $("loading").hidden = true;
+    if (!$("pages").childElementCount) $("extract-drop").hidden = false;
+    setStatus(status, err.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function render(file, result) {
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const container = $("pages");
+  container.replaceChildren();
+
+  // Best match per extracted name.
+  const bestMatch = new Map();
+  for (const m of result.fuzzy_matches) {
+    const current = bestMatch.get(m.extracted_name);
+    if (!current || m.score > current.score) bestMatch.set(m.extracted_name, m);
+  }
+
+  const width = Math.min(container.clientWidth || 760, 860);
+  const pages = [];  // {element, scale}
+  for (let index = 0; index < pdf.numPages; index++) {
+    const page = await pdf.getPage(index + 1);
+    const scale = width / page.getViewport({ scale: 1 }).width;  // CSS px per PDF point
+    const viewport = page.getViewport({ scale: scale * window.devicePixelRatio });
+    const canvas = el("canvas", { width: viewport.width, height: viewport.height });
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    const label = el("div", { className: "page-label" },
+                     el("span", { textContent: `Page ${index + 1} / ${pdf.numPages}` }),
+                     el("span", { textContent: `page_number ${index}` }));
+    label.style.width = width + "px";
+    const wrapper = el("div", { className: "page" }, canvas);
+    wrapper.style.width = width + "px";
+    container.append(label, wrapper);
+    pages.push({ element: wrapper, scale });
+  }
+
+  // Draw the boxes and group occurrences by person.
+  const people = new Map();  // name → {name, match, boxes: [], pages: Set}
+  for (const item of result.extracted_names) {
+    const { page_number, x, y, width: w, height: h } = item.bounding_box;
+    const target = pages[page_number];
+    if (!target) continue;
+    const match = bestMatch.get(item.name);
+    const box = el("div", { className: "box" + (match ? " match" : "") });
+    // Points → CSS pixels: same top-left origin, so only a scale.
+    Object.assign(box.style, {
+      left: x * target.scale + "px", top: y * target.scale + "px",
+      width: w * target.scale + "px", height: h * target.scale + "px",
+    });
+    box.title = match
+      ? `${item.name} ≈ ${match.matched_name} (${Math.round(match.score * 100)} %)`
+      : item.name;
+    target.element.append(box);
+
+    if (!people.has(item.name)) people.set(item.name, { name: item.name, match, boxes: [], pages: new Set() });
+    const person = people.get(item.name);
+    person.boxes.push(box);
+    person.pages.add(page_number + 1);
+    box.addEventListener("click", () => select(person, person.boxes.indexOf(box)));
+  }
+
+  const sorted = [...people.values()].sort((a, b) =>
+    (b.match ? b.match.score + 1 : 0) - (a.match ? a.match.score + 1 : 0));
+  $("stat-occ").textContent = result.extracted_names.length;
+  $("stat-people").textContent = people.size;
+  $("stat-match").textContent = sorted.filter((p) => p.match).length;
+
+  const list = $("people");
+  list.replaceChildren();
+  if (!sorted.length) list.append(el("div", { className: "empty-note", textContent: "No person names found." }));
+  for (const person of sorted) {
+    const pagesText = `p. ${[...person.pages].join(", ")}`;
+    const count = person.boxes.length > 1 ? ` · ${person.boxes.length} boxes` : "";
+    const who = el("span", { className: "who" },
+      el("b", { textContent: person.name }),
+      el("small", { textContent: person.match ? `≈ ${person.match.matched_name} · ${pagesText}` : pagesText + count }));
+    if (person.match) {
+      const bar = el("span", { className: "bar" }, el("i"));
+      bar.firstChild.style.width = Math.round(person.match.score * 100) + "%";
+      who.append(bar);
+    }
+    const score = el("span", {
+      className: "score" + (person.match ? " ok" : ""),
+      textContent: person.match ? `${Math.round(person.match.score * 100)}%` : "—",
+    });
+    const row = el("button", { className: "row", type: "button" },
+                   el("span", { className: "dot" + (person.match ? " ok" : "") }), who, score);
+    person.row = row;
+    person.cursor = -1;
+    row.addEventListener("click", () => select(person, (person.cursor + 1) % person.boxes.length));
+    list.append(row);
+  }
+
+  // Requested names that matched nothing.
+  const matchedNames = new Set(result.fuzzy_matches.map((m) => m.matched_name.trim().toLowerCase()));
+  const missing = requested.filter((n) => !matchedNames.has(`${n.first_name} ${n.last_name}`.toLowerCase()));
+  $("missing-block").hidden = !missing.length;
+  $("missing").replaceChildren(...missing.map((n) => el("div", { className: "row static" },
+    el("span", { className: "dot none" }),
+    el("span", { className: "who" }, el("b", { textContent: `${n.first_name} ${n.last_name}` }),
+       el("small", { textContent: "no extracted name reached the threshold" })),
+    el("span", { className: "score", textContent: "—" }))));
+}
+
+function select(person, index) {
+  document.querySelectorAll(".row.sel").forEach((r) => r.classList.remove("sel"));
+  person.row.classList.add("sel");
+  person.cursor = index;
+  const box = person.boxes[index];
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+  box.classList.add("flash");
+  setTimeout(() => box.classList.remove("flash"), 1400);
+}
+
+// ---- Ingest -----------------------------------------------------------------------
+dropZone($("ingest-drop"), $("ingest-file"), ingest);
+
+async function ingest(file) {
+  const status = $("ingest-status");
+  setStatus(status, `Ingesting ${file.name}…`);
+  try {
+    const form = new FormData();
+    form.append("pdf_file", file);
+    const result = await callApi("/api/ingest", { method: "POST", body: form });
+    setStatus(status, "");
+    $("docs").prepend(el("li", {},
+      el("span", { textContent: file.name }),
+      el("span", { className: "meta", textContent: `${result.chunks_stored} chunk${result.chunks_stored === 1 ? "" : "s"}` })));
+  } catch (err) {
+    setStatus(status, err.message, true);
+  } finally {
+    $("ingest-file").value = "";
+  }
+}
+
+// ---- Ask --------------------------------------------------------------------------
+async function ask() {
+  const question = $("question").value.trim();
+  const status = $("ask-status");
+  if (!question) return setStatus(status, "Write a question first.", true);
+  const button = $("ask-run");
+  button.disabled = true;
+  setStatus(status, "Retrieving passages and asking the LLM…");
+  try {
+    const result = await callApi("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    setStatus(status, "");
+    const notFound = !result.sources.length;
+    // Rendered as plain text, never HTML: the answer comes from an LLM.
+    const sources = notFound
+      ? [el("span", { className: "src none", textContent: "no sources" })]
+      : result.sources.map((s) => el("span", { className: "src", textContent: s }));
+    $("thread").prepend(el("div", { className: "qa" },
+      el("div", { className: "q", textContent: question }),
+      el("div", { className: "a" + (notFound ? " none" : ""), textContent: result.answer }),
+      el("div", { className: "sources" }, ...sources)));
+    $("question").value = "";
+  } catch (err) {
+    setStatus(status, err.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+$("ask-run").addEventListener("click", ask);
+$("question").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+$("suggest").addEventListener("click", (e) => {
+  if (e.target.tagName === "BUTTON") { $("question").value = e.target.textContent; ask(); }
+});
+</script>
+</body>
+</html>

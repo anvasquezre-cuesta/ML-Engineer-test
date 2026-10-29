@@ -14,8 +14,12 @@ venv/
 # Env / secrets
 .env
 .env.*
+!.env.example
 
 # OS / IDE
 .DS_Store
 .idea/
 .vscode/
+
+# Embedded vector store (DOCINTEL_VECTOR_STORE_PATH)
+.chroma/

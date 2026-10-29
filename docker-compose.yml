@@ -1,0 +1,32 @@
+# `docker compose up --build` → API + audit viewer on http://localhost:8000
+# The vector store is embedded Chroma; its files live on the `vector-store` volume so
+# ingested documents survive restarts. Settings come from `.env` (optional).
+
+services:
+  app:
+    build: .
+    image: document-intelligence:local
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Inside the container: Tesseract is on PATH and the store lives on the volume.
+      DOCINTEL_TESSERACT_CMD: ""
+      DOCINTEL_VECTOR_STORE_PATH: /data/chroma
+    volumes:
+      - vector-store:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  vector-store:

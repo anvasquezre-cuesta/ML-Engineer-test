@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DESIGN — Document Intelligence Service</title>
+<!-- Source of DESIGN.pdf; the diagrams are the *.svg files next to it. Rebuild: see docs/design/README.md -->
+<style>
+  @page { size: Letter; margin: 0.36in 0.5in; }
+  :root { --ink: #17202e; --muted: #5b6577; --line: #d9dee7; --soft: #f3f5f9;
+          --accent: #2c56c9; --accent-soft: #e8eefc; --ok: #1b7a43; --ok-soft: #e4f4ea;
+          --warn: #b5530f; --warn-soft: #fcefe3; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font: 9.6pt/1.36 "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  h2 { break-after: avoid; }
+  img.fig, li, p, tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+  h1 { font-size: 21pt; margin: 0; letter-spacing: -.01em; }
+  h2 { font-size: 12.5pt; margin: 11px 0 5px; padding-top: 6px; border-top: 2px solid var(--ink); }
+  p { margin: 5px 0; }
+  .sub { color: var(--muted); margin: 4px 0 10px; font-size: 10.5pt; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 4px; }
+  .kpi { background: var(--soft); border-radius: 6px; padding: 6px 9px; }
+  .kpi b { display: block; font-size: 15pt; line-height: 1.1; color: var(--accent); }
+  .kpi span { font-size: 8.3pt; color: var(--muted); }
+  img.fig { display: block; width: 100%; height: auto; margin: 4px 0; }
+  img.fig.narrow { width: 88%; margin: 4px auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.6pt; }
+  th { text-align: left; font-size: 7.8pt; letter-spacing: .05em; text-transform: uppercase;
+       color: var(--muted); border-bottom: 1.5px solid var(--ink); padding: 3px 6px; }
+  td { padding: 2.5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 600; }
+  .note { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 7px 10px;
+          border-radius: 0 5px 5px 0; margin: 8px 0; }
+  ul { margin: 4px 0; padding-left: 18px; }
+  li { margin: 2px 0; }
+  .foot { color: var(--muted); font-size: 8pt; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<!-- ================================ PAGE 1 ================================ -->
+<section class="page">
+  <h1>Document Intelligence Service — Design</h1>
+  <p class="sub">Give it a scanned PDF and it returns every person mentioned, with the page and the exact box where the name sits, so a reviewer can check it. It also compares those names with a list you send, and answers questions about uploaded documents, citing the page each answer comes from.</p>
+
+  <div class="kpis">
+    <div class="kpi"><b>100 % / 98 %</b><span>of names found are real people / of real people are found</span></div>
+    <div class="kpi"><b>54 of 54</b><span>boxes checked by re-reading what is inside them</span></div>
+    <div class="kpi"><b>15 of 15</b><span>questions answered correctly, three runs in a row</span></div>
+    <div class="kpi"><b>0</b><span>made-up sources in any answer</span></div>
+  </div>
+
+  <p class="foot">Details: DECISIONS.md (decisions, limitations, use of AI) · run with <b>docker compose up --build</b>, then open http://localhost:8000/viewer</p>
+
+  <h2>1 · How the pieces fit together</h2>
+  <img class="fig" src="components.svg" alt="Users, API, the three flows and the engines they use">
+
+  <h2>2 · Finding names and where they are</h2>
+  <img class="fig" src="extract-flow.svg" alt="Six steps from upload to matched names">
+  <ul>
+    <li><b>Boxes are in PDF points, not image pixels</b> (72 per inch, origin at the top-left), so they line up with the PDF whatever resolution was used to read it.</li>
+    <li><b>The box comes from the person's own words.</b> The name finder marks a person in the page text; we take exactly the OCR words it covers and draw the box around them. A name that appears five times gets five boxes, and titles like "Dr." stay outside.</li>
+    <li><b>Matching compares whole names</b>, ignoring case, accents and punctuation: <i>María González</i> matches <i>Maria Gonzalez</i>, but <i>Ana</i> does not match <i>Ana María Rodríguez</i>.</li>
+  </ul>
+</section>
+
+<!-- ================================ PAGE 2 ================================ -->
+<section class="page">
+  <h2>3 · Answering a question</h2>
+  <ul>
+    <li><b>Indexing.</b> Each uploaded document is read the same way, then split into chunks of whole paragraphs (never cutting a word, never crossing a page). Chunk ids start with a fingerprint of the file, so a second document can't overwrite the first and uploading the same file twice doesn't duplicate it.</li>
+    <li><b>Two searches, then a ranking.</b> A search by meaning finds paraphrases; a search by exact words finds names and figures the first one misses. A re-ranker then reads each candidate next to the question and keeps the best five.</li>
+    <li><b>The LLM decides if the answer is there.</b> It answers only from those five passages, or says it isn't in the documents. We first tried a score cut-off to decide that, and dropped it: it rejected easy questions like "Who is the CEO?".</li>
+    <li><b>Sources can't be invented.</b> The LLM only cites passage numbers; the service turns them into "file, page n" from the passages it actually sent.</li>
+  </ul>
+  <img class="fig" src="ask-sequence.svg" alt="Question, search, re-ranking, LLM, answer with sources">
+
+  <h2>4 · Technology choices and trade-offs</h2>
+  <table>
+    <thead><tr><th>Need</th><th>Choice</th><th>Why</th><th>Trade-off</th></tr></thead>
+    <tbody>
+      <tr><td>Read text</td><td>Tesseract</td><td>Free, runs on CPU, gives each word's position</td><td>Weak on poor scans; a cloud OCR could replace it</td></tr>
+      <tr><td>PDF → images</td><td>PyMuPDF</td><td>Fast, knows page sizes in points</td><td>AGPL licence; pypdfium2 if that matters</td></tr>
+      <tr><td>Find people</td><td>spaCy, large English</td><td>Best on our samples; the small one took a project for a person</td><td>~400 MB more; weak on ALL CAPS</td></tr>
+      <tr><td>Compare names</td><td>rapidfuzz</td><td>Whole-name similarity, fast</td><td>Fixed 0.90 threshold (configurable)</td></tr>
+      <tr><td>Search by meaning</td><td>e5 multilingual + Chroma</td><td>Spanish and English, no extra servers</td><td>One writer; a database service at scale</td></tr>
+      <tr><td>Rank results</td><td>Multilingual cross-encoder</td><td>~1.5 s per question on CPU</td><td>A stronger one took 21 s on CPU</td></tr>
+      <tr><td>Write answers</td><td>Groq, gpt-oss-120b</td><td>Free, fast; any OpenAI-compatible provider</td><td>Free-tier limits; text leaves the machine</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================================ PAGE 3 ================================ -->
+<section class="page">
+  <h2>5 · Scaling to 1000+ PDFs an hour</h2>
+  <p>Today one process does everything: it reads the PDF, embeds it, stores it and answers questions. To scale we follow a document and a question through our own components, find where each one gets stuck, and fix that point.</p>
+  <table>
+    <thead><tr><th>Path</th><th>Stage</th><th>Where it gets stuck today</th><th>Fix at scale</th></tr></thead>
+    <tbody>
+      <tr><td>Document</td><td>Read + find names</td><td>The request does the work in the one API process: a few big PDFs at once fill the CPU and the other requests wait</td><td>The API stores the PDF and returns a job id; Temporal queues one workflow per PDF; OCR workers pull from the queue and are added as it grows</td></tr>
+      <tr><td>Document</td><td>Embeddings</td><td>The model runs on CPU inside the API, loaded again in every process</td><td>Model workers on GPU, embedding many chunks per call</td></tr>
+      <tr><td>Document</td><td>Vector DB writes</td><td>Embedded Chroma: one process owns its files, so many workers can't write to it</td><td>Qdrant service: many writers at once, more replicas as data grows</td></tr>
+      <tr><td>Question</td><td>Hybrid search</td><td>Keyword search reads every stored chunk on every question: slower with each document added</td><td>Qdrant runs meaning + keyword search on its own indexes (bge-m3 gives both vectors from one model); read replicas for many questions</td></tr>
+      <tr><td>Question</td><td>Re-ranking</td><td>~1.5 s of CPU per question inside the API; a burst of questions queues up</td><td>Re-ranker on a GPU model server that scores several questions together</td></tr>
+      <tr><td>Question</td><td>LLM</td><td>Free tier with a per-minute limit; a burst gets rejected</td><td>Paid tier; calls go through a queue capped at the limit, so they wait instead of failing; simple questions use the small model (§7)</td></tr>
+    </tbody>
+  </table>
+  <p><b>Temporal</b> is a workflow engine built on queues and workers. Each PDF is one <b>workflow</b>, our recipe: check, read, find names, split, embed, store. Each step that calls an engine is an <b>activity</b>, with its own time limit and retries. Activities wait in <b>task queues</b> that <b>workers</b> pull from.</p>
+  <img class="fig narrow" src="scaling.svg" alt="API, Temporal, task queues with workers, object storage, results and vector databases">
+  <p><b>Why Temporal and not a plain queue.</b> It remembers every finished step: a worker that dies mid-PDF is replaced and the PDF carries on from the last finished step. Temporary failures are retried with growing waits; a bad file fails once. The file's fingerprint is the workflow id, so a duplicate upload runs once. A queue can be capped at a provider's limit, and every step stays in history: an audit trail.</p>
+  <p><b>Engines that fall short.</b> Each engine sits behind its own interface, so a replacement is a plug-in plus a config change, kept only if it wins on a golden set of real documents. Embeddings, re-ranker and LLM already handle Spanish; OCR and the name finder do not.</p>
+  <table>
+    <thead><tr><th>Engine</th><th>What falls short</th><th>At scale</th></tr></thead>
+    <tbody>
+      <tr><td>Find people</td><td>No real names on an ALL-CAPS Spanish property certificate</td><td>Rewrite ALL-CAPS lines in normal case (same length, boxes don't move); then measure a multilingual model such as GLiNER</td></tr>
+      <tr><td>Read text</td><td>English only</td><td>Spanish language pack: a config change</td></tr>
+      <tr><td>Rank results</td><td>The stronger re-ranker took 21 s on CPU</td><td>bge-reranker-v2-m3 once it runs on GPU</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>6 · What can go wrong and what happens</h2>
+  <table>
+    <thead><tr><th>Failure</th><th>What we do</th><th>Caller sees</th></tr></thead>
+    <tbody>
+      <tr><td>Not a PDF, empty, too big, too many pages, password</td><td>Checked before any work starts</td><td>4xx with a specific code</td></tr>
+      <tr><td>OCR engine missing or stuck</td><td>Time limit per page</td><td>503</td></tr>
+      <tr><td>Poor scan</td><td>Words the OCR is unsure of are dropped: no box over noise</td><td>fewer names</td></tr>
+      <tr><td>LLM slow, busy or down</td><td>Time limit and automatic retries; names and indexing keep working</td><td>503 / 502</td></tr>
+      <tr><td>Answer not in the documents</td><td>The LLM says so; an answer citing nothing is "not found"</td><td>"not found"</td></tr>
+      <tr><td>A document tries to give the LLM orders</td><td>Document text is marked as data; the LLM has no tools</td><td>normal answer</td></tr>
+      <tr><td>Same file uploaded twice</td><td>Same fingerprint, so it replaces itself</td><td>no duplicates</td></tr>
+      <tr><td>Text in ALL CAPS, other languages</td><td>Known limits of the name finder; fix in §5</td><td>fewer names</td></tr>
+    </tbody>
+  </table>
+
+  <h2>7 · Choosing a model by question difficulty</h2>
+  <p>An <b>orchestrator</b> in front of the models picks one, checks its answer and escalates when needed: a short Temporal workflow the API waits on, deciding in plain code (cheap, reproducible).</p>
+  <ul>
+    <li><b>Classify from the question's words:</b> "compare", "why", "total", "difference" or more than one name → large model; otherwise → small, cheap model. Search, embeddings and re-ranking are shared; each model is a config entry with its own capped queue.</li>
+    <li><b>Check, then escalate once:</b> if the small model says "not found" or cites nothing valid, the large one gets the same passages. Citations are the signal we trust; re-ranker scores are not (answerable and unanswerable questions score alike).</li>
+    <li><b>Measure:</b> log route, model and cost per question; tune the rules on questions kept apart from the test set.</li>
+  </ul>
+
+</section>
+</body>
+</html>

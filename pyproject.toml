@@ -1,41 +1,137 @@
 [project]
 name = "document-intelligence-service"
 version = "0.1.0"
-description = "ML Engineer take-home — document extraction + RAG service (implement from scratch)."
-requires-python = ">=3.12"
+description = "Document intelligence service: OCR person-name extraction with PDF-point boxes, fuzzy matching and RAG."
+requires-python = ">=3.12,<3.13"
 
-# Baseline dependencies — change/pin these as you see fit (justify in DECISIONS.md).
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "python-multipart",
-    "pydantic",
-    "pydantic-settings",
+    "pydantic>=2.14",
+    "pydantic-settings>=2.16",
     # OCR / PDF
-    "pytesseract",
-    "pymupdf",
+    "pymupdf>=2.0,<3",
+    "pytesseract>=0.3.13",
     "pillow",
-    # NER  (after sync: `uv run python -m spacy download en_core_web_sm`)
-    "spacy",
-    # Fuzzy matching
-    "thefuzz",
-    "python-Levenshtein",
-    # Embeddings + vector store (Chroma is embedded/local; swap for qdrant-client if preferred)
-    "sentence-transformers",
-    "chromadb",
-    # LLM / HTTP
-    "httpx",
+    # NER — default model chosen by spike S1 (ADR-013)
+    "spacy>=3.8,<3.9",
+    "en-core-web-lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl",
+    # Fuzzy matching (TRD ADR-005)
+    "rapidfuzz>=3.14",
+    # RAG: embeddings + reranker runtime (ADR-009, ADR-014) on CPU-only torch, vector store (ADR-008)
+    "sentence-transformers>=6.2,<7",
+    "torch>=2.14,<3",
+    "chromadb>=1.5.9,<1.6",
+    # LLM client for any OpenAI-compatible endpoint (Groq by default) — ADR-010
+    "openai>=3.36,<4",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
-    "pytest-asyncio",
+    "pytest>=9",
+    "httpx",
+    "ruff",
+    "mypy",
+    "import-linter",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# torch from the CPU-only wheel index: the GPU wheels are GBs and never used here (ADR-009).
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Docs are prose: keep the formatter off the code blocks in Markdown.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE", "N", "SIM", "RUF"]
+# N818 wants an `Error` suffix; CONSTITUTION §10 names errors by the violated rule
+# (`UploadIsNotPdf`, `PdfEncrypted`), and every one already inherits a `*Error` base.
+ignore = ["N818"]
+
+[tool.ruff.lint.per-file-ignores]
+# RUF001: curly apostrophes (`O’Brien`) are real OCR output used as test data.
+# S311: seeded `random.Random` generates property-test data, not secrets.
+"tests/**" = ["S101", "RUF001", "S311"]
+"scripts/**" = ["S101", "RUF001"]
+
+[tool.mypy]
+strict = true
+files = ["app"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["pytesseract", "pytesseract.*", "spacy", "spacy.*"]
+ignore_missing_imports = true
+
+# PyMuPDF ships partially annotated functions (`open`, `Document.close`); allow calling
+# them from its adapter only — the rest of `app` stays fully strict.
+[[tool.mypy.overrides]]
+module = ["app.infrastructure.pymupdf_rasterizer"]
+disallow_untyped_calls = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: needs the Tesseract binary and/or the spaCy model",
+    "eval: golden-set evaluations",
+]
+addopts = "-ra --strict-markers"
+
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Hexagonal layers"
+type = "layers"
+layers = ["app.main", "app.api | app.infrastructure", "app.application", "app.domain"]
+ignore_imports = ["app.api.middleware -> app.infrastructure.logging"]
+
+[[tool.importlinter.contracts]]
+name = "Domain and application are framework-free"
+type = "forbidden"
+source_modules = ["app.domain", "app.application"]
+forbidden_modules = [
+    "fastapi",
+    "starlette",
+    "pydantic",
+    "pydantic_settings",
+    "pymupdf",
+    "fitz",
+    "pytesseract",
+    "PIL",
+    "spacy",
+    "chromadb",
+    "sentence_transformers",
+    "torch",
+    "transformers",
+    "numpy",
+    "openai",
+    "httpx",
+    "httpx2",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain and application do not know the HTTP contract"
+type = "forbidden"
+source_modules = ["app.domain", "app.application"]
+forbidden_modules = ["app.models"]

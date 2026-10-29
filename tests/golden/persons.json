@@ -1,0 +1,54 @@
+{
+  "description": "Hand-labelled person occurrences per sample page, as printed, without honorifics, in reading order (labelled 2026-10-21 from page renders). Negatives are entities that must never be reported as persons.",
+  "pages": [
+    {
+      "document": "company_memo.pdf",
+      "page": 0,
+      "persons": [
+        "Margaret Thompson", "Robert Chen", "Sarah Williams", "James Anderson",
+        "Maria Garcia", "David Nakamura", "Patricia Okonkwo", "Margaret Thompson"
+      ]
+    },
+    {
+      "document": "meeting_minutes.pdf",
+      "page": 0,
+      "persons": [
+        "Richard Hernandez", "Elizabeth Park", "Thomas Muller", "Aisha Patel",
+        "Kevin O'Brien", "Jennifer Liu", "Carlos Mendoza", "Richard Hernandez",
+        "Jennifer Liu", "Elizabeth Park", "Thomas Muller", "Elizabeth Park",
+        "Aisha Patel", "Kevin O’Brien"
+      ]
+    },
+    {
+      "document": "meeting_minutes.pdf",
+      "page": 1,
+      "persons": [
+        "Thomas Muller", "Yuki Tanaka", "Alexander Popov", "Richard Hernandez",
+        "Catherine Dubois", "Aisha Patel", "Kevin O’Brien", "Richard Hernandez",
+        "Jennifer Liu", "Richard Hernandez"
+      ]
+    },
+    {
+      "document": "research_report.pdf",
+      "page": 0,
+      "persons": [
+        "Olivia Chambers", "Benjamin Foster", "Priya Sharma", "Lucas Zimmermann",
+        "Fatima Al-Rashidi", "Christopher Wong", "Anna Kowalski", "Michael O’Sullivan",
+        "Elena Volkov", "Raj Krishnamurthy", "Priya Sharma", "Hans Weber"
+      ]
+    },
+    {
+      "document": "research_report.pdf",
+      "page": 1,
+      "persons": [
+        "Fatima Al-Rashidi", "James Chen", "Benjamin Foster", "Anna Kowalski",
+        "Christopher Wong", "Benjamin Foster", "Fatima Al-Rashidi", "Michael O’Sullivan",
+        "Fatima Al-Rashidi", "Olivia Chambers", "Margaret Thompson"
+      ]
+    }
+  ],
+  "negatives": [
+    "Atlas", "NovaTech Solutions", "ETH Zurich", "Stanford University", "London", "CTO",
+    "National Science Foundation", "Forbes"
+  ]
+}

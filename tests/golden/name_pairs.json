@@ -1,0 +1,24 @@
+{
+  "description": "Golden name pairs for fuzzy matching (TRD ADR-005). score = max(ratio, token_sort_ratio)/100 on normalized names, rounded to 4. should_match is at the default 0.90 threshold.",
+  "pairs": [
+    {"case": "upper case + accents", "extracted": "MARÍA GONZÁLEZ", "first_name": "Maria", "last_name": "Gonzalez", "score": 1.0, "should_match": true},
+    {"case": "accents on the requested side", "extracted": "maria gonzalez", "first_name": "María", "last_name": "González", "score": 1.0, "should_match": true},
+    {"case": "OCR digit for letter + honorific", "extracted": "Dr. Maria Gonza1ez", "first_name": "Maria", "last_name": "Gonzalez", "score": 0.9286, "should_match": true},
+    {"case": "OCR digit for letter", "extracted": "Maria Gonza1ez", "first_name": "Maria", "last_name": "Gonzalez", "score": 0.9286, "should_match": true},
+    {"case": "curly vs straight apostrophe", "extracted": "Kevin O’Brien", "first_name": "Kevin", "last_name": "O'Brien", "score": 1.0, "should_match": true},
+    {"case": "straight vs curly apostrophe", "extracted": "Kevin O'Brien", "first_name": "Kevin", "last_name": "O’Brien", "score": 1.0, "should_match": true},
+    {"case": "reversed order with comma", "extracted": "Gonzalez, Maria", "first_name": "Maria", "last_name": "Gonzalez", "score": 1.0, "should_match": true},
+    {"case": "honorific + hyphenated surname", "extracted": "Prof. Fatima Al-Rashidi", "first_name": "Fatima", "last_name": "Al-Rashidi", "score": 1.0, "should_match": true},
+    {"case": "hyphen read as space", "extracted": "Fatima Al Rashidi", "first_name": "Fatima", "last_name": "Al-Rashidi", "score": 1.0, "should_match": true},
+    {"case": "honorific Mrs.", "extracted": "Mrs. Elizabeth Park", "first_name": "Elizabeth", "last_name": "Park", "score": 1.0, "should_match": true},
+    {"case": "umlaut", "extracted": "Thomas Müller", "first_name": "Thomas", "last_name": "Muller", "score": 1.0, "should_match": true},
+    {"case": "OCR rn read as m", "extracted": "Richard Hemandez", "first_name": "Richard", "last_name": "Hernandez", "score": 0.9091, "should_match": true},
+    {"case": "OCR vowel swap", "extracted": "Margaret Thompsen", "first_name": "Margaret", "last_name": "Thompson", "score": 0.9412, "should_match": true},
+    {"case": "OCR one letter", "extracted": "Christopher Wong", "first_name": "Christopher", "last_name": "Wang", "score": 0.9375, "should_match": true},
+    {"case": "substring only", "extracted": "Ana", "first_name": "Ana María", "last_name": "Rodríguez", "score": 0.2727, "should_match": false},
+    {"case": "shared surname, different person", "extracted": "James Chen", "first_name": "Robert", "last_name": "Chen", "score": 0.5714, "should_match": false},
+    {"case": "similar-looking different person", "extracted": "Maria Garcia", "first_name": "Mario", "last_name": "Garza", "score": 0.7826, "should_match": false},
+    {"case": "unrelated", "extracted": "Ana Lopez", "first_name": "Margaret", "last_name": "Thompson", "score": 0.3846, "should_match": false},
+    {"case": "between 0.80 and 0.90", "extracted": "Anna Kowalski", "first_name": "Ana", "last_name": "Kowalska", "score": 0.88, "should_match": false}
+  ]
+}
