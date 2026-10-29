@@ -100,7 +100,7 @@
       <tr><td>Document</td><td>Read + find names</td><td>The request does the work in the one API process: a few big PDFs at once fill the CPU and the other requests wait</td><td>The API stores the PDF and returns a job id; Temporal queues one workflow per PDF; OCR workers pull from the queue and are added as it grows</td></tr>
       <tr><td>Document</td><td>Embeddings</td><td>The model runs on CPU inside the API, loaded again in every process</td><td>Model workers on GPU, embedding many chunks per call</td></tr>
       <tr><td>Document</td><td>Vector DB writes</td><td>Embedded Chroma: one process owns its files, so many workers can't write to it</td><td>Qdrant service: many writers at once, more replicas as data grows</td></tr>
-      <tr><td>Question</td><td>Hybrid search</td><td>Keyword search reads every stored chunk on every question: slower with each document added</td><td>Qdrant runs meaning + keyword search on its own indexes; read replicas for many questions</td></tr>
+      <tr><td>Question</td><td>Hybrid search</td><td>Keyword search reads every stored chunk on every question: slower with each document added</td><td>Qdrant runs meaning + keyword search on its own indexes (bge-m3 gives both vectors from one model); read replicas for many questions</td></tr>
       <tr><td>Question</td><td>Re-ranking</td><td>~1.5 s of CPU per question inside the API; a burst of questions queues up</td><td>Re-ranker on a GPU model server that scores several questions together</td></tr>
       <tr><td>Question</td><td>LLM</td><td>Free tier with a per-minute limit; a burst gets rejected</td><td>Paid tier; calls go through a queue capped at the limit, so they wait instead of failing; simple questions use the small model (§7)</td></tr>
     </tbody>
@@ -114,7 +114,6 @@
     <tbody>
       <tr><td>Find people</td><td>No real names on an ALL-CAPS Spanish property certificate</td><td>Rewrite ALL-CAPS lines in normal case (same length, boxes don't move); then measure a multilingual model such as GLiNER</td></tr>
       <tr><td>Read text</td><td>English only</td><td>Spanish language pack: a config change</td></tr>
-      <tr><td>Search by meaning</td><td>e5-small misses exact names and figures (why keyword search exists)</td><td>bge-m3: one multilingual model gives meaning and keyword vectors, both searched in Qdrant</td></tr>
       <tr><td>Rank results</td><td>The stronger re-ranker took 21 s on CPU</td><td>bge-reranker-v2-m3 once it runs on GPU</td></tr>
     </tbody>
   </table>

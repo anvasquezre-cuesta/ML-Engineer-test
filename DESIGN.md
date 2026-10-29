@@ -69,7 +69,7 @@ Today one process does everything: it reads the PDF, embeds it, stores it and an
 | Document | Read + find names | The request does the work in the one API process: a few big PDFs at once fill the CPU and the other requests wait | The API stores the PDF and returns a job id; Temporal queues one workflow per PDF; OCR workers pull from the queue and are added as it grows |
 | Document | Embeddings | The model runs on CPU inside the API, loaded again in every process | Model workers on GPU, embedding many chunks per call |
 | Document | Vector DB writes | Embedded Chroma: one process owns its files, so many workers can't write to it | Qdrant service: many writers at once, more replicas as data grows |
-| Question | Hybrid search | Keyword search reads every stored chunk on every question: slower with each document added | Qdrant runs meaning + keyword search on its own indexes; read replicas for many questions |
+| Question | Hybrid search | Keyword search reads every stored chunk on every question: slower with each document added | Qdrant runs meaning + keyword search on its own indexes (bge-m3 gives both vectors from one model); read replicas for many questions |
 | Question | Re-ranking | ~1.5 s of CPU per question inside the API; a burst of questions queues up | Re-ranker on a GPU model server that scores several questions together |
 | Question | LLM | Free tier with a per-minute limit; a burst gets rejected | Paid tier; calls go through a queue capped at the limit, so they wait instead of failing; simple questions use the small model (§7) |
 
@@ -85,7 +85,6 @@ Today one process does everything: it reads the PDF, embeds it, stores it and an
 |---|---|---|
 | Find people | No real names on an ALL-CAPS Spanish property certificate | Rewrite ALL-CAPS lines in normal case (same length, boxes don't move); then measure a multilingual model such as GLiNER |
 | Read text | English only | Spanish language pack: a config change |
-| Search by meaning | e5-small misses exact names and figures (why keyword search exists) | bge-m3: one multilingual model gives meaning and keyword vectors, both searched in Qdrant |
 | Rank results | The stronger re-ranker took 21 s on CPU | bge-reranker-v2-m3 once it runs on GPU |
 
 ## 6. What can go wrong and what happens
