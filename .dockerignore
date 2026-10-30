@@ -1,0 +1,37 @@
+# VCS, local environments and caches
+.git
+.gitignore
+.gitattributes
+.github
+.venv
+.venv-cuda
+venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+.coverage.*
+htmlcov
+*.egg-info
+
+# Not needed to build or test (sample_pdfs/ IS needed: integration tests read it)
+benchmarks
+docs
+openspec
+.claude
+.idea
+.vscode
+# The host's copy of pdf.js (scripts/fetch_pdfjs.py); the images get theirs from the `pdfjs` stage.
+vendor
+
+# Secrets, in any directory (the example holds placeholders only; the test image's suite checks
+# it). A pattern without **/ matches only at the root of the build context.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Docker files themselves
+Dockerfile
+.dockerignore

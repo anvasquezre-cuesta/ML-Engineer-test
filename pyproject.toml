@@ -4,33 +4,86 @@ version = "0.1.0"
 description = "ML Engineer take-home — document extraction + RAG service (implement from scratch)."
 requires-python = ">=3.12"
 
-# Baseline dependencies — change/pin these as you see fit (justify in DECISIONS.md).
+# Only what the code imports or runs. Each block added its own dependencies together with the
+# code that uses them: OCR, NER, embeddings, vector store and LLM client (adapters), settings
+# (pydantic-settings, app/settings.py), multipart forms (python-multipart, which FastAPI
+# needs to read the upload endpoints' forms) and anyio (app/api runs blocking work on its own
+# thread limiters; already installed through Starlette, declared because app/api imports it).
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "python-multipart",
     "pydantic",
-    "pydantic-settings",
-    # OCR / PDF
-    "pytesseract",
-    "pymupdf",
+    "rapidfuzz>=3",
+    # PDF rendering: PDFium (BSD-3/Apache-2.0). PyMuPDF is AGPL-3.0, so it is a test-only tool.
+    "pypdfium2>=5.14.0",
     "pillow",
-    # NER  (after sync: `uv run python -m spacy download en_core_web_sm`)
-    "spacy",
-    # Fuzzy matching
-    "thefuzz",
-    "python-Levenshtein",
-    # Embeddings + vector store (Chroma is embedded/local; swap for qdrant-client if preferred)
-    "sentence-transformers",
-    "chromadb",
-    # LLM / HTTP
-    "httpx",
+    "numpy",
+    # NER (block 3): Davlan/xlm-roberta-base-ner-hrl through the token-classification pipeline.
+    # torch is not here: it comes from the `cpu` or the `cuda` extra below (exactly one of them).
+    "transformers>=5.21,<6",
+    # The model ships only sentencepiece.bpe.model (no tokenizer.json); the fast tokenizer
+    # (character offsets) is converted from it at load time, which needs sentencepiece and
+    # protobuf (transformers' SentencePieceExtractor reads the model proto).
+    "sentencepiece>=0.2.1",
+    "protobuf>=6",
+    # RAG (block 4). Embeddings: intfloat/multilingual-e5-base through transformers AutoModel
+    # (no new dependency). Vector store: Qdrant; qdrant-client requires grpcio unconditionally
+    # (the adapter uses the REST/HTTP path). LLM: one httpx client for OpenAI-compatible APIs.
+    "qdrant-client>=1.20,<2",
+    "httpx>=0.28,<1",
+    "pydantic-settings>=2.11,<3",
+    "python-multipart>=0.0.20",
+    "anyio>=4.5,<5",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pytest-asyncio",
+    "pre-commit",
+    "ruff",
+    "mypy",
+    "pytest-cov",
+    # Test-only: builds PDFs and ground truth (search_for) in tests. AGPL-3.0, so never
+    # imported by app/ (tests/adapters/ocr/test_rendering.py). 2.0 bundles a layout
+    # model (onnxruntime, networkx, pymupdf4llm) that the tests do not use.
+    "pymupdf>=1.28,<2",
+]
+# torch, one build of it: exactly one of these two extras (declared conflicting in [tool.uv], so
+# uv.lock holds both and a sync installs one). `cpu` is the default of the host environment
+# (`uv sync --extra dev --extra cpu`) and of the images (Dockerfile ARG TORCH_VARIANT=cpu); `cuda`
+# pulls the CUDA runtime as the wheel's nvidia-* dependencies (no CUDA base image needed).
+# uv has no default extra: a sync without either extra installs no torch.
+cpu = ["torch>=2.14,<3"]
+cuda = ["torch>=2.14,<3"]
+
+[dependency-groups]
+# Browser end-to-end tests of the audit viewer (tests/e2e), installed only by the Dockerfile's
+# `e2e` stage (`uv sync --group e2e`); not a default group, so neither a host `uv sync` nor the
+# test and runtime images install it. The Playwright version pins the Chromium build it
+# installs. 1.64.0 (2026-10-13): the newest release at least two weeks old.
+e2e = ["playwright==1.64.0"]
+
+# torch from the PyTorch wheel indexes, one per extra: the CPU index (no nvidia-*, no triton) for
+# `cpu`, the CUDA 12.6 index for `cuda`. cu126 is the newest CUDA 12.x index with torch 2.14
+# wheels for Linux x86_64 and Windows (cu128 and cu129 stop before 2.14; cu130 and cu132 are
+# CUDA 13). `explicit` keeps every other package on PyPI.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cuda" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cuda" },
 ]
 
 [build-system]
@@ -39,3 +92,104 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "tesseract: needs the Tesseract executable (skipped when it is not on PATH)",
+    "ner_model: needs the local NER model (skipped when NER_MODEL_PATH is unset or the directory is missing)",
+    "embedding_model: needs the local embedding model (skipped when EMBEDDING_MODEL_PATH is unset or the directory is missing)",
+    "injection_model: needs the local Prompt Guard model (skipped when INJECTION_MODEL_PATH is unset or the directory is missing)",
+    "qdrant_server: needs a Qdrant server (skipped when QDRANT_URL is unset)",
+    "llm_server: needs an OpenAI-compatible LLM server (skipped when LLM_BASE_URL is unset)",
+    "deployed_service: smoke test of a running stack over HTTP (skipped when SERVICE_URL is unset)",
+    "e2e: browser test of the audit viewer in the e2e image (skipped without Playwright or VIEWER_URL)",
+    "cuda: needs a CUDA GPU visible to torch (skipped otherwise)",
+]
+# pytest resets the warning filters for every test, so the adapter's process-wide filter for
+# this one transformers message (see app/adapters/ner/recognizer.py) does not survive between
+# tests that share a module-scoped recogniser. Only this exact message is ignored.
+filterwarnings = [
+    "ignore:Tokenizer does not support real words, using fallback heuristic:UserWarning:transformers\\.pipelines\\.token_classification",
+    # transformers' DeBERTa-v2 module (the injection detector) calls torch.jit.script at import,
+    # which torch 2.14 deprecates; harmless, and not ours to change.
+    "ignore:`torch.jit.script` is deprecated:FutureWarning",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+# benchmarks/ holds measurement scripts, not service code.
+extend-exclude = ["benchmarks", ".claude"]
+
+[tool.ruff.lint]
+# E722 bare except, BLE001 blind except, S110/S112 silent try-except-pass/continue.
+select = [
+    "E", "F", "I", "B", "E722", "BLE001", "S110", "S112",
+    "PL", "SIM", "UP", "C4", "RUF", "PT", "RET", "ARG", "PERF", "S", "C90",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 7
+max-branches = 12
+max-statements = 50
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",    # assert is how pytest tests assert
+    "PLR2004", # magic values are the expected values in tests
+    "ARG",     # fixtures and fakes must match protocol/fixture signatures
+    "S311",    # seeded random for reproducible test data, not cryptography
+    "S603",    # subprocess calls in tests run fixed, test-controlled arguments
+    "S607",    # ...and resolve git through PATH on purpose
+]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+# PyMuPDF (tests only) ships py.typed but leaves some constructors (e.g. ``Document``)
+# unannotated.
+untyped_calls_exclude = ["pymupdf"]
+exclude = [
+    '^benchmarks/',
+    '^\.claude/',
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "app.domain.*",
+    "app.application.*",
+    "app.adapters.*",
+    "app.api.*",
+    "app.main",
+    "app.bootstrap",
+    "app.settings",
+    "app.observability",
+    "scripts.*",
+]
+strict = true
+
+[[tool.mypy.overrides]]
+# pypdfium2 ships no py.typed marker; the adapter annotates the values it takes from it.
+module = ["pypdfium2", "pypdfium2.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Playwright is installed only in the e2e image (dependency group `e2e`); on the host its
+# imports in tests/e2e are unresolved.
+module = ["playwright", "playwright.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true

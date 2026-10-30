@@ -1,0 +1,497 @@
+import os
+import signal
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+from typing import Any, ClassVar
+
+import pytest
+
+from app.adapters.ocr import tesseract
+from app.adapters.ocr.tesseract import TesseractCli, parse_tsv
+from app.domain.cancellation import Cancellation
+from app.domain.errors import ProcessingFailed
+from app.domain.geometry import PageRaster
+from app.domain.types import Box, PageWord
+from tests.adapters.ocr.fake_runner import TSV_HEADER
+
+FIXTURES = Path(__file__).parent / "fixtures"
+# 1000 x 500 pixels showing a 500 x 250 pt page: 0.5 pt per pixel on both axes.
+RASTER = PageRaster(1000, 500, 500.0, 250.0)
+PNG = b"\x89PNG fake image bytes"
+FAKE_PID = 4_242_424
+
+
+def _fixture(name: str) -> str:
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+def _cli(command: str = "tesseract") -> TesseractCli:
+    return TesseractCli(command=command, dpi=200, psm=3, oem=1, timeout_s=12.5)
+
+
+def _row(left: str = "10", conf: str = "90", text: str = "word", line: str = "1") -> str:
+    return f"{TSV_HEADER}\n5\t1\t1\t1\t{line}\t1\t{left}\t10\t10\t10\t{conf}\t{text}\n"
+
+
+def _words(*rows: tuple[int, int, int, str]) -> str:
+    """Build TSV with one 10 x 10 pixel word row per ``(block, par, line, text)``."""
+    body = [
+        f"5\t1\t{block}\t{par}\t{line}\t1\t{10 * number}\t10\t10\t10\t90\t{text}"
+        for number, (block, par, line, text) in enumerate(rows)
+    ]
+    return "\n".join([TSV_HEADER, *body]) + "\n"
+
+
+def _lines(tsv: str) -> list[tuple[str, int]]:
+    return [(word.text, word.line) for word in parse_tsv(tsv, RASTER, 0)]
+
+
+def _paragraphs(tsv: str, page: int = 0) -> list[tuple[str, int]]:
+    return [(word.text, word.paragraph) for word in parse_tsv(tsv, RASTER, page)]
+
+
+class TestParseTsv:
+    def test_header_only_gives_no_words(self) -> None:
+        assert parse_tsv(_fixture("header_only.tsv.txt"), RASTER, 0) == ()
+
+    def test_word_rows_become_page_words_in_points(self) -> None:
+        words = parse_tsv(_fixture("page_words.tsv.txt"), RASTER, 3)
+
+        assert words == (
+            PageWord("Ramírez", Box(3, 50.0, 25.0, 100.0, 20.0), 0, 0, 96.5),
+            PageWord("Müller", Box(3, 160.0, 25.0, 50.0, 20.0), 0, 0, 91.0),
+            PageWord("São", Box(3, 300.0, 25.0, 75.0, 20.0), 0, 0, 0.0),
+            PageWord("edge", Box(3, 450.0, 230.0, 50.0, 20.0), 1, 0, 75.0),
+            PageWord("beyond", Box(3, 475.0, 240.0, 25.0, 10.0), 1, 0, 70.0),
+        )
+
+    def test_each_word_carries_its_confidence_with_both_ends_of_the_scale_kept(self) -> None:
+        (low,) = parse_tsv(_row(conf="0"), RASTER, 0)
+        (high,) = parse_tsv(_row(conf="100"), RASTER, 0)
+
+        assert (low.confidence, high.confidence) == (0.0, 100.0)
+
+    def test_words_on_one_line_share_an_index_and_the_next_line_gets_the_next(self) -> None:
+        tsv = _words((1, 1, 1, "Maria"), (1, 1, 1, "Gonzalez"), (1, 1, 2, "Director"))
+
+        assert _lines(tsv) == [("Maria", 0), ("Gonzalez", 0), ("Director", 1)]
+
+    def test_a_line_is_the_whole_block_paragraph_line_triple(self) -> None:
+        tsv = _words((1, 1, 1, "a"), (1, 2, 1, "b"), (2, 1, 1, "c"), (2, 1, 1, "d"))
+
+        assert _lines(tsv) == [("a", 0), ("b", 1), ("c", 2), ("d", 2)]
+
+    def test_line_numbers_skipped_by_tesseract_still_give_consecutive_indices(self) -> None:
+        tsv = _words((1, 1, 2, "first"), (1, 1, 5, "second"), (3, 2, 9, "third"))
+
+        assert _lines(tsv) == [("first", 0), ("second", 1), ("third", 2)]
+
+    def test_lines_whose_words_are_all_dropped_take_no_index(self) -> None:
+        tsv = _words((1, 1, 1, "kept"), (1, 1, 2, " "), (1, 1, 3, "next"))
+
+        assert _lines(tsv) == [("kept", 0), ("next", 1)]
+
+    def test_line_numbering_restarts_on_every_page(self) -> None:
+        tsv = _words((1, 1, 3, "late"), (1, 1, 4, "later"))
+
+        assert [word.line for word in parse_tsv(tsv, RASTER, 0)] == [0, 1]
+        assert [word.line for word in parse_tsv(tsv, RASTER, 1)] == [0, 1]
+
+    def test_lines_of_one_paragraph_share_its_index_and_the_next_gets_the_next(self) -> None:
+        tsv = _words(
+            (1, 1, 1, "Heading"), (1, 2, 1, "first"), (1, 2, 2, "second"), (1, 3, 1, "third")
+        )
+
+        assert _paragraphs(tsv) == [("Heading", 0), ("first", 1), ("second", 1), ("third", 2)]
+
+    def test_a_paragraph_is_the_block_paragraph_pair(self) -> None:
+        tsv = _words((1, 1, 1, "a"), (2, 1, 1, "b"), (2, 1, 2, "c"), (3, 4, 7, "d"))
+
+        assert _paragraphs(tsv) == [("a", 0), ("b", 1), ("c", 1), ("d", 2)]
+
+    def test_paragraphs_whose_words_are_all_dropped_take_no_index(self) -> None:
+        tsv = _words((1, 1, 1, "kept"), (1, 2, 1, " "), (1, 3, 1, "next"))
+
+        assert _paragraphs(tsv) == [("kept", 0), ("next", 1)]
+
+    def test_paragraph_numbering_restarts_on_every_page(self) -> None:
+        tsv = _words((2, 3, 1, "late"), (4, 1, 1, "later"))
+
+        assert _paragraphs(tsv, page=0) == [("late", 0), ("later", 1)]
+        assert _paragraphs(tsv, page=1) == [("late", 0), ("later", 1)]
+
+    def test_blank_negative_confidence_and_empty_boxes_are_dropped(self) -> None:
+        texts = [word.text for word in parse_tsv(_fixture("page_words.tsv.txt"), RASTER, 0)]
+
+        assert "ghost" not in texts  # conf -1
+        assert "outside" not in texts  # starts at the right edge of the image
+        assert "thin" not in texts  # zero width
+        assert all(text.strip() for text in texts)
+
+    def test_crlf_line_endings_are_accepted(self) -> None:
+        crlf = _fixture("page_words.tsv.txt").replace("\n", "\r\n")
+
+        assert parse_tsv(crlf, RASTER, 0) == parse_tsv(_fixture("page_words.tsv.txt"), RASTER, 0)
+
+    def test_huge_but_finite_coordinates_are_clipped_to_the_page(self) -> None:
+        assert parse_tsv(_row(left="-500"), RASTER, 0) == ()  # ends left of the page
+
+        text = f"{TSV_HEADER}\n5\t1\t1\t1\t1\t1\t0\t0\t99999999999\t99999999999\t90\tbig\n"
+        (big,) = parse_tsv(text, RASTER, 0)
+        assert big.box == Box(0, 0.0, 0.0, 500.0, 250.0)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "",
+            "Error: could not read image\n",
+            TSV_HEADER + "\n5\t1\t1\t1\t1\t1\t10\t10\n",
+            _row(left="ten"),
+            _row(conf="high"),
+            _row(left="9" * 400),
+            _row(left="9" * 5000),
+            _row(conf="nan"),
+            _row(conf="inf"),
+            _row(conf="-inf"),
+            _row(conf="100.5"),
+            _row(line="first"),
+            _row(line="9" * 5000),
+        ],
+        ids=[
+            "empty",
+            "no-header",
+            "short-row",
+            "bad-int",
+            "bad-conf",
+            "overflowing-int",
+            "int-over-digit-limit",
+            "nan-conf",
+            "inf-conf",
+            "minus-inf-conf",
+            "conf-over-100",
+            "bad-line",
+            "line-over-digit-limit",
+        ],
+    )
+    def test_unparsable_output_fails(self, text: str) -> None:
+        with pytest.raises(ProcessingFailed) as caught:
+            parse_tsv(text, RASTER, 0)
+
+        assert caught.value.code == "ocr_failed"
+        assert "word" not in caught.value.message
+
+
+class FakeStream:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class FakePopen:
+    """Stands in for ``subprocess.Popen``; ``answers`` are consumed by successive communicate."""
+
+    instances: ClassVar[list["FakePopen"]] = []
+
+    def __init__(
+        self,
+        args: list[str],
+        *,
+        answers: list[Any],
+        returncode: int = 0,
+        **kwargs: Any,
+    ) -> None:
+        self.args = args
+        self.kwargs = kwargs
+        self.answers = answers
+        self.returncode: int | None = None
+        self.final_returncode = returncode
+        self.pid = FAKE_PID
+        self.inputs: list[bytes | None] = []
+        self.timeouts: list[float | None] = []
+        self.killed = False
+        self.terminated = False
+        self.waited = False
+        self.stdin = FakeStream()
+        self.stdout = FakeStream()
+        self.stderr = FakeStream()
+        FakePopen.instances.append(self)
+
+    def __enter__(self) -> "FakePopen":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.waited = True
+
+    def communicate(
+        self, input: bytes | None = None, timeout: float | None = None
+    ) -> tuple[bytes, bytes]:
+        self.inputs.append(input)
+        self.timeouts.append(timeout)
+        answer = self.answers.pop(0)
+        if callable(answer):  # computes the answer, e.g. after cancelling a token
+            answer = answer(timeout)
+        if isinstance(answer, BaseException):
+            raise answer
+        self.returncode = self.final_returncode
+        output: tuple[bytes, bytes] = answer
+        return output
+
+    def kill(self) -> None:
+        self.killed = True
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def wait(self) -> int:
+        self.waited = True
+        return -9
+
+
+@pytest.fixture
+def popen(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """Patch ``subprocess.Popen``; set ``answers`` / ``returncode`` in the returned dict."""
+    setup: dict[str, Any] = {"answers": [(b"", b"")], "returncode": 0, "killpg": []}
+    FakePopen.instances = []
+
+    def make(args: list[str], **kwargs: Any) -> FakePopen:
+        return FakePopen(
+            args, answers=list(setup["answers"]), returncode=setup["returncode"], **kwargs
+        )
+
+    def killpg(pid: int, sig: int) -> None:
+        setup["killpg"].append((pid, sig))
+
+    monkeypatch.setattr(subprocess, "Popen", make)
+    monkeypatch.setattr(os, "killpg", killpg, raising=False)
+    return setup
+
+
+def _timeout() -> subprocess.TimeoutExpired:
+    return subprocess.TimeoutExpired(["tesseract"], 12.5, output=b"partial Ramirez")
+
+
+class TestTesseractCli:
+    def test_runs_tesseract_through_stdin_and_stdout_single_threaded(
+        self, popen: dict[str, Any]
+    ) -> None:
+        popen["answers"] = [("Ramírez".encode(), b"")]
+
+        assert _cli()(PNG, "eng+spa") == "Ramírez"
+
+        (process,) = FakePopen.instances
+        assert process.args == [
+            "tesseract",
+            "stdin",
+            "stdout",
+            "--oem",
+            "1",
+            "--psm",
+            "3",
+            "--dpi",
+            "200",
+            "-l",
+            "eng+spa",
+            "tsv",
+        ]
+        assert process.inputs == [PNG]
+        assert process.timeouts == [12.5]
+        assert process.kwargs["stdin"] == subprocess.PIPE
+        assert process.kwargs["stdout"] == subprocess.PIPE
+        assert process.kwargs["stderr"] == subprocess.PIPE
+        assert process.kwargs["start_new_session"] is (sys.platform != "win32")
+        assert "shell" not in process.kwargs
+        assert process.kwargs["env"]["OMP_THREAD_LIMIT"] == "1"
+        assert process.waited
+
+    def test_missing_executable_fails(self) -> None:
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli("no-such-tesseract-executable-3f9a")(PNG, "eng")
+
+        assert caught.value.code == "ocr_failed"
+        assert isinstance(caught.value.__cause__, FileNotFoundError)
+
+    def test_timeout_kills_the_process_group_and_fails(self, popen: dict[str, Any]) -> None:
+        popen["answers"] = [_timeout(), (b"", b"")]
+
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli()(PNG, "eng")
+
+        assert caught.value.code == "ocr_failed"
+        assert "12.5" in caught.value.message
+        assert "Ramirez" not in str(caught.value)
+        assert isinstance(caught.value.__cause__, subprocess.TimeoutExpired)
+        (process,) = FakePopen.instances
+        assert process.killed
+        assert len(process.inputs) == 2  # reaped after the kill
+        sigkill = getattr(signal, "SIGKILL", None)
+        expected = [] if sys.platform == "win32" else [(FAKE_PID, sigkill)]
+        assert popen["killpg"] == expected
+
+    def test_descendant_holding_the_pipes_does_not_block_the_failure(
+        self, popen: dict[str, Any]
+    ) -> None:
+        popen["answers"] = [_timeout(), _timeout()]
+
+        with pytest.raises(ProcessingFailed):
+            _cli()(PNG, "eng")
+
+        (process,) = FakePopen.instances
+        assert process.stdout.closed
+        assert process.stderr.closed
+        assert process.waited
+
+    def test_interrupted_wait_kills_the_process_and_propagates(self, popen: dict[str, Any]) -> None:
+        popen["answers"] = [KeyboardInterrupt(), (b"", b"")]
+
+        with pytest.raises(KeyboardInterrupt):
+            _cli()(PNG, "eng")
+
+        assert FakePopen.instances[0].killed
+
+    def test_non_zero_exit_fails_without_repeating_stderr(self, popen: dict[str, Any]) -> None:
+        popen["answers"] = [(b"", b"Ramirez secret")]
+        popen["returncode"] = 1
+
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli()(PNG, "eng")
+
+        assert caught.value.code == "ocr_failed"
+        assert "code 1" in caught.value.message
+        assert "Ramirez" not in str(caught.value)
+
+    def test_output_that_is_not_utf8_fails(self, popen: dict[str, Any]) -> None:
+        popen["answers"] = [(b"\xff\xfe\xfa", b"")]
+
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli()(PNG, "eng")
+
+        assert caught.value.code == "ocr_failed"
+        assert isinstance(caught.value.__cause__, UnicodeDecodeError)
+
+
+class TestTesseractCliCancellation:
+    """A cancellable token is watched while Tesseract runs; once set the process is stopped."""
+
+    @pytest.fixture(autouse=True)
+    def short_grace(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(tesseract, "CANCEL_GRACE_S", 0.1)
+
+    @staticmethod
+    def _signals(popen: dict[str, Any]) -> list[int]:
+        return [sig for _, sig in popen["killpg"]]
+
+    @staticmethod
+    def _signalled(popen: dict[str, Any], sig: int) -> bool:
+        if sys.platform == "win32":
+            return any(process.killed for process in FakePopen.instances)
+        return sig in TestTesseractCliCancellation._signals(popen)
+
+    def _running_until(
+        self, popen: dict[str, Any], cancel: Cancellation, sig: int, answer: Any
+    ) -> Any:
+        """An answer that cancels ``cancel``, waits until ``sig`` is sent, then gives ``answer``."""
+
+        def run(timeout: float | None) -> Any:
+            cancel.cancel()
+            deadline = time.monotonic() + 2.0
+            while not self._signalled(popen, sig) and time.monotonic() < deadline:
+                time.sleep(0.005)
+            return answer
+
+        return run
+
+    def test_a_cancelled_token_starts_no_process(self, popen: dict[str, Any]) -> None:
+        cancel = Cancellation()
+        cancel.cancel()
+
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli()(PNG, "eng", cancel=cancel)
+
+        assert caught.value.code == "request_cancelled"
+        assert FakePopen.instances == []
+
+    @pytest.mark.parametrize("live", [True, False], ids=["live-token", "default-token"])
+    def test_without_cancellation_the_output_is_returned_after_one_wait(
+        self, popen: dict[str, Any], live: bool
+    ) -> None:
+        popen["answers"] = [(b"tsv", b"")]
+        options = {"cancel": Cancellation()} if live else {}
+
+        assert _cli()(PNG, "eng", **options) == "tsv"
+
+        (process,) = FakePopen.instances
+        assert process.inputs == [PNG]
+        assert process.timeouts == [12.5]
+        assert popen["killpg"] == []
+        assert not [t for t in threading.enumerate() if t.name == "ocr-cancel-watch"]
+
+    def test_cancelling_terminates_the_process_group_and_raises_request_cancelled(
+        self, popen: dict[str, Any]
+    ) -> None:
+        cancel = Cancellation()
+        popen["answers"] = [self._running_until(popen, cancel, _SIGTERM, (b"", b""))]
+        popen["returncode"] = -15
+
+        started = time.monotonic()
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli()(PNG, "eng", cancel=cancel)
+        elapsed = time.monotonic() - started
+
+        assert caught.value.code == "request_cancelled"
+        assert elapsed < 0.1 + 0.5
+        (process,) = FakePopen.instances
+        assert process.waited
+        if sys.platform != "win32":
+            assert popen["killpg"] == [(FAKE_PID, _SIGTERM)]  # it exited: no SIGKILL
+        assert not [t for t in threading.enumerate() if t.name == "ocr-cancel-watch"]
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows has no SIGTERM to ignore")
+    def test_a_process_ignoring_sigterm_is_killed_after_the_grace_period(
+        self, popen: dict[str, Any]
+    ) -> None:
+        cancel = Cancellation()
+        popen["answers"] = [self._running_until(popen, cancel, _SIGKILL, (b"", b""))]
+        popen["returncode"] = -9
+
+        started = time.monotonic()
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli()(PNG, "eng", cancel=cancel)
+        elapsed = time.monotonic() - started
+
+        assert caught.value.code == "request_cancelled"
+        assert self._signals(popen) == [_SIGTERM, _SIGKILL]
+        assert 0.1 <= elapsed < 1.0
+
+    def test_a_timeout_after_the_cancellation_is_reported_as_cancelled(
+        self, popen: dict[str, Any]
+    ) -> None:
+        cancel = Cancellation()
+        popen["answers"] = [self._running_until(popen, cancel, _SIGTERM, _timeout()), (b"", b"")]
+
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli()(PNG, "eng", cancel=cancel)
+
+        assert caught.value.code == "request_cancelled"
+        assert FakePopen.instances[0].killed
+
+    def test_the_timeout_still_applies_with_a_live_token(self, popen: dict[str, Any]) -> None:
+        popen["answers"] = [_timeout(), (b"", b"")]
+
+        with pytest.raises(ProcessingFailed) as caught:
+            _cli()(PNG, "eng", cancel=Cancellation())
+
+        assert caught.value.code == "ocr_failed"
+        assert "12.5" in caught.value.message
+        assert FakePopen.instances[0].killed
+
+
+_SIGTERM = getattr(signal, "SIGTERM", 15)
+_SIGKILL = getattr(signal, "SIGKILL", 9)

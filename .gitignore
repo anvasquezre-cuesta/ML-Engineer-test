@@ -10,12 +10,25 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 
-# Env / secrets
+# Benchmark scripts: kept locally, not part of the submission (see docs/BENCHMARKS.md)
+benchmarks/
+
+# pdf.js for a host run of the audit viewer (scripts/fetch_pdfjs.py; pinned in deploy/pdfjs.lock)
+/vendor/
+
+# Env / secrets (the example holds placeholders only)
 .env
 .env.*
+!.env.example
 
 # OS / IDE
 .DS_Store
 .idea/
 .vscode/
+
+# The host CUDA environment for the `cuda`-marked tests (UV_PROJECT_ENVIRONMENT=.venv-cuda)
+.venv-cuda/

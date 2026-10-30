@@ -1,180 +1,120 @@
-# ML Engineer Take-Home — Document Intelligence Service
+# Document Intelligence Service
 
-Build, from scratch, a small production-quality service that extracts person
-names (with their locations) from scanned PDFs, fuzzy-matches them against a
-provided list, and answers questions about ingested documents using RAG
-(Retrieval-Augmented Generation).
+A FastAPI service that reads scanned PDFs and returns every person's name with where it sits on the page (0-based page, box in PDF points), fuzzy-matches the names against a requested list, and answers questions about ingested documents only from those documents. Built for the ML Engineer take-home ([the assignment](docs/assignment.md)).
 
-This repository is an **empty skeleton**. There is no working code to fix — you
-implement the whole thing. We care as much about *how* you build it (design,
-tests, engineering practices, decisions) as about whether it runs.
+**Deliverables:** [DESIGN.md](DESIGN.md) and [DECISIONS.md](DECISIONS.md). Everything else is in the [documentation](docs/README.md), which also renders as a docsify site.
 
-## Why this exists (the problem)
+## Quick start
 
-Let's imagine a company that processes large volumes of scanned documents (contracts, KYC forms,
-filings) that mention people. For **compliance**, it isn't enough to know *that*
-a name appears — a reviewer has to be able to **find it on the page** and
-**double-check that specific name against other records** (an ID, a sanctions
-list, an internal system). A name with no location is not auditable.
-
-So the core requirement is: **given a PDF, return each person's name together
-with exactly where it sits on the page** (page number + bounding box). That
-location is what lets a human or a downstream system verify the match against
-other information. The fuzzy-matching and RAG pieces build on the same extracted
-content. Keep this "locate it so it can be verified" purpose in mind — it's why
-bounding-box accuracy and correct pages matter more than they might first seem.
-
----
-
-## What you're building
-
-A FastAPI service exposing four endpoints. The request/response **contract is
-fixed** by `app/models/schemas.py` — do not change those shapes (add fields only
-if you have a reason and document it).
-
-### 1. `GET /health`
-Liveness probe. Returns `{"status": "ok"}` (plus anything else useful).
-
-### 2. `POST /api/extract`  — names + bounding boxes + fuzzy match
-`multipart/form-data`:
-- `pdf_file`: a (scanned) PDF.
-- `names`: a JSON string — a list of `{"first_name": ..., "last_name": ...}`.
-
-Pipeline:
-1. **OCR** the PDF (it is scanned — there is no selectable text layer).
-2. **NER**: extract **person** names only (no organizations, places, dates).
-3. **Bounding boxes**: locate each extracted name in the page and return its box
-   in **PDF coordinate space** (points, 72 per inch — *not* raw image pixels),
-   with a **0-based page number**.
-4. **Fuzzy match** the extracted names against the provided `names`.
-
-Response: `ExtractionResponse` (see `schemas.py`) — `extracted_names[]` with a
-`bounding_box`, and `fuzzy_matches[]`.
-
-### 3. `POST /api/ingest` — index a document for RAG
-`multipart/form-data` with `pdf_file`. OCR → chunk → embed → store in a vector
-database. Response: `IngestResponse` (`status`, `chunks_stored`).
-
-### 4. `POST /api/ask` — answer a question with RAG
-JSON `{"question": "..."}`. Embed the question, retrieve the most relevant
-chunks, call an LLM to answer **grounded in the retrieved context**, and return
-`RAGResponse` (`answer`, `sources`).
-
----
-
-## Requirements that matter (this is the actual evaluation)
-
-> **Scope & time.** This is time-boxed — we do **not** expect fully isolated
-> infrastructure. An **embedded / in-process vector store (e.g. Chroma) running
-> locally is completely fine**, and you do not need Docker to pass. Things like a
-> `docker-compose.yml` with an isolated vector DB, a hardened container, or a
-> clean separation of services are **not required** — but if you add them, they
-> count as **positive extras** in the evaluation. Prioritize a correct,
-> well-structured core; reach for the infra polish only if you have time.
-
-Anyone can wire libraries together. We're hiring an **ML Engineer**, so we look
-for production judgment:
-
-- **Architecture** — SOLID, dependency injection, separation of concerns.
-  Services depend on abstractions (Protocols/ABCs), not concrete singletons.
-  HTTP routers stay thin; business logic is testable without HTTP.
-- **Configuration** — no hardcoded hosts/ports/model names/thresholds/DPI.
-  Centralized, environment-overridable config.
-- **Resilience** — timeouts and retries on external calls (LLM, vector store);
-  meaningful failure modes; no silent `except: pass`.
-- **Validation** — reject non-PDFs (by content, not just extension), empty
-  files, oversized uploads; validate request bodies.
-- **Resource management** — no leaked file handles or temp files.
-- **Observability** — structured logging with useful context.
-- **Correctness details we will check**, e.g.:
-  - OCR must process **every** page (including the first).
-  - Bounding boxes must be in **PDF space**, not image pixels.
-  - Name matching must be **case-insensitive** and robust to OCR noise and
-    accents (`María González` ~ `Maria Gonzalez`); prefer full-string
-    similarity over substring tricks.
-  - RAG chunking must not cut words in half; retrieval must be grounded (no
-    hallucinated `sources`).
-  - Vector-store IDs must be unique across documents (a second ingest must not
-    overwrite the first).
-- **Tests** — you write them. Cover the tricky logic above with unit tests
-  (mock the heavy models / external services) and at least one end-to-end path.
-  We look at *what* you chose to test and how.
-- **Containerization (bonus, not required)** — if you have time, a `Dockerfile`
-  and a `docker-compose.yml` that brings up the app **and its dependencies** with
-  `docker compose up` (and `GET /health` passing) is a strong positive. Skipping
-  it costs you nothing on the core; a local/embedded setup is fine.
-- **Audit viewer (bonus, not required)** — a simple frontend that, given a PDF,
-  **renders the pages and draws the returned bounding boxes over the detected
-  names**. This is the compliance reviewer's tool: it's how a human confirms a
-  name really is where the API says it is. Nothing fancy — a single self-
-  contained page (e.g. vanilla JS + pdf.js) that calls `/api/extract` and
-  overlays the boxes is plenty. Strong positive if included.
-- **DESIGN.md** (≤ 3 pages) — component + sequence view, technology choices and
-  trade-offs, how you'd scale to 1000+ PDFs/hour, failure modes and mitigations,
-  and — if you were to route between models by query complexity — how.
-
----
-
-## Suggested stack (substitute freely, but justify it in DESIGN.md)
-
-- Python 3.12, FastAPI, `pytest`
-- OCR: Tesseract via `pytesseract` + `PyMuPDF` (PDF → image)
-- NER: spaCy (`en_core_web_sm`); handle non-English if you add it
-- Fuzzy: `thefuzz`
-- Embeddings: `sentence-transformers`
-- Vector DB: **Chroma** (embedded/local — simplest) or Qdrant if you prefer a
-  separate service
-- LLM: any OpenAI-compatible endpoint (configurable base URL + key)
-
-Dependencies live in `pyproject.toml` and are managed with **[uv](https://docs.astral.sh/uv/)** — change them as you see fit (`uv add ...`). Commit the resulting `uv.lock`.
-
----
-
-## Deliverables
-
-1. A **branch + pull request** against this repo with your implementation.
-2. `DESIGN.md`.
-3. A short **`DECISIONS.md`** — notable engineering decisions and trade-offs
-   (bullets are fine). This is where your reasoning earns credit.
-4. Tests (required). `Dockerfile` / `docker-compose.yml` are **optional bonus**.
-
-## How we evaluate (weights)
-
-| Criterion | Weight |
-|---|---|
-| Correctness — the pipeline works on the sample PDFs | 30% |
-| Architecture & design (SOLID, DI, abstractions, thin routers) | 20% |
-| Engineering practices (config, logging, resilience, validation) | 20% |
-| Code quality & decisions | 15% |
-| Tests you wrote (coverage of the tricky logic) | 10% |
-| Design document | 5% |
-
-**Positive extras (bonus, on top of the above):** an **audit viewer** that
-overlays the bounding boxes on the PDF, containerization (`Dockerfile` /
-`docker-compose.yml`), a truly isolated vector DB, multi-language support,
-batching, or other production hardening. Not required — credited when present.
-
-## Getting started
+With Docker (no account or key needed):
 
 ```bash
-uv sync --extra dev                          # create .venv and install deps from pyproject.toml
-uv run python -m spacy download en_core_web_sm
-# Vector DB: embedded Chroma needs nothing extra. Only if you choose Qdrant:
-#   docker run -p 6333:6333 qdrant/qdrant
-uv run uvicorn app.main:app --reload
+docker compose up -d --wait
 ```
 
-Sample scanned PDFs are in `sample_pdfs/`.
+Then open the audit viewer at <http://127.0.0.1:8000/audit>. The [step-by-step guide](#run-it-step-by-step) at the end of this page covers the stack, the viewer, the tests and the documentation site.
 
-## Use of AI tools
+## Documentation
 
-Using AI assistants (Copilot, Claude, ChatGPT, agents) is **allowed and
-expected** — that's how modern engineering works. Two conditions:
+| Page | What it covers |
+|---|---|
+| [Overview](docs/README.md) | What the service does and where each requirement of the assignment is met and tested |
+| [Getting started](docs/getting-started.md) | Run it, try it, develop on it |
+| [Architecture](docs/architecture.md) | Layers, components, the three request flows |
+| [Design](DESIGN.md) | Choices and trade-offs, scaling to 1,000+ PDFs per hour, failure modes, model routing |
+| [Decisions](DECISIONS.md) | Each notable decision, why, and the evidence; contract additions; use of AI tools |
+| [Evolving the solution](docs/evolution.md) | What to collect, re-measure and try next on real documents, and the privacy cost of each choice |
+| [HTTP API](docs/api.md), [Configuration](docs/configuration.md), [Running the stack](docs/operations.md), [Audit viewer](docs/audit-viewer.md), [Testing](docs/testing.md) | Reference |
+| [Benchmarks](docs/benchmark-summary.md), [Security audit](docs/SECURITY.md), [Known limitations](docs/KNOWN_LIMITATIONS.md) | Evidence, with the full [benchmark record](docs/BENCHMARKS.md) |
 
-1. **Disclose it** in `DECISIONS.md` (what you used it for).
-2. **Own every line.** In a follow-up conversation we will ask you to explain
-   design choices, walk through your code, and make a live change. Code you
-   can't reason about will not count in your favor.
+It also renders as a site ([step 4](#4-browse-the-documentation-site)).
 
-We are evaluating *your* engineering judgment, not an agent's output. Submitting
-something you don't understand is the one thing that fails this test.
+## Project layout
+
+`app/` is a ports-and-adapters package: a pure domain, use cases behind `typing.Protocol` ports, one adapter per external technology, a thin HTTP edge and one composition root. The folder-by-folder map is in [Architecture](docs/architecture.md), section "Where the code is".
+
+## Licences and attribution
+
+The service code uses permissively licensed libraries; PyMuPDF (AGPL-3.0) is a test-only tool. The baked-in models: `Davlan/xlm-roberta-base-ner-hrl` (AFL-3.0), `intfloat/multilingual-e5-base` (MIT) and, when built with a Hugging Face token, `meta-llama/Llama-Prompt-Guard-2-86M`. Each model directory in the images carries a `NOTICE`.
+
+This service is **built with Llama**: Llama 4 is licensed under the Llama 4 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved. The licence is not OSI-approved ([Known limitations](docs/KNOWN_LIMITATIONS.md), S5).
+
+## Run it step by step
+
+You need Docker with Compose v2 (Docker Desktop on Windows or macOS). Steps 3 and 4 also need Python 3.12 and [uv](https://docs.astral.sh/uv/).
+
+### 1. Start the stack
+
+```bash
+docker compose up -d --wait
+```
+
+The first run builds the image and downloads the pinned models (about 2.2 GB); the command returns once the service is healthy on `127.0.0.1:8000`. Check it:
+
+```bash
+curl http://127.0.0.1:8000/health/ready
+```
+
+Optional settings go in `.env` (copy `.env.example`):
+
+- `HF_TOKEN`: a Hugging Face token of an account that accepted the Llama 4 Community License, to bake in the Prompt Guard 2 injection detector. Without it the instruction patterns run alone.
+- `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`: a hosted OpenAI-compatible model for `/api/ask`. Or, on an NVIDIA GPU, start the stack with Gemma 4 on Ollama instead:
+
+```bash
+COMPOSE_PROFILES=gpu docker compose up -d --wait
+```
+
+Try the endpoints with the sample PDFs:
+
+```bash
+curl -F pdf_file=@sample_pdfs/meeting_minutes.pdf -F 'names=[{"first_name": "Elizabeth", "last_name": "Park"}]' http://127.0.0.1:8000/api/extract
+```
+
+```bash
+curl -F pdf_file=@sample_pdfs/company_memo.pdf http://127.0.0.1:8000/api/ingest
+```
+
+```bash
+curl -H 'Content-Type: application/json' -d '{"question": "Who was promoted to Vice President of Engineering?"}' http://127.0.0.1:8000/api/ask
+```
+
+Stop it with `docker compose --profile gpu down` (add `-v` to delete the indexed documents and the downloaded models). [Running the stack](docs/operations.md) has every option.
+
+### 2. Open the audit viewer
+
+With the stack running:
+
+1. Open <http://127.0.0.1:8000/audit>.
+2. Choose a PDF, for example `sample_pdfs/meeting_minutes.pdf`.
+3. Optionally type the names to match, one per line (`Elizabeth Park`), and pick the language or leave auto-detect.
+4. Press **Extract**. Every returned name is drawn as a box over the page: solid for a match, dashed for no match. Hover a box or pick a name in the side list to see its page, its box in points and its best match.
+
+[Audit viewer](docs/audit-viewer.md) explains every control and warning.
+
+### 3. Run the test suite
+
+On the host (Tesseract and the models are not needed; the tests that need them are skipped, and each skip says why):
+
+```bash
+uv sync --extra dev --extra cpu
+```
+
+```bash
+uv run pytest -q
+```
+
+The full suite, with Tesseract and the real models, runs in the test image next to a Qdrant server:
+
+```bash
+docker compose -f docker-compose.test.yml run --rm tests
+```
+
+[Testing](docs/testing.md) lists every suite, including the smoke and browser tests.
+
+### 4. Browse the documentation site
+
+```bash
+uv run python scripts/serve_docs.py
+```
+
+Then open <http://127.0.0.1:3000/docs/> and stop the server with Ctrl+C. It serves only `docs/`, `DESIGN.md` and `DECISIONS.md`, on `127.0.0.1`; `--port` picks another port.
