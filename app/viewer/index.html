@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Audit viewer</title>
+<style>
+  body { font-family: sans-serif; margin: 1rem; }
+  textarea { display: block; width: 40rem; height: 5rem; margin: .5rem 0; }
+  .page { position: relative; margin: 1rem 0; border: 1px solid #999; width: max-content; }
+  .box { position: absolute; border: 2px solid #d33; box-sizing: border-box; }
+  .box.match { border-color: #080; background: rgba(0, 200, 0, .2); }
+  .box span { position: absolute; top: -1.1em; left: 0; font-size: 11px; background: #fff; }
+  #error { color: #b00; white-space: pre-wrap; }
+  td, th { border: 1px solid #ccc; padding: 2px 8px; }
+</style>
+</head>
+<body>
+<h1>Audit viewer</h1>
+<p><a href="ask.html">Ask the documents</a></p>
+<p><small>Boxes assume BBOX_ORIGIN=top-left (the default).</small></p>
+<label>PDF <input type="file" id="pdf" accept="application/pdf"></label>
+<label>Names to match (JSON list of first_name/last_name) <textarea id="names">[]</textarea></label>
+<button id="run">Extract</button>
+<p id="error"></p>
+<div id="pages"></div>
+<table id="matches"></table>
+<script type="module">
+import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.4.299/pdf.min.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.4.299/pdf.worker.min.mjs";
+
+const SCALE = 1.5;
+const $ = (id) => document.getElementById(id);
+
+// One absolutely positioned div per name; API boxes are PDF points, top-left origin.
+function drawBox(pageDiv, name, b, isMatch) {
+  const box = document.createElement("div");
+  box.className = isMatch ? "box match" : "box";
+  Object.assign(box.style, {
+    left: `${b.x * SCALE}px`, top: `${b.y * SCALE}px`,
+    width: `${b.width * SCALE}px`, height: `${b.height * SCALE}px`,
+  });
+  const label = document.createElement("span");
+  label.textContent = name;
+  box.append(label);
+  pageDiv.append(box);
+}
+
+async function run() {
+  $("error").textContent = "";
+  $("pages").replaceChildren();
+  $("matches").replaceChildren();
+  const file = $("pdf").files[0];
+  if (!file) { $("error").textContent = "Choose a PDF first."; return; }
+  const form = new FormData();
+  form.append("pdf_file", file);
+  form.append("names", $("names").value);
+  const response = await fetch("/api/extract", { method: "POST", body: form });
+  const body = await response.json();
+  if (!response.ok) {
+    const { detail } = body;
+    $("error").textContent = typeof detail === "string" ? detail : JSON.stringify(detail);
+    return;
+  }
+  const matched = new Set(body.fuzzy_matches.map((m) => m.extracted_name));
+  const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  for (let n = 0; n < pdf.numPages; n++) {
+    const page = await pdf.getPage(n + 1); // API page_number starts at 0
+    const viewport = page.getViewport({ scale: SCALE });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+    await page.render({ canvas, viewport }).promise;
+    const title = document.createElement("h2");
+    title.textContent = `Page ${n + 1} of ${pdf.numPages}`;
+    const div = document.createElement("div");
+    div.className = "page";
+    div.append(canvas);
+    for (const { name, bounding_box: b } of body.extracted_names) {
+      if (b.page_number === n) drawBox(div, name, b, matched.has(name));
+    }
+    $("pages").append(title, div);
+  }
+  $("matches").innerHTML = "<tr><th>Extracted</th><th>Matched</th><th>Score</th></tr>";
+  for (const m of body.fuzzy_matches) {
+    const row = $("matches").insertRow();
+    for (const text of [m.extracted_name, m.matched_name, m.score]) row.insertCell().textContent = text;
+  }
+}
+$("run").addEventListener("click", () => run().catch((e) => { $("error").textContent = String(e); }));
+</script>
+</body>
+</html>

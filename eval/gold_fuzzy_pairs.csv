@@ -1,0 +1,28 @@
+extracted,query_first,query_last,match,why
+Maria Garcia,María,García,True,acento
+Kevin O'Brien,Kevin,O’Brien,True,apóstrofo tipográfico
+James Anderson,JAMES,ANDERSON,True,mayúsculas
+Robert Chen,Chen,Robert,True,orden invertido
+Fatima Al-Rashidi,Fatima,AlRashidi,True,guion
+Priya Sharma,Dr. Priya,Sharma,True,título añadido en lo pedido
+Catherine Dubois,Katherine,Dubois,True,ortografía C/K
+Thomas Muller,Thomas,Müller,True,acento (ü)
+Michael O'Sullivan,Michael,OSullivan,True,apóstrofo borrado
+Margaret Thompson,Margaret,Thomson,True,una letra menos
+Benjamin Foster,Benjamln,Foster,True,OCR: i leída como l
+Hans Weber,Hans,Webr,True,OCR: letra perdida
+Sarah Williams,Sarah,Wi11iams,True,OCR: dos caracteres
+James Anderson,J.,Anderson,True,inicial
+Maria Garcia,Maria Jose,Garcia,True,segundo nombre
+Maria Garcia,Mario,Garcia,False,nombre a 1 edición
+Robert Chen,James,Chen,False,mismo apellido
+James Anderson,James,Chen,False,mismo nombre
+Priya Sharma,Priya,Sharma Patel,False,apellido de más
+Anna Kowalski,Anna,Kowalski-Smith,False,apellido compuesto
+Alexander Popov,Alexandra,Popov,False,nombre vecino
+Thomas Muller,Thomas,Miller,False,apellido vecino
+Catherine Dubois,Catherine,Dupont,False,apellido distinto
+David Nakamura,Daniel,Nakamura,False,nombre vecino
+Hans Weber,Hans,Wagner,False,apellido vecino
+Sarah Williams,Sarah,Wilson,False,apellido vecino
+Elizabeth Park,Elizabeth,Parker,False,apellido a 2 ediciones

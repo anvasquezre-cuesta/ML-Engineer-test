@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ask the documents</title>
+<style>
+  body { font-family: sans-serif; margin: 1rem; max-width: 45rem; }
+  input[type=text] { width: 30rem; } #error { color: #b00; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Ask the documents</h1>
+<p><a href="./">Audit viewer</a></p>
+<h2>Ingest</h2>
+<p><small>Ingest at least one PDF before asking: with no documents the service always abstains.</small></p>
+<label>PDFs <input type="file" id="pdfs" accept="application/pdf" multiple></label>
+<button id="ingest">Ingest</button>
+<ul id="ingested"></ul>
+<h2>Ask</h2>
+<label>Question <input type="text" id="question"></label>
+<button id="ask">Ask</button>
+<p id="error"></p>
+<p id="answer"></p>
+<ul id="sources"></ul>
+<script>
+const $ = (id) => document.getElementById(id);
+const addItem = (list, text) => list.append(Object.assign(document.createElement("li"), { textContent: text }));
+// "file:pN:cK" (N is 0-based) -> "file · page N+1 · chunk K"
+function readableSource(id) {
+  const m = id.match(/^(.*):p(\d+):c(\d+)$/);
+  return m ? `${m[1]} · page ${Number(m[2]) + 1} · chunk ${m[3]}` : id;
+}
+async function post(url, options) {
+  const response = await fetch(url, { method: "POST", ...options });
+  const body = await response.json();
+  if (!response.ok) {
+    const { detail } = body;
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+  return body;
+}
+async function ingest() {
+  $("ingested").replaceChildren();
+  for (const file of $("pdfs").files) {
+    const form = new FormData();
+    form.append("pdf_file", file);
+    try {
+      const body = await post("/api/ingest", { body: form });
+      addItem($("ingested"), `${file.name}: ${body.chunks_stored} chunks stored`);
+    } catch (e) {
+      addItem($("ingested"), `${file.name}: ${e.message}`);
+    }
+  }
+}
+async function ask() {
+  $("error").textContent = "";
+  $("answer").textContent = "Thinking…";
+  $("sources").replaceChildren();
+  const body = await post("/api/ask", {
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: $("question").value }),
+  });
+  $("answer").textContent = body.answer;
+  if (body.sources.length === 0) addItem($("sources"), "No sources (the service abstained)");
+  for (const id of body.sources) addItem($("sources"), readableSource(id));
+}
+const show = (e) => { $("answer").textContent = ""; $("error").textContent = e.message ?? String(e); };
+$("ingest").addEventListener("click", () => ingest().catch(show));
+$("ask").addEventListener("click", () => ask().catch(show));
+$("question").addEventListener("keydown", (e) => { if (e.key === "Enter") $("ask").click(); });
+</script>
+</body>
+</html>

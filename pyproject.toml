@@ -15,23 +15,42 @@ dependencies = [
     "pytesseract",
     "pymupdf",
     "pillow",
-    # NER  (after sync: `uv run python -m spacy download en_core_web_sm`)
-    "spacy",
+    # NER: the model wheel is pinned below in [tool.uv.sources] (no `spacy download` step)
+    "spacy>=3.8,<3.9",
+    "en-core-web-sm",
     # Fuzzy matching
-    "thefuzz",
-    "python-Levenshtein",
+    "rapidfuzz",
     # Embeddings + vector store (Chroma is embedded/local; swap for qdrant-client if preferred)
     "sentence-transformers",
+    "torch",  # listed directly only to pin the CPU build (see [tool.uv.sources])
     "chromadb",
     # LLM / HTTP
     "httpx",
+    "tenacity",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
 ]
+
+[dependency-groups]
+notebooks = [
+    "ipykernel",
+    "matplotlib",
+    "pandas",
+]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [build-system]
 requires = ["hatchling"]
@@ -39,3 +58,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

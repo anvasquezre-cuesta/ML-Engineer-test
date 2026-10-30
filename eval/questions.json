@@ -1,0 +1,302 @@
+[
+  {
+    "id": "q01",
+    "question": "Who was promoted to Vice President of Engineering?",
+    "kind": "literal",
+    "answer_hint": "Robert Chen",
+    "gold": [
+      [
+        "company_memo.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q02",
+    "question": "Who will manage the project codenamed Atlas?",
+    "kind": "literal",
+    "answer_hint": "David Nakamura",
+    "gold": [
+      [
+        "company_memo.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q03",
+    "question": "Which city is the office where Maria Garcia used to lead the UX team?",
+    "kind": "paraphrase",
+    "answer_hint": "London",
+    "gold": [
+      [
+        "company_memo.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q04",
+    "question": "By how much did revenue grow in the fourth quarter?",
+    "kind": "paraphrase",
+    "answer_hint": "12%",
+    "gold": [
+      [
+        "meeting_minutes.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q05",
+    "question": "In which room did the board get together?",
+    "kind": "paraphrase",
+    "answer_hint": "Conference Room A",
+    "gold": [
+      [
+        "meeting_minutes.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q06",
+    "question": "When will the directors meet again?",
+    "kind": "paraphrase",
+    "answer_hint": "March 18, 2024",
+    "gold": [
+      [
+        "meeting_minutes.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q07",
+    "question": "Who presented the plan to move the infrastructure to the cloud?",
+    "kind": "paraphrase",
+    "answer_hint": "Alexander Popov",
+    "gold": [
+      [
+        "meeting_minutes.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q08",
+    "question": "How many researchers and peer-reviewed publications does the department report?",
+    "kind": "literal",
+    "answer_hint": "45 researchers; 23 peer-reviewed publications",
+    "gold": [
+      [
+        "research_report.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q09",
+    "question": "Which division does Prof. Michael O'Sullivan lead?",
+    "kind": "literal",
+    "answer_hint": "Applied Mathematics",
+    "gold": [
+      [
+        "research_report.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q10",
+    "question": "How much money does the research department have in total?",
+    "kind": "paraphrase",
+    "answer_hint": "$4.2M",
+    "gold": [
+      [
+        "research_report.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q11",
+    "question": "Who confirmed that quorum was present?",
+    "kind": "literal",
+    "answer_hint": "Jennifer Liu",
+    "gold": [
+      [
+        "meeting_minutes.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q12",
+    "question": "At what time was the meeting adjourned?",
+    "kind": "literal",
+    "answer_hint": "12:25 PM",
+    "gold": [
+      [
+        "meeting_minutes.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q13",
+    "question": "Who received the Young Investigator Award from the National Science Foundation?",
+    "kind": "literal",
+    "answer_hint": "Benjamin Foster",
+    "gold": [
+      [
+        "research_report.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q14",
+    "question": "Who was named to the Forbes 30 Under 30 list?",
+    "kind": "literal",
+    "answer_hint": "Anna Kowalski",
+    "gold": [
+      [
+        "research_report.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q15",
+    "question": "Which CTO will Dr. Sarah Williams report directly to?",
+    "kind": "literal",
+    "answer_hint": "James Anderson",
+    "gold": [
+      [
+        "company_memo.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q16",
+    "question": "Who should questions be directed to in Human Resources?",
+    "kind": "literal",
+    "answer_hint": "Patricia Okonkwo",
+    "gold": [
+      [
+        "company_memo.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q17",
+    "question": "Who wrote the yearly summary of the research unit?",
+    "kind": "paraphrase",
+    "answer_hint": "Olivia Chambers",
+    "gold": [
+      [
+        "research_report.pdf",
+        0
+      ],
+      [
+        "research_report.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q18",
+    "question": "Which Swiss university is home to a collaborator of Dr. Priya Sharma?",
+    "kind": "paraphrase",
+    "answer_hint": "ETH Zurich",
+    "gold": [
+      [
+        "research_report.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q19",
+    "question": "Who heads the group working on language processing?",
+    "kind": "paraphrase",
+    "answer_hint": "Yuki Tanaka",
+    "gold": [
+      [
+        "meeting_minutes.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q20",
+    "question": "On what day was the memo sent out?",
+    "kind": "paraphrase",
+    "answer_hint": "March 15, 2024",
+    "gold": [
+      [
+        "company_memo.pdf",
+        0
+      ]
+    ]
+  },
+  {
+    "id": "q21",
+    "question": "Which executive wrote the memo and also reviewed the research report?",
+    "kind": "multi_doc",
+    "answer_hint": "Margaret Thompson",
+    "gold": [
+      [
+        "company_memo.pdf",
+        0
+      ],
+      [
+        "research_report.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "q22",
+    "question": "Which university is Dr. James Chen from?",
+    "kind": "disambiguation",
+    "answer_hint": "Stanford University",
+    "gold": [
+      [
+        "research_report.pdf",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "u01",
+    "question": "What is the salary of the Chief Data Scientist?",
+    "kind": "unanswerable",
+    "answer_hint": null,
+    "gold": []
+  },
+  {
+    "id": "u02",
+    "question": "What was the budget approved for the cloud migration?",
+    "kind": "unanswerable",
+    "answer_hint": null,
+    "gold": []
+  },
+  {
+    "id": "u03",
+    "question": "Who won the 2022 football World Cup?",
+    "kind": "unanswerable",
+    "answer_hint": null,
+    "gold": []
+  },
+  {
+    "id": "u05",
+    "question": "What sales figures did Carlos Mendoza present at the board meeting?",
+    "kind": "unanswerable",
+    "answer_hint": null,
+    "gold": []
+  }
+]

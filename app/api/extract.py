@@ -1,13 +1,24 @@
-"""`POST /api/extract` — implement the extraction endpoint here.
+"""`POST /api/extract`: validate the upload, delegate to the extraction service."""
 
-Wire OCR -> NER -> bounding boxes -> fuzzy matching and return an
-``ExtractionResponse``. Keep this router thin: validate input, delegate to
-services, map domain errors to HTTP status codes. Do the real work in the
-service layer so it is testable without HTTP.
-"""
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Form
+from pydantic import Json
+
+from app.dependencies import get_ocr_engine, get_recognizer, read_pdf
+from app.models.schemas import ExtractionResponse, NamePair
+from app.services.extraction_service import extract
+from app.services.ner_service import NameRecognizer
+from app.services.ocr_service import OcrEngine
 
 router = APIRouter()
 
-# TODO: implement POST /api/extract (response_model=ExtractionResponse)
+
+@router.post("/extract", response_model=ExtractionResponse)
+def extract_names(
+    pdf_bytes: Annotated[bytes, Depends(read_pdf)],
+    names: Annotated[Json[list[NamePair]], Form()],
+    engine: Annotated[OcrEngine, Depends(get_ocr_engine)],
+    recognizer: Annotated[NameRecognizer, Depends(get_recognizer)],
+):
+    return extract(pdf_bytes, names, engine, recognizer)
