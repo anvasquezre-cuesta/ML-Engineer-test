@@ -1,0 +1,115 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-documents}
+      INGEST_COLLECTION: ${INGEST_COLLECTION:-documents_minilm_1110a243_v1}
+      INGESTION_LEDGER_PATH: /app/data/ingestion/ledger.sqlite3
+      EMBEDDING_MODEL_DIR: /opt/models/all-minilm-l6-v2
+      EMBEDDING_QUERY_MAX_TOKENS: ${EMBEDDING_QUERY_MAX_TOKENS:-256}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-16}
+      EMBEDDING_JOB_TIMEOUT_SECONDS: ${EMBEDDING_JOB_TIMEOUT_SECONDS:-120}
+      INGEST_MAX_IN_FLIGHT: ${INGEST_MAX_IN_FLIGHT:-1}
+      INGEST_UPLOAD_TIMEOUT_SECONDS: ${INGEST_UPLOAD_TIMEOUT_SECONDS:-30}
+      INGEST_JOB_TIMEOUT_SECONDS: ${INGEST_JOB_TIMEOUT_SECONDS:-420}
+      INGEST_MAX_CHUNKS: ${INGEST_MAX_CHUNKS:-1000}
+      INGEST_MAX_PAGE_CHARS: ${INGEST_MAX_PAGE_CHARS:-100000}
+      INGEST_MAX_DOCUMENT_CHARS: ${INGEST_MAX_DOCUMENT_CHARS:-1000000}
+      INGEST_CHUNK_TOKENS: ${INGEST_CHUNK_TOKENS:-128}
+      INGEST_OVERLAP_TOKENS: ${INGEST_OVERLAP_TOKENS:-32}
+      QDRANT_TIMEOUT_SECONDS: ${QDRANT_TIMEOUT_SECONDS:-10}
+      QDRANT_READ_RETRIES: ${QDRANT_READ_RETRIES:-2}
+      QDRANT_BATCH_SIZE: ${QDRANT_BATCH_SIZE:-64}
+      ASK_MAX_CANDIDATES: ${ASK_MAX_CANDIDATES:-100}
+      ASK_MAX_REQUEST_BYTES: ${ASK_MAX_REQUEST_BYTES:-16384}
+      ASK_MAX_IN_FLIGHT: ${ASK_MAX_IN_FLIGHT:-2}
+      ASK_UPLOAD_TIMEOUT_SECONDS: ${ASK_UPLOAD_TIMEOUT_SECONDS:-10}
+      ASK_JOB_TIMEOUT_SECONDS: ${ASK_JOB_TIMEOUT_SECONDS:-120}
+      LLM_PROVIDER: ${LLM_PROVIDER:-disabled}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_ALLOW_EXTERNAL: ${LLM_ALLOW_EXTERNAL:-false}
+      LLM_OPENAI_BASE_URL: ${LLM_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-45}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-512}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
+      LLM_RETRY_BACKOFF_SECONDS: ${LLM_RETRY_BACKOFF_SECONDS:-0.25}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-20971520}
+      MAX_REQUEST_BYTES: ${MAX_REQUEST_BYTES:-22020096}
+      MAX_NAMES_BYTES: ${MAX_NAMES_BYTES:-65536}
+      MAX_NAMES_COUNT: ${MAX_NAMES_COUNT:-1000}
+      MAX_NAME_CHARS: ${MAX_NAME_CHARS:-512}
+      FUZZY_THRESHOLD: ${FUZZY_THRESHOLD:-0.90}
+      EXTRACT_MAX_IN_FLIGHT: ${EXTRACT_MAX_IN_FLIGHT:-2}
+      EXTRACT_UPLOAD_TIMEOUT_SECONDS: ${EXTRACT_UPLOAD_TIMEOUT_SECONDS:-30}
+      EXTRACT_PREVIEW_ENABLED: ${EXTRACT_PREVIEW_ENABLED:-true}
+      MAX_EXTRACTED_NAMES: ${MAX_EXTRACTED_NAMES:-1000}
+      MAX_FUZZY_COMPARISONS: ${MAX_FUZZY_COMPARISONS:-100000}
+      MAX_FUZZY_WORK_UNITS: ${MAX_FUZZY_WORK_UNITS:-100000000}
+      NER_MODEL: ${NER_MODEL:-en_core_web_sm}
+      NER_NAME_RECOVERY_PASSES: ${NER_NAME_RECOVERY_PASSES:-0}
+      NER_MAX_PAGE_CHARS: ${NER_MAX_PAGE_CHARS:-100000}
+      NER_MAX_DOCUMENT_CHARS: ${NER_MAX_DOCUMENT_CHARS:-1000000}
+      NER_MAX_CONCURRENT_JOBS: ${NER_MAX_CONCURRENT_JOBS:-1}
+      NER_MAX_QUEUED_JOBS: ${NER_MAX_QUEUED_JOBS:-1}
+      NER_QUEUE_TIMEOUT_SECONDS: ${NER_QUEUE_TIMEOUT_SECONDS:-10}
+      NER_JOB_TIMEOUT_SECONDS: ${NER_JOB_TIMEOUT_SECONDS:-60}
+      NER_SHUTDOWN_TIMEOUT_SECONDS: ${NER_SHUTDOWN_TIMEOUT_SECONDS:-10}
+      MAX_PDF_PAGES: ${MAX_PDF_PAGES:-100}
+      MAX_PAGE_PIXELS: ${MAX_PAGE_PIXELS:-20000000}
+      OCR_DPI: ${OCR_DPI:-200}
+      OCR_LANGUAGES: ${OCR_LANGUAGES:-eng}
+      OCR_TIMEOUT_SECONDS: ${OCR_TIMEOUT_SECONDS:-60}
+      OCR_MAX_CONCURRENT_JOBS: ${OCR_MAX_CONCURRENT_JOBS:-2}
+      OCR_MAX_QUEUED_JOBS: ${OCR_MAX_QUEUED_JOBS:-2}
+      OCR_QUEUE_TIMEOUT_SECONDS: ${OCR_QUEUE_TIMEOUT_SECONDS:-10}
+      OCR_UPLOAD_TIMEOUT_SECONDS: ${OCR_UPLOAD_TIMEOUT_SECONDS:-30}
+      OCR_DOCUMENT_TIMEOUT_SECONDS: ${OCR_DOCUMENT_TIMEOUT_SECONDS:-180}
+      OCR_SHUTDOWN_TIMEOUT_SECONDS: ${OCR_SHUTDOWN_TIMEOUT_SECONDS:-10}
+      OCR_ORIENTATION_MIN_CONFIDENCE: ${OCR_ORIENTATION_MIN_CONFIDENCE:-80}
+    command: ["sh", "-c", "export EXTRACT_PREVIEW_TOKEN=\"$$(cat /run/preview-secret/token)\"; exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    depends_on:
+      qdrant:
+        condition: service_started
+      preview-secret:
+        condition: service_completed_successfully
+    volumes:
+      - ingestion_data:/app/data/ingestion
+      - preview_secret:/run/preview-secret:ro
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:8080"
+    depends_on:
+      - app
+    volumes:
+      - preview_secret:/run/preview-secret:ro
+
+  preview-secret:
+    image: alpine:3.22
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        umask 022
+        if [ ! -s /secret/token ]; then
+          od -An -N32 -tx1 /dev/urandom | tr -d ' \n' > /secret/token
+        fi
+        printf 'proxy_set_header Authorization "Bearer %s";\n' "$$(cat /secret/token)" > /secret/nginx.conf
+    volumes:
+      - preview_secret:/secret
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.6
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  qdrant_data:
+  ingestion_data:
+  preview_secret:
